@@ -113,7 +113,7 @@ fi
 ibmcloud fn deploy --manifest mgmt-api-manifest.yml
 
 # redefine IBM Functions API to properly authenticate with web actions
-# (only necessary because of the following openwhisk bug: )
+# (only necessary because of the following openwhisk bug: https://github.com/apache/openwhisk-wskdeploy/issues/1046)
 ./updateApi.sh
 
 # optionally require calls to the API endpoint to be secured by an API key
