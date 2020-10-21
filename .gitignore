@@ -1,0 +1,28 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+src/testCoverage.out
+
+build/
+src/github.com
+pkg
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# IntelliJ
+*.iml
+/.idea
+.DS_Store
+.gradle/
+test/.idea/
+test/jwt_assertion_tokens.json
+
+#VS Code:
+*.code-workspace

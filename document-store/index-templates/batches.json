@@ -1,0 +1,41 @@
+{
+  "index_patterns": ["*-batches"],
+  "settings": {
+    "number_of_shards": 1
+  },
+  "mappings": {
+    "batch": {
+      "properties": {
+        "name": {
+          "type": "keyword"
+        },
+        "status": {
+          "type": "keyword"
+        },
+        "recordCount": {
+          "type": "long",
+          "index": "false"
+        },
+        "topic": {
+          "type": "keyword",
+          "index": "false"
+        },
+        "dataType": {
+          "type": "keyword",
+          "index": "false"
+        },
+        "startDate": {
+          "type": "date"
+        },
+        "endDate": {
+          "type": "date",
+          "index": "false"
+        },
+        "metadata": {
+          "type": "object",
+          "enabled": "false"
+        }
+      }
+    }
+  }
+}
