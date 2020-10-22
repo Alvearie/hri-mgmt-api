@@ -1,6 +1,8 @@
 language: go
 go: 1.13.x
 
+# This is an example TravisCI build that will build, scan, deploy, and run integration tests.
+# All the required environment variables are listed below, and will need to be filled in to run your own build.
 env:
   global:
   - TENANT_ID=
@@ -11,8 +13,8 @@ env:
   - ELASTIC_URL=
   - ELASTIC_CERT_FILE=
   - ELASTIC_USER=
-  - COS_URL=https://s3.us-south.cloud-object-storage.appdomain.cloud
-  - IAM_CLOUD_URL=https://iam.cloud.ibm.com
+  - COS_URL=
+  - IAM_CLOUD_URL=
   # ELASTIC_PASSWORD
   - secure:
   # FN_WEB_SECURE_KEY used as the API key for IBM Functions web actions
