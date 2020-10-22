@@ -16,14 +16,14 @@ const FakeParams string = `{
 		    "__bx_creds": {
 		        "messagehub": {
 					   "api_key": "FAKE_Api_Key",
-					   "apiskeys": {
+					   "apikeys": {
 							"apikey":"FAKE_Api_Key"
 						},
-					  "authentication": {
+					   "authentication": {
 						"method": "direct",
 						"password": "elasticPassword",
 						"username": "elasticUser"
-					  },
+					   },
 					   "credentials": "dev-test",
 					   "iam_apikey_description": "Auto-generated for key FAKE_00-12345",
 					   "iam_apikey_name": "dev-test",
@@ -65,7 +65,7 @@ func TestExtractValuesSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	apisKeys, err := ExtractValues(params, BoundCreds, "messagehub", "apiskeys")
+	apisKeys, err := ExtractValues(params, BoundCreds, "messagehub", "apikeys")
 	assert.NotNil(t, apisKeys)
 	assert.Nil(t, err)
 

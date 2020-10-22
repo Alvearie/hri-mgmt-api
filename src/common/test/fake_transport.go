@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	// NOTE: the following regex pattern is used to verify that request bodies contain a valid start/end dates
+	// NOTE: the following regex pattern is used to verify that request bodies contain a valid start/end date
 	DatePattern string = "2([0-9][0-9][0-9])-([01][0-9])-([0-3][0-9])T([0-2][0-9]):([0-6][0-9]):([0-6][0-9])Z"
 )
 
