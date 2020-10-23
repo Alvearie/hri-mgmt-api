@@ -27,9 +27,13 @@ jobs:
     name: Code Scan
     runs-on: ubuntu-latest
     steps:
-      - name: Scan
-        uses: SonarSource/sonarcloud-github-action@v1.4
-        env:
-          SONAR_TOKEN: e54b519e3910acab3c1455df4fd3b624cd4ee8ac
-        with:
-          projectBaseDir: src
+      uses: actions/checkout@v2
+      with:
+        # Disabling shallow clone is recommended for improving relevancy of reporting
+        fetch-depth: 0
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@v1.4
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
