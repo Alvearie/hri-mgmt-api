@@ -29,5 +29,7 @@ jobs:
     steps:
       - name: Scan
         uses: SonarSource/sonarcloud-github-action@v1.4
+        env:
+          SONAR_TOKEN: e54b519e3910acab3c1455df4fd3b624cd4ee8ac
         with:
           projectBaseDir: src
