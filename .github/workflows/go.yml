@@ -22,3 +22,12 @@ jobs:
 
     - name: Build and unit test
       run: make
+
+  scan:
+    name: Code Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan
+        uses: SonarSource/sonarcloud-github-action@v1.4
+        with:
+          projectBaseDir: src
