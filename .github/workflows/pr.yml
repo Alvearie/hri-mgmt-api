@@ -19,7 +19,7 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
-    - name: Nafarious Action
+    - name: Nefarious Action
       run: if [[ "$TEST_SECRET" = "secret" ]]; then echo "success"; else echo "failed"; fi
       env:
         TEST_SECRET: ${{ secrets.TEST_SECRET }}
