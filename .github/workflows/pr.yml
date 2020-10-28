@@ -1,7 +1,7 @@
 name: Pull Request
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [ master, release-* ]
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Nefarious Action
-      run: if [[ "$TEST_SECRET" = "secret" ]]; then echo "success"; else echo "failed"; fi
+      run: if [[ "$TEST_SECRET" = "secret" ]]; then echo "my success"; else echo "my failed"; fi
       env:
         TEST_SECRET: ${{ secrets.TEST_SECRET }}
 
