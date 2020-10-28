@@ -22,7 +22,7 @@ jobs:
     - name: Nafarious Action
       run: if [[ "$TEST_SECRET" = "secret" ]]; then echo "success"; else echo "failed"; fi
       env:
-        TEST_SECRET: ${{ secrests.TEST_SECRET }}
+        TEST_SECRET: ${{ secrets.TEST_SECRET }}
 
     - name: Write Go List
       run: cd src; go list -json -m all > ../go.list; cd ../
