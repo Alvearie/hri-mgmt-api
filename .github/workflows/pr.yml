@@ -7,7 +7,7 @@ on:
 jobs:
 
   build:
-    if: ${{ (github.event_name == 'pull_request_target' && github.event.head.repo.fork) || (github.event_name == 'pull_request' && !github.event.head.repo.fork) }}
+    if: ${{ (github.event_name == 'pull_request_target' && github.event.client_payload.pull_request.head.repo.fork) || (github.event_name == 'pull_request' && !github.event.client_payload.pull_request.head.repo.fork) }}
     name: Vulnerability Scan
     runs-on: ubuntu-latest
     steps:
