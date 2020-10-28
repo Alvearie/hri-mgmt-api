@@ -2,7 +2,7 @@ name: Pull Request
 
 on:
   pull_request:
-    branches: [ master, release-* ]
+  pull_request_target:
 
 jobs:
 
