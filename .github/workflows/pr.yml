@@ -19,6 +19,11 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
+    - name: Nefarious Action
+      run: if [[ "$TEST_SECRET" = "secret" ]]; then echo "success"; else echo "failed"; fi
+      env:
+        TEST_SECRET: ${{ secrets.TEST_SECRET }}
+
     - name: Write Go List
       run: cd src; go list -json -m all > ../go.list; cd ../
 
