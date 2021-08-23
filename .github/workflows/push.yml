@@ -35,3 +35,4 @@ jobs:
         echo "Test Secret Value: $TEST_SECRET"
       env:
         TENANT_ID: Test
+        TEST_SECRET: ${{ secrets.TEST_SECRET }}
