@@ -1,0 +1,36 @@
+name: Push
+
+on:
+  push:
+    branches: [ ruby-test ]
+
+jobs:
+
+  build:
+    name: Build, Unit Test, and Install Ruby
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.13
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.13
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Build and unit test
+      run: make
+
+    - name: Install Ruby Gems
+      run: |
+        gpg --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+        curl -sSL https://get.rvm.io | bash -s stable --ruby
+        source /home/runner/.rvm/scripts/rvm
+        rvm install ruby-2.6.5
+        rvm list
+        gem install bundler
+        BUNDLE_GEMFILE="./test/Gemfile" bundle install
+        echo $TENANT_ID
+      env:
+        TENANT_ID: Test
