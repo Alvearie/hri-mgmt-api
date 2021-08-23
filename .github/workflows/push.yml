@@ -32,6 +32,6 @@ jobs:
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
         echo $TENANT_ID
-        echo $TEST_SECRET
+        echo "Test Secret Value: $TEST_SECRET"
       env:
         TENANT_ID: Test
