@@ -37,9 +37,8 @@ jobs:
         ibmcloud login --apikey $CLOUD_API_KEY -r us-south
         ./run-unittests.sh
         make bins
-        ./run-insights-publish.sh buildRecord
-        ./run-insights-publish.sh unitTest
-        ./run-insights-publish.sh evaluateCI
+        NAMESPACE="$GITHUB_REF" ./deploy.sh --skipSecureApi
+        ./run-dreddtests.sh
       env:
         TENANT_ID: Test
         TOOLCHAIN_ID: 55446d64-25c7-40a0-9af9-440d1b409f76
