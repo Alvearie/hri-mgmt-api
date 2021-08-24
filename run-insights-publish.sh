@@ -51,7 +51,7 @@ function ifFileExists() {
 if [ "$PUBLISH_TYPE" == "buildRecord" ]
 then
   # Upload a build record for this build, It is assumed that the build was successful
-  ibmcloud doi publishbuildrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --branch $TRAVIS_BRANCH --repositoryurl https://github.com/Alvearie/hri-mgmt-api --commitid $TRAVIS_COMMIT --status pass
+  ibmcloud doi publishbuildrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --branch $TRAVIS_BRANCH --repositoryurl https://github.com/Alvearie/hri-mgmt-api --commitid $GITHUB_SHA --status pass
 
 elif [ "$PUBLISH_TYPE" == "deployRecord" ]
 then
