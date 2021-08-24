@@ -31,8 +31,34 @@ jobs:
         rvm list
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
-        echo $TENANT_ID
-        echo "Test Secret Value: $TEST_SECRET"
+        curl -sL https://ibm.biz/idt-installer | bash
+        ibmcloud plugin install doi
+        go get -u github.com/jstemmer/go-junit-report
+        ibmcloud login --apikey $CLOUD_API_KEY -r us-south
+        ./run-unittests.sh
       env:
         TENANT_ID: Test
-        TEST_SECRET: ${{ secrets.TEST_SECRET }}
+        TOOLCHAIN_ID: 55446d64-25c7-40a0-9af9-440d1b409f76
+        ELASTIC_URL: https://c9acb36a-0feb-4b6e-aac1-6651c71d19e4.2adb0220806343e3ae11df79c89b377f.databases.appdomain.cloud:32085
+        ELASTIC_CERT_FILE: elastic-cert64
+        ELASTIC_USER: ibm_cloud_1a27be2f_c7eb_4395_9cc4_71940b7f75d8
+        COS_URL: https://s3.us-east.cloud-object-storage.appdomain.cloud
+        IAM_CLOUD_URL: https://iam.cloud.ibm.com
+        EVENTSTREAMS_BROKERS: broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093
+        ASOC_CLI_URL: https://cloud.appscan.com/api/SCX/StaticAnalyzer/SAClientUtil?os=linux
+        ASOC_APP_ID: eba1dccd-b68d-4df4-9522-9718e5324b55
+        ASOC_KEY_ID: d8bc6fa7-993d-30e4-a735-333c77ccceac
+        OCTOKIT_API_ENDPOINT: https://github.com/api/v3
+        REGION: us-east
+        RESOURCE_GROUP: hri-dev1-wdc-kube
+        ELASTIC_INSTANCE: hri-dev1-elasticsearch-v7
+        ELASTIC_SVC_ACCOUNT: elastic-search-credential
+        KAFKA_INSTANCE: hri-dev1-event-streams
+        KAFKA_SVC_ACCOUNT: event-streams-credential
+        CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
+        ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
+        FN_WEB_SECURE_KEY: ${{ secrets.FN_WEB_SECURE_KEY }}
+        HRI_API_KEY: ${{ secrets.HRI_API_KEY }}
+        GIT_API_KEY: ${{ secrets.GIT_API_KEY }}
+        SASL_PLAIN_PASSWORD: ${{ secrets.SASL_PLAIN_PASSWORD }}
+        ASOC_KEY_SECRET: ${{ secrets.ASOC_KEY_SECRET }}
