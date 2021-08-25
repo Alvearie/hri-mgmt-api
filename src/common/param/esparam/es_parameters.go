@@ -10,5 +10,4 @@ const (
 	EsStatus string = "status"
 	EsDocId  string = "_id"
 	Cluster  string = "cluster"
-	EsIndex  string = "index"
 )

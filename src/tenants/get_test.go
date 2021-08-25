@@ -8,10 +8,10 @@ package tenants
 import (
 	"errors"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
+	"ibm.com/watson/health/foundation/hri/common/elastic"
+	"ibm.com/watson/health/foundation/hri/common/logwrapper"
+	"ibm.com/watson/health/foundation/hri/common/response"
+	"ibm.com/watson/health/foundation/hri/common/test"
 	"net/http"
 	"os"
 	"reflect"
@@ -19,7 +19,9 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	_ = os.Setenv(response.EnvOwActivationId, activationId)
+	logwrapper.Initialize("error", os.Stdout)
+
+	requestId := "request_id_1"
 	elasticErrMsg := "elasticErrMsg"
 
 	id := make(map[string]interface{})
@@ -34,10 +36,10 @@ func TestGet(t *testing.T) {
 	indices = append(indices, id3)
 
 	tests := []struct {
-		name     string
-		params   map[string]interface{}
-		ft       *test.FakeTransport
-		expected map[string]interface{}
+		name         string
+		ft           *test.FakeTransport
+		expectedBody interface{}
+		expectedCode int
 	}{
 		{
 			name: "bad-response",
@@ -47,49 +49,20 @@ func TestGet(t *testing.T) {
 					ResponseErr: errors.New(elasticErrMsg),
 				},
 			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				fmt.Sprintf("%s", elasticErrMsg),
-			),
+			expectedBody: response.NewErrorDetail(requestId, fmt.Sprintf("Could not retrieve tenants: [500] elasticsearch client error: %s", elasticErrMsg)),
+			expectedCode: http.StatusInternalServerError,
 		},
 		{
-			name: "body decode error on ES OK Response",
+			name: "simple",
 			ft: test.NewFakeTransport(t).AddCall(
-				"/_cat/indices",
-				test.ElasticCall{
-					ResponseBody: `{bad json message : "`,
-				},
-			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: invalid character 'b' looking for beginning of object key string"),
-		},
-		{
-			name: "body decode error on ES Response: 400 Bad Request",
-			ft: test.NewFakeTransport(t).AddCall(
-				"/_cat/indices",
-				test.ElasticCall{
-					ResponseStatusCode: http.StatusBadRequest,
-					ResponseBody:       `{bad json message : "`,
-				},
-			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: invalid character 'b' looking for beginning of object key string"),
-		},
-		{"simple",
-			map[string]interface{}{path.ParamOwPath: "/hri/tenants/"},
-			test.NewFakeTransport(t).AddCall(
 				"/_cat/indices",
 				test.ElasticCall{
 					RequestQuery: "format=json&h=index",
 					ResponseBody: `[{"index":"pi001-batches"},{"index":"searchguard"},{"index":"pi002-batches"},{"index":"qatenant-batches"}]`,
 				},
 			),
-			map[string]interface{}{
-				"statusCode": http.StatusOK,
-				"body":       map[string]interface{}{"results": indices},
-			},
+			expectedBody: map[string]interface{}{"results": indices},
+			expectedCode: http.StatusOK,
 		},
 	}
 
@@ -100,10 +73,13 @@ func TestGet(t *testing.T) {
 				t.Error(err)
 			}
 
-			if got := Get(esClient); !reflect.DeepEqual(got, tt.expected) {
-				t.Errorf("Get() = %v, expected %v", got, tt.expected)
+			code, body := Get(requestId, esClient)
+			if code != tt.expectedCode {
+				t.Errorf("Get() = %d, expected %d", code, tt.expectedCode)
+			}
+			if !reflect.DeepEqual(body, tt.expectedBody) {
+				t.Errorf("Get() = %v, expected %v", body, tt.expectedBody)
 			}
 		})
 	}
-
 }

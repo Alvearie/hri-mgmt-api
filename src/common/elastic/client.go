@@ -10,75 +10,85 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
 	service "github.com/IBM/resource-controller-go-sdk-generator/build/generated"
-	"github.com/elastic/go-elasticsearch/v6"
+	"github.com/elastic/go-elasticsearch/v7"
+	"github.com/sirupsen/logrus"
+	"ibm.com/watson/health/foundation/hri/common/config"
+	"ibm.com/watson/health/foundation/hri/common/logwrapper"
+	"ibm.com/watson/health/foundation/hri/common/response"
 	"net/http"
 	"strings"
 )
 
-// magical reference date must be used for some reason
+// DateTimeFormat magical reference date must be used for some reason
 const DateTimeFormat string = "2006-01-02T15:04:05Z"
 
-// encodes a map[string]interface{} query body into a byte buffer for the elastic client
+type ResponseError struct {
+	ErrorObj error
+
+	// error code that should be returned by the mgmt-api endpoint
+	Code int
+
+	// Elastic error type
+	ErrorType string
+
+	// Elastic root_cause type
+	RootCause string
+}
+
+func (elasticError ResponseError) Error() string {
+	if elasticError.ErrorObj == nil {
+		// An error was built, but no error information was provided.
+		// Return a generic error message with the statusCode
+		err := fmt.Errorf(msgUnexpectedErr, elasticError.Code)
+		return err.Error()
+	}
+
+	return elasticError.ErrorObj.Error()
+}
+
+func (elasticError ResponseError) LogAndBuildErrorDetail(requestId string, logger logrus.FieldLogger,
+	message string) *response.ErrorDetail {
+	err := fmt.Errorf("%s: [%d] %w", message, elasticError.Code, elasticError)
+	logger.Errorln(err.Error())
+	return response.NewErrorDetail(requestId, err.Error())
+}
+
+// EncodeQueryBody encodes a map[string]interface{} query body into a byte buffer for the elastic client
 func EncodeQueryBody(queryBody map[string]interface{}) (*bytes.Buffer, error) {
 	var encodedBuffer bytes.Buffer
-	err := json.NewEncoder(&encodedBuffer).Encode(queryBody)
+	encoder := json.NewEncoder(&encodedBuffer)
+	encoder.SetEscapeHTML(false)
+
+	err := encoder.Encode(queryBody)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to encode query body as byte buffer: %s", err.Error()))
 	}
 	return &encodedBuffer, nil
 }
 
-// used to connect to actual elastic instance from serverless framework
-func ClientFromParams(params map[string]interface{}) (*elasticsearch.Client, error) {
+func ClientFromConfig(config config.Config) (*elasticsearch.Client, error) {
+	prefix := "ElasticClient"
+	var logger = logwrapper.GetMyLogger("", prefix)
+	logger.Debugln("Getting Elastic client...")
 
-	httpsCreds, err := param.ExtractValues(params, param.BoundCreds, "databases-for-elasticsearch", "connection", "https")
-	if err != nil {
-		return nil, err
-	}
-
-	cert, err := param.ExtractValues(httpsCreds, "certificate")
-	if err != nil {
-		return nil, err
-	}
-
-	base64Cert, ok := cert["certificate_base64"].(string)
-	if !ok {
-		return nil, errors.New("error extracting the certificate from Elastic credentials")
-	}
-
-	hostsInterface, ok := httpsCreds["composed"].([]interface{})
-	if !ok {
-		return nil, errors.New("error extracting the host from Elastic credentials")
-	}
-	hosts := make([]string, len(hostsInterface))
-	for i, entry := range hostsInterface {
-		hosts[i] = entry.(string)
-	}
-
-	// decode base64-encoded cert and add it to pool
-	caCert, err := base64.StdEncoding.DecodeString(base64Cert)
-	if err != nil {
-		return nil, err
-	}
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
+	caCertPool.AppendCertsFromPEM([]byte(config.ElasticCert))
 
-	config := elasticsearch.Config{
-		Addresses: hosts,
+	esConfig := elasticsearch.Config{
+		Addresses: []string{config.ElasticUrl},
+		Username:  config.ElasticUsername,
+		Password:  config.ElasticPassword,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs: caCertPool,
 			},
 		},
 	}
-
-	return fromConfig(config)
+	return fromConfig(esConfig)
 }
 
 type ResourceControllerService interface {
@@ -92,41 +102,23 @@ func CreateResourceControllerService() ResourceControllerService {
 	return service
 }
 
-func CheckElasticIAM(params map[string]interface{}, service ResourceControllerService) (bool, error) {
-	//get deployment id from params
+func CheckElasticIAM(elasticServiceCrn string, bearerToken string, service ResourceControllerService) (int, error) {
+	_, response, err := service.GetResourceInstance(context.Background(), bearerToken, elasticServiceCrn)
 
-	SDKCreds, err := param.ExtractValues(params, param.BoundCreds, "databases-for-elasticsearch", "instance_administration_api")
-	if err != nil {
-		return false, err
-	}
-
-	deployment_id, ok := SDKCreds["deployment_id"].(string)
-	if !ok {
-		return false, errors.New("error extracting the deployment Id from administration api")
-	}
-
-	//get bearer token from params
-	ow_headers, err := param.ExtractValues(params, "__ow_headers")
-	if err != nil {
-		return false, err
-	}
-	bearerToken, authOk := ow_headers["authorization"].(string)
-	if !authOk {
-		return false, errors.New(fmt.Sprintf("Required parameter authorization is missing"))
-	}
-
-	_, response, err := service.GetResourceInstance(context.Background(), bearerToken, deployment_id)
-
-	if err != nil {
-		return false, err
+	if response == nil {
+		return http.StatusInternalServerError, err
 	} else if response.StatusCode == http.StatusOK {
-		return true, nil
+		return http.StatusOK, nil
+	} else if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
+		return http.StatusUnauthorized, fmt.Errorf("elastic IAM authentication returned %d : %w", response.StatusCode, err)
+	} else if response.StatusCode == http.StatusNotFound {
+		return http.StatusInternalServerError, fmt.Errorf("elastic IAM authentication returned 404 : %w", err)
 	} else {
-		return false, errors.New("Resource controller returned status of: " + response.Status)
+		return response.StatusCode, errors.New("Resource controller returned status of: " + response.Status)
 	}
 }
 
-// used to connect to mocked elastic instance from unit tests
+// ClientFromTransport is used to connect to mocked elastic instance from unit tests
 func ClientFromTransport(transport http.RoundTripper) (*elasticsearch.Client, error) {
 	config := elasticsearch.Config{Transport: transport}
 	return fromConfig(config)

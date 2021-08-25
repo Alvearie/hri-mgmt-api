@@ -6,31 +6,28 @@
 package tenants
 
 import (
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/elastic/go-elasticsearch/v6"
-	"log"
+	"github.com/elastic/go-elasticsearch/v7"
+	"ibm.com/watson/health/foundation/hri/common/elastic"
+	"ibm.com/watson/health/foundation/hri/common/logwrapper"
 	"net/http"
-	"os"
 )
 
-func Get(client *elasticsearch.Client) map[string]interface{} {
-	logger := log.New(os.Stdout, "tenants/get: ", log.Llongfile)
+func Get(requestId string, client *elasticsearch.Client) (int, interface{}) {
+	prefix := "tenants/Get"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("Start Tenants Get (All)")
 
 	//Use elastic to return the list of indices
 	res, err := client.Cat.Indices(client.Cat.Indices.WithH("index"), client.Cat.Indices.WithFormat("json"))
-	if err != nil {
-		logger.Println(err.Error())
-		return response.Error(http.StatusInternalServerError, err.Error())
-	}
 
-	body, errResp := elastic.DecodeBodyFromJsonArray(res, err, logger)
-	if errResp != nil {
-		return errResp
+	body, elasticErr := elastic.DecodeBodyFromJsonArray(res, err)
+	if elasticErr != nil {
+		return elasticErr.Code, elasticErr.LogAndBuildErrorDetail(requestId,
+			logger, "Could not retrieve tenants")
 	}
 
 	//sort through result for tenantIds and add to an array
 	tenantsMap := elastic.TenantsFromIndices(body)
 
-	return response.Success(http.StatusOK, tenantsMap)
+	return http.StatusOK, tenantsMap
 }

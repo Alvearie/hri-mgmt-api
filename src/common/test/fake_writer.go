@@ -6,7 +6,7 @@
 package test
 
 import (
-	"github.com/Alvearie/hri-mgmt-api/common/param"
+	"ibm.com/watson/health/foundation/hri/common/param"
 	"reflect"
 	"testing"
 )
@@ -27,12 +27,28 @@ func (fw FakeWriter) Write(topic string, key string, val map[string]interface{})
 		fw.T.Errorf("Unexpected key. Expected: [%s], Actual: [%s]", fw.ExpectedKey, key)
 	}
 
-	// ignore start date when comparing values
-	delete(fw.ExpectedValue, param.StartDate)
-	delete(val, param.StartDate)
+	// copy before deleting start data
+	expected := copyValue(fw.ExpectedValue)
+	actual := copyValue(val)
 
-	if !reflect.DeepEqual(val, fw.ExpectedValue) {
-		fw.T.Errorf("Unexpected val. Expected: [%v], Actual: [%v]", fw.ExpectedValue, val)
+	// ignore start date when comparing values
+	delete(expected, param.StartDate)
+	delete(actual, param.StartDate)
+
+	if !reflect.DeepEqual(actual, expected) {
+		fw.T.Errorf("Unexpected val. \n\tExpected: [%v]\n\tActual:   [%v]", fw.ExpectedValue, val)
 	}
 	return fw.Error
+}
+
+func copyValue(value map[string]interface{}) map[string]interface{} {
+	rtn := make(map[string]interface{})
+	for key, value := range value {
+		rtn[key] = value
+	}
+	return rtn
+}
+
+func (fw FakeWriter) Close() {
+	return
 }

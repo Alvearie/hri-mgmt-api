@@ -1,12 +1,15 @@
 {
   "index_patterns": ["*-batches"],
-  "settings": {
-    "number_of_shards": 1
-  },
-  "mappings": {
-    "batch": {
+  "template": {
+    "settings": {
+      "number_of_shards": 1
+    },
+    "mappings": {
       "properties": {
         "name": {
+          "type": "keyword"
+        },
+        "integratorId": {
           "type": "keyword"
         },
         "status": {
@@ -14,26 +17,46 @@
         },
         "recordCount": {
           "type": "long",
-          "index": "false"
+          "index": false
+        },
+        "expectedRecordCount": {
+          "type": "long",
+          "index": false
+        },
+        "actualRecordCount": {
+          "type": "long",
+          "index": false
         },
         "topic": {
           "type": "keyword",
-          "index": "false"
+          "index": false
         },
         "dataType": {
           "type": "keyword",
-          "index": "false"
+          "index": false
         },
         "startDate": {
           "type": "date"
         },
         "endDate": {
           "type": "date",
-          "index": "false"
+          "index": false
         },
         "metadata": {
           "type": "object",
-          "enabled": "false"
+          "enabled": false
+        },
+        "invalidThreshold": {
+          "type": "long",
+          "index": false
+        },
+        "invalidRecordCount": {
+          "type": "long",
+          "index": false
+        },
+        "failureMessage": {
+          "type": "text",
+          "index": false
         }
       }
     }

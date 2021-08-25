@@ -15,10 +15,8 @@ import (
 	"testing"
 )
 
-const (
-	// NOTE: the following regex pattern is used to verify that request bodies contain a valid start/end date
-	DatePattern string = "2([0-9][0-9][0-9])-([01][0-9])-([0-3][0-9])T([0-2][0-9]):([0-6][0-9]):([0-6][0-9])Z"
-)
+// DatePattern The following regex pattern is used to verify that request bodies contain a valid start/end date
+const DatePattern string = "2([0-9][0-9][0-9])-([01][0-9])-([0-3][0-9])T([0-2][0-9]):([0-6][0-9]):([0-6][0-9])Z"
 
 type ElasticCall struct {
 	RequestQuery       string
@@ -28,7 +26,7 @@ type ElasticCall struct {
 	ResponseErr        error
 }
 
-// A fake Transport used to specify the desired behavior of an Elastic Client in unit tests.
+// FakeTransport is used to specify the desired behavior of an Elastic Client in unit tests.
 // (See create_test.go, get_test.go, get_test_by_id_test.go, and update_status_test.go for usage examples)
 //
 // New instances of FakeTransport should be created using the NewFakeTransport constructor, optionally in
@@ -41,6 +39,19 @@ type ElasticCall struct {
 // dynamic body contents such as date strings (see create_test.go for an example). Keep in mind that if
 // the body contains and regex reserved characters, ( i.e. ^, $, ., |, ], [, *, +, ), (, ? ) then these
 // chars must be escaped with a "\" (see get_test.go for an example).
+//
+// <b>NOTE:</b> By Default (as of ES v7), if your expectedCall ResponseStatusCode is:
+//    HTTP-502, HTTP-503 or HTTP-504, the Elasticsearch Go client will Retry the calls
+//    to transport.RoundTrip() 3 times. This means that this file's RoundTrip() method
+//    will get called 3 times for each added/expected call.
+//  This MAY negatively affect the outcome of your test case, if you are using VerifyCalls() to
+//    match that each of multiple calls with the same request path URL is correct,
+//    because the additional Retry calls to RoundTrip() will prematurely remove expected
+//    calls that cannot later be verified.
+//  See estransport docs: https://pkg.go.dev/github.com/elastic/go-elasticsearch/v7@v7.8.0/estransport
+//      Code: https://github.com/elastic/go-elasticsearch/blob/v7.8.0/estransport/estransport.go, look at Perform() method
+//  Also See: https://www.elastic.co/blog/the-go-client-for-elasticsearch-configuration-and-customization
+
 type FakeTransport struct {
 	t             *testing.T
 	expectedCalls map[string][]ElasticCall
@@ -48,8 +59,8 @@ type FakeTransport struct {
 
 func NewFakeTransport(t *testing.T) *FakeTransport {
 	return &FakeTransport{
-		t,
-		make(map[string][]ElasticCall),
+		t:             t,
+		expectedCalls: make(map[string][]ElasticCall),
 	}
 }
 
@@ -84,7 +95,12 @@ func (ft *FakeTransport) VerifyCalls() {
 	// check whether there were any expected calls that were not made
 	for key, val := range ft.expectedCalls {
 		if len(val) > 0 {
-			ft.t.Errorf("Missing %d call(s) to Elastic endpoint: %s", len(val), key)
+			if len(val) == 1 { //Only 1 expected call
+				var call = val[0]
+				ft.t.Errorf("Missing %d call(s) to Elastic endpoint: %s with RequestBody: %s", len(val), key, call.RequestBody)
+			} else {
+				ft.t.Errorf("Missing %d call(s) to Elastic endpoint: %s", len(val), key)
+			}
 		}
 	}
 }

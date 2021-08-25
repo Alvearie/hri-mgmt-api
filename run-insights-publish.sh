@@ -5,9 +5,9 @@ PUBLISH_TYPE=$1
 export MY_APP_NAME="hri-mgmt-api"
 
 function combineTestResults() {
-  echo "===============BEGIN COMBINING UNIT TESTS==============="
+  echo "===============BEGIN COMBINING TESTS==============="
 
-  INPUT_DIRECTORY="build/test-results/${1}"
+  INPUT_DIRECTORY="${1}"
   RESULT_FILE=$2
   failures=0
   testCount=0
@@ -34,7 +34,7 @@ function combineTestResults() {
   footer="</testsuite>"
   echo -e "$header\n$output\n$footer" > "$RESULT_FILE"
 
-  echo "===============END COMBINING UNIT TESTS==============="
+  echo "===============END COMBINING TESTS==============="
 }
 
 function ifFileExists() {
@@ -51,7 +51,7 @@ function ifFileExists() {
 if [ "$PUBLISH_TYPE" == "buildRecord" ]
 then
   # Upload a build record for this build, It is assumed that the build was successful
-  ibmcloud doi publishbuildrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --branch $TRAVIS_BRANCH --repositoryurl https://github.com/Alvearie/hri-mgmt-api --commitid $TRAVIS_COMMIT --status pass
+  ibmcloud doi publishbuildrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --branch $TRAVIS_BRANCH --repositoryurl https://github.ibm.com/wffh-hri/mgmt-api --commitid $TRAVIS_COMMIT --status pass
 
 elif [ "$PUBLISH_TYPE" == "deployRecord" ]
 then
@@ -67,6 +67,7 @@ then
 elif [ "$PUBLISH_TYPE" == "ivtTest" ]
 then
   # Upload IVT test record for the build
+  echo $(combineTestResults 'test/ivt_test_results' 'ivttest.xml')
   ifFileExists "ivttest.xml"
   ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --filelocation=ivttest.xml --type=ivt
 
@@ -85,7 +86,7 @@ then
 elif [ "$PUBLISH_TYPE" == "smokeTest" ]
 then
   # Upload Smoke test record for the build
-  echo $(combineTestResults 'smokeTest' 'smoketests.xml')
+  echo $(combineTestResults 'build/test-results/smokeTest' 'smoketests.xml')
   ifFileExists "smoketests.xml"
   ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --filelocation=smoketests.xml --type=smoketests
 

@@ -8,15 +8,11 @@ package streams
 import (
 	"context"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
 	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
-	"log"
+	"ibm.com/watson/health/foundation/hri/common/eventstreams"
+	"ibm.com/watson/health/foundation/hri/common/logwrapper"
+	"ibm.com/watson/health/foundation/hri/common/model"
 	"net/http"
-	"os"
-	"reflect"
 	"strconv"
 )
 
@@ -24,154 +20,137 @@ const (
 	//error codes returned by the IBM EventStreams Admin API
 	topicAlreadyExists   int32 = 42236
 	invalidCleanupPolicy int32 = 42240
-
-	cleanupFailureMsg string = ", cleanup of associated topic [%s] also failed: %s"
+	onePartition         int64 = 1
 )
 
 func Create(
-	args map[string]interface{},
-	validator param.Validator,
-	service eventstreams.Service) map[string]interface{} {
+	request model.CreateStreamsRequest,
+	tenantId string,
+	streamId string,
+	validationEnabled bool,
+	requestId string,
+	service eventstreams.Service) ([]string, int, error) {
 
-	logger := log.New(os.Stdout, "streams/create: ", log.Llongfile)
+	prefix := "streams/create"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("Start Streams Create")
 
-	// validate that required input params are present
-	errResp := validator.Validate(
-		args,
-		param.Info{param.NumPartitions, reflect.Float64},
-		param.Info{param.RetentionMs, reflect.Float64},
-	)
-	if errResp != nil {
-		logger.Printf("Bad input params: %s", errResp)
-		return errResp
-	}
-
-	// validate that any provided optional input params are of the right type
-	errResp = validator.ValidateOptional(
-		args,
-		param.Info{param.CleanupPolicy, reflect.String},
-		param.Info{param.RetentionBytes, reflect.Float64},
-		param.Info{param.SegmentMs, reflect.Float64},
-		param.Info{param.SegmentBytes, reflect.Float64},
-		param.Info{param.SegmentIndexBytes, reflect.Float64},
-	)
-	if errResp != nil {
-		logger.Printf("Bad input optional params: %s", errResp)
-		return errResp
-	}
-
-	// extract tenantId and streamId path params from URL
-	tenantId, err := path.ExtractParam(args, param.TenantIndex)
-	if err != nil {
-		logger.Println(err.Error())
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
-
-	if err := param.TenantIdCheck(tenantId); err != nil {
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
-
-	streamId, err := path.ExtractParam(args, param.StreamIndex)
-	if err != nil {
-		logger.Println(err.Error())
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
-
-	if err := param.StreamIdCheck(streamId); err != nil {
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
-
-	inTopicName, notificationTopicName := eventstreams.CreateTopicNames(tenantId, streamId)
+	inTopicName, notificationTopicName, outTopicName, invalidTopicName := eventstreams.CreateTopicNames(
+		tenantId, streamId)
 
 	//numPartitions and retentionTime configs are required, the rest are optional
-	numPartitions := int64(args[param.NumPartitions].(float64))
-	topicConfigs := setUpTopicConfigs(args)
+	topicConfigs := setUpTopicConfigs(request)
 
 	inTopicRequest := es.TopicCreateRequest{
 		Name:           inTopicName,
-		PartitionCount: numPartitions,
-		Configs:        topicConfigs,
-	}
-	notificationTopicRequest := es.TopicCreateRequest{
-		Name:           notificationTopicName,
-		PartitionCount: numPartitions,
+		PartitionCount: *request.NumPartitions,
 		Configs:        topicConfigs,
 	}
 
-	// create the in and notification topics for the given tenant and stream pairing
+	//create notification topic with only 1 Partition b/c of the small expected msg volume for this topic
+	notificationTopicRequest := es.TopicCreateRequest{
+		Name:           notificationTopicName,
+		PartitionCount: onePartition,
+		Configs:        topicConfigs,
+	}
+
+	createdTopics := make([]string, 0, 4)
+
+	// create the input and notification topics for the given tenant and stream pairing
 	_, inResponse, inErr := service.CreateTopic(context.Background(), inTopicRequest)
 	if inErr != nil {
-		logger.Printf("Unable to create new topic [%s]. %s", inTopicName, inErr.Error())
-		return getCreateResponseError(inResponse, service.HandleModelError(inErr), "")
+		logger.Errorf("Unable to create new topic [%s]. %s", inTopicName, inErr.Error())
+		responseCode, errorMessage := getResponseCodeAndErrorMessage(inResponse, service.HandleModelError(inErr))
+		return createdTopics, responseCode, fmt.Errorf(errorMessage)
 	}
+	createdTopics = append(createdTopics, inTopicName)
 
 	_, notificationResponse, notificationErr := service.CreateTopic(context.Background(), notificationTopicRequest)
 	if notificationErr != nil {
-		logger.Printf("Unable to create new topic [%s]. %s", notificationTopicName, notificationErr.Error())
-		logger.Printf("Deleting associated 'in' topic [%s]...", inTopicName)
-		_, _, deleteErr := service.DeleteTopic(context.Background(), inTopicName)
-		var deleteErrorMsg = ""
-		if deleteErr != nil {
-			logger.Printf("Unable to delete topic [%s]. %s", inTopicName, deleteErr.Error())
-			deleteErrorMsg = fmt.Sprintf(cleanupFailureMsg, inTopicName, deleteErr.Error())
+		logger.Errorf("Unable to create new topic [%s]. %s", notificationTopicName, notificationErr.Error())
+		responseCode, errorMessage := getResponseCodeAndErrorMessage(notificationResponse, service.HandleModelError(notificationErr))
+		return createdTopics, responseCode, fmt.Errorf(errorMessage)
+	}
+	createdTopics = append(createdTopics, notificationTopicName)
+
+	// if validation is enabled, create the out and invalid topics for the given tenant and stream pairing
+	if validationEnabled {
+		outTopicRequest := es.TopicCreateRequest{
+			Name:           outTopicName,
+			PartitionCount: *request.NumPartitions,
+			Configs:        topicConfigs,
 		}
-		return getCreateResponseError(notificationResponse, service.HandleModelError(notificationErr), deleteErrorMsg)
+
+		//create invalid topic with only 1 Partition b/c of the small expected msg volume for this topic
+		invalidTopicRequest := es.TopicCreateRequest{
+			Name:           invalidTopicName,
+			PartitionCount: onePartition,
+			Configs:        topicConfigs,
+		}
+
+		_, outResponse, outErr := service.CreateTopic(context.Background(), outTopicRequest)
+		if outErr != nil {
+			logger.Errorf("Unable to create new topic [%s]. %s", outTopicName, outErr.Error())
+			responseCode, errorMessage := getResponseCodeAndErrorMessage(outResponse, service.HandleModelError(outErr))
+			return createdTopics, responseCode, fmt.Errorf(errorMessage)
+		}
+		createdTopics = append(createdTopics, outTopicName)
+
+		_, invalidResponse, invalidErr := service.CreateTopic(context.Background(), invalidTopicRequest)
+		if invalidErr != nil {
+			logger.Errorf("Unable to create new topic [%s]. %s", invalidTopicName, invalidErr.Error())
+			responseCode, errorMessage := getResponseCodeAndErrorMessage(invalidResponse, service.HandleModelError(invalidErr))
+			return createdTopics, responseCode, fmt.Errorf(errorMessage)
+		}
+		createdTopics = append(createdTopics, invalidTopicName)
 	}
 
-	// return the name of the created stream
-	respBody := map[string]interface{}{param.StreamId: streamId}
-	return response.Success(http.StatusCreated, respBody)
+	return createdTopics, http.StatusCreated, nil
 }
 
-func setUpTopicConfigs(args map[string]interface{}) []es.ConfigCreate {
-	retentionMs := int(args[param.RetentionMs].(float64))
+func setUpTopicConfigs(request model.CreateStreamsRequest) []es.ConfigCreate {
 	retentionMsConfig := es.ConfigCreate{
 		Name:  "retention.ms",
-		Value: strconv.Itoa(retentionMs),
+		Value: strconv.Itoa(*request.RetentionMs),
 	}
 	configs := []es.ConfigCreate{retentionMsConfig}
 
-	if args[param.RetentionBytes] != nil {
-		retentionBytes := int(args[param.RetentionBytes].(float64))
+	if request.RetentionBytes != nil {
 		retentionBytesConfig := es.ConfigCreate{
 			Name:  "retention.bytes",
-			Value: strconv.Itoa(retentionBytes),
+			Value: strconv.Itoa(*request.RetentionBytes),
 		}
 		configs = append(configs, retentionBytesConfig)
 	}
 
-	if args[param.CleanupPolicy] != nil {
-		cleanupPolicy := args[param.CleanupPolicy].(string)
+	if request.CleanupPolicy != nil {
 		cleanupPolicyConfig := es.ConfigCreate{
 			Name:  "cleanup.policy",
-			Value: cleanupPolicy,
+			Value: *request.CleanupPolicy,
 		}
 		configs = append(configs, cleanupPolicyConfig)
 	}
 
-	if args[param.SegmentMs] != nil {
-		segmentMs := int(args[param.SegmentMs].(float64))
+	if request.SegmentMs != nil {
 		segmentMsConfig := es.ConfigCreate{
 			Name:  "segment.ms",
-			Value: strconv.Itoa(segmentMs),
+			Value: strconv.Itoa(*request.SegmentMs),
 		}
 		configs = append(configs, segmentMsConfig)
 	}
 
-	if args[param.SegmentBytes] != nil {
-		segmentBytes := int(args[param.SegmentBytes].(float64))
+	if request.SegmentBytes != nil {
 		segmentBytesConfig := es.ConfigCreate{
 			Name:  "segment.bytes",
-			Value: strconv.Itoa(segmentBytes),
+			Value: strconv.Itoa(*request.SegmentBytes),
 		}
 		configs = append(configs, segmentBytesConfig)
 	}
 
-	if args[param.SegmentIndexBytes] != nil {
-		segmentIndexBytes := int(args[param.SegmentIndexBytes].(float64))
+	if request.SegmentIndexBytes != nil {
 		segmentIndexBytesConfig := es.ConfigCreate{
 			Name:  "segment.index.bytes",
-			Value: strconv.Itoa(segmentIndexBytes),
+			Value: strconv.Itoa(*request.SegmentIndexBytes),
 		}
 		configs = append(configs, segmentIndexBytesConfig)
 	}
@@ -179,18 +158,17 @@ func setUpTopicConfigs(args map[string]interface{}) []es.ConfigCreate {
 	return configs
 }
 
-func getCreateResponseError(resp *http.Response, err *es.ModelError, deleteError string) map[string]interface{} {
-
+func getResponseCodeAndErrorMessage(resp *http.Response, err *es.ModelError) (int, string) {
 	//EventStreams Admin API gives us status 403 when provided bearer token is unauthorized
 	//and status 401 when Authorization isn't provided or is nil
 	if resp.StatusCode == http.StatusForbidden {
-		return response.Error(http.StatusUnauthorized, eventstreams.UnauthorizedMsg+deleteError)
+		return http.StatusUnauthorized, eventstreams.UnauthorizedMsg
 	} else if resp.StatusCode == http.StatusUnauthorized {
-		return response.Error(http.StatusUnauthorized, eventstreams.MissingHeaderMsg+deleteError)
+		return http.StatusUnauthorized, eventstreams.MissingHeaderMsg
 	} else if resp.StatusCode == http.StatusUnprocessableEntity && err.ErrorCode == topicAlreadyExists {
-		return response.Error(http.StatusConflict, err.Message+deleteError)
+		return http.StatusConflict, err.Message
 	} else if resp.StatusCode == http.StatusUnprocessableEntity && err.ErrorCode == invalidCleanupPolicy {
-		return response.Error(http.StatusBadRequest, err.Message+deleteError)
+		return http.StatusBadRequest, err.Message
 	}
-	return response.Error(http.StatusInternalServerError, err.Message+deleteError)
+	return http.StatusInternalServerError, err.Message
 }

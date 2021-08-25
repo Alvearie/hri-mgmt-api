@@ -6,46 +6,35 @@
 package tenants
 
 import (
+	"fmt"
+	"ibm.com/watson/health/foundation/hri/common/logwrapper"
+
 	// "fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/elastic/go-elasticsearch/v6"
-	"log"
+	"github.com/elastic/go-elasticsearch/v7"
+	"ibm.com/watson/health/foundation/hri/common/elastic"
 	"net/http"
-	"os"
 )
 
-func GetById(params map[string]interface{}, client *elasticsearch.Client) map[string]interface{} {
-	logger := log.New(os.Stdout, "tenants/GetById: ", log.Llongfile)
-
-	// validate that required input param is present ONLY in the PATH param
-
-	tenantId, err := path.ExtractParam(params, param.TenantIndex)
-	if err != nil {
-		logger.Println(err.Error())
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
+func GetById(requestId string, tenantId string, client *elasticsearch.Client) (int, interface{}) {
+	prefix := "tenant/GetById"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("Start Tenants Get By ID")
 
 	// Query elastic for information on the tenant
 	index := elastic.IndexFromTenantId(tenantId)
-	var res, err2 = client.Cat.Indices(client.Cat.Indices.WithIndex(index), client.Cat.Indices.WithFormat("json"))
+	var res, err2 = client.Cat.Indices(client.Cat.Indices.WithIndex(index),
+		client.Cat.Indices.WithFormat("json"))
 
-	if err2 != nil {
-		logger.Println(err2.Error())
-		return response.Error(http.StatusInternalServerError, err2.Error())
+	resultBody, elasticErr := elastic.DecodeBodyFromJsonArray(res, err2)
+	if elasticErr != nil {
+		if elasticErr.Code == http.StatusNotFound {
+			msg := "Tenant: " + tenantId + " not found"
+			return http.StatusNotFound, elasticErr.LogAndBuildErrorDetail(requestId, logger, msg)
+		}
+
+		msg := fmt.Sprintf("Could not retrieve tenant '%s'", tenantId)
+		return elasticErr.Code, elasticErr.LogAndBuildErrorDetail(requestId, logger, msg)
 	}
 
-	if res.StatusCode == http.StatusNotFound {
-		logger.Println("Tenant not found")
-		return response.Error(http.StatusNotFound, "Tenant: "+tenantId+" not found")
-	}
-	// Decode response
-	resultBody, errResp := elastic.DecodeBodyFromJsonArray(res, err2, logger)
-	if errResp != nil {
-		return errResp
-	}
-
-	return response.Success(http.StatusOK, resultBody[0])
+	return http.StatusOK, resultBody[0]
 }
