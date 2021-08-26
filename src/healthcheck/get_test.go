@@ -8,10 +8,11 @@ package healthcheck
 import (
 	"bytes"
 	"errors"
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
-	"github.com/Alvearie/hri-mgmt-api/common/kafka"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
+	"ibm.com/watson/health/foundation/hri/common/elastic"
+	"ibm.com/watson/health/foundation/hri/common/kafka"
+	"ibm.com/watson/health/foundation/hri/common/logwrapper"
+	"ibm.com/watson/health/foundation/hri/common/response"
+	"ibm.com/watson/health/foundation/hri/common/test"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -19,24 +20,17 @@ import (
 	"testing"
 )
 
-const activationId string = "testActivationId"
+const requestId string = "testRequestId"
 
 func TestHealthcheck(t *testing.T) {
-	_ = os.Setenv(response.EnvOwActivationId, activationId)
-
-	//Success Case Kafka Partition Reader
-	defaultKafkaReader := test.FakePartitionReader{
-		T:          t,
-		Partitions: test.GetFakeTwoPartitionSlice(),
-		Err:        nil,
-	}
+	logwrapper.Initialize("error", os.Stdout)
 
 	testCases := []struct {
-		name        string
-		args        map[string]interface{} //Will always be empty for these tests/healthcheck.get()
-		transport   *test.FakeTransport
-		kafkaReader kafka.PartitionReader
-		expected    map[string]interface{}
+		name               string
+		transport          *test.FakeTransport
+		kafkaHealthChecker kafka.HealthChecker
+		expectedCode       int
+		expectedBody       *response.ErrorDetail
 	}{
 		{
 			name: "Success-case",
@@ -62,8 +56,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: defaultKafkaReader,
-			expected:    response.Success(http.StatusOK, map[string]interface{}{}),
+			kafkaHealthChecker: fakeKafkaHealthChecker{},
+			expectedCode:       http.StatusOK,
+			expectedBody:       nil,
 		},
 		{
 			name: "elastic-search-bad-status",
@@ -89,8 +84,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: defaultKafkaReader,
-			expected:    response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{},
+			expectedCode:       http.StatusServiceUnavailable,
+			expectedBody:       response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
 		},
 		{
 			name: "invalid-ES-response-missing-status-field",
@@ -105,8 +101,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: defaultKafkaReader,
-			expected:    response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: NONE/NotReported, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{},
+			expectedCode:       http.StatusServiceUnavailable,
+			expectedBody:       response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: NONE/NotReported, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
 		},
 		{
 			name: "invalid-ES-response-missing-cluster-or-epoch-field",
@@ -129,35 +126,25 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: defaultKafkaReader,
-			expected:    response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: NotReported, unixTimestamp: NotReported"),
-		},
-		{
-			name: "bad-ES-response-body-EOF",
-			transport: test.NewFakeTransport(t).AddCall(
-				"/_cat/health",
-				test.ElasticCall{
-					ResponseErr: errors.New("client error"),
-				},
-			),
-			kafkaReader: defaultKafkaReader,
-			expected:    response.Error(http.StatusInternalServerError, "Elastic client error: client error"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{},
+			expectedCode:       http.StatusServiceUnavailable,
+			expectedBody:       response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: NotReported, unixTimestamp: NotReported"),
 		},
 		{
 			name: "ES-client-error",
 			transport: test.NewFakeTransport(t).AddCall(
 				"/_cat/health",
 				test.ElasticCall{
-					ResponseBody: test.ReaderToString(ioutil.NopCloser(bytes.NewReader([]byte(``)))),
+					ResponseErr: errors.New("client error"),
 				},
 			),
-			kafkaReader: defaultKafkaReader,
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: EOF"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{},
+			expectedCode:       http.StatusServiceUnavailable,
+			expectedBody: response.NewErrorDetail(requestId,
+				"Could not perform elasticsearch health check: [500] elasticsearch client error: client error"),
 		},
 		{
-			name: "Kafka-connection-returns-err",
+			name: "Kafka-health-check-returns-err",
 			transport: test.NewFakeTransport(t).AddCall(
 				"/_cat/health",
 				test.ElasticCall{
@@ -180,12 +167,11 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: test.FakePartitionReader{
-				T:          t,
-				Partitions: nil,
-				Err:        errors.New("Error contacting Kafka cluster: could not read partitions"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{
+				err: errors.New("ResponseError contacting Kafka cluster: could not read partitions"),
 			},
-			expected: response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: Kafka status: Kafka Connection/Read Partition failed"),
+			expectedCode: http.StatusServiceUnavailable,
+			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ResponseError contacting Kafka cluster: could not read partitions"),
 		},
 		{
 			name: "Kafka-returns-Err-AND-ES-return-bad-status",
@@ -211,28 +197,38 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: test.FakePartitionReader{
-				T:          t,
-				Partitions: nil,
-				Err:        errors.New("Error contacting Kafka cluster: could not read partitions"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{
+				err: errors.New("ResponseError contacting Kafka cluster: could not read partitions"),
 			},
-			expected: response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886| Kafka status: Kafka Connection/Read Partition failed"),
+			expectedCode: http.StatusServiceUnavailable,
+			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886 | ResponseError contacting Kafka cluster: could not read partitions"),
 		},
 	}
 
 	for _, tc := range testCases {
-
 		client, err := elastic.ClientFromTransport(tc.transport)
 		if err != nil {
 			t.Error(err)
 		}
 
 		t.Run(tc.name, func(t *testing.T) {
-			if actual := Get(tc.args, client, tc.kafkaReader); !reflect.DeepEqual(tc.expected, actual) {
+			actualCode, actualBody := Get(requestId, client, tc.kafkaHealthChecker)
+			if actualCode != tc.expectedCode || !reflect.DeepEqual(tc.expectedBody, actualBody) {
 				//notify/print error event as test result
-				t.Errorf("HealthCheck-Get(): %v, expected: %v", actual, tc.expected)
+				t.Errorf("HealthCheck-Get()\n   actual: %v,%v\n expected: %v,%v", actualCode, actualBody, tc.expectedCode, tc.expectedBody)
 			}
 		})
 	}
+}
 
+type fakeKafkaHealthChecker struct {
+	err error
+}
+
+func (fhc fakeKafkaHealthChecker) Check() error {
+	return fhc.err
+}
+
+func (fhc fakeKafkaHealthChecker) Close() {
+	return
 }

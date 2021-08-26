@@ -6,7 +6,7 @@
     ```bash
     brew install gnupg gnupg2
     ```
-    NOTE: This is dependent on Hombrew to be completely installed first.
+    NOTE: This is dependent on Homebrew to be completely installed first.
 
 3. Install Ruby
 
@@ -15,10 +15,10 @@
     ```bash
     rvm list
     ```
-5. If they're not listed in the script response above, install ruby 2.5.0  
+5. If they're not listed in the script response above, install ruby 2.6.5  
     ```bash
-    rvm install ruby-2.5.0
-    rvm use --default ruby-2.5.0
+    rvm install ruby-2.6.5
+    rvm use --default ruby-2.6.5
     gem install bundler
     ```
     
@@ -31,18 +31,57 @@
 7. (Optional) If running in IntelliJ, configure this project as an RVM Ruby project
 
     * Install the Ruby plugin `IntelliJ IDEA > Preferences... > Plugins`
-    * Configure Project `File > Project Structure > Project Settings > Project` and select `RVM: ruby-2.5.0`.
+    * Configure Project `File > Project Structure > Project Settings > Project` and select `RVM: ruby-2.6.5`.
     * Configure Module `File > Project Structure > Project Settings > Modules` and reconfigure module with RVM Ruby.
     
     NOTE: Ensure that your Ruby versions match across terminal default, Gemfile, and Gemfile.lock. If using IntelliJ, Ruby version in your module should match as well.
 
-8. (Optional) To run tests locally, first export the ELASTIC_URL and ELASTIC_AUTH values from .travis.yml to your terminal. Then, from within the top directory of this project, run all tests with:
+8. (Optional) To run tests locally, export these environment variables. All of the values can be found in `.travis.yml` unless otherwise specified.
+
+    - APPID_TENANT
+    - APPID_URL
+    - CLOUD_API_KEY
+    - COS_URL
+    - ELASTIC_CRN
+    - ELASTIC_PASSWORD
+    - ELASTIC_URL
+    - ELASTIC_USERNAME
+    - HRI_URL
+    - IAM_CLOUD_URL
+    - JWT_AUDIENCE_ID
+    - KAFKA_BROKERS
+    - KAFKA_PASSWORD
+    - KAFKA_USERNAME
+    - TENANT_ID
+
+   You will also need to set an environment variable called TRAVIS_BRANCH that corresponds to your current working branch.
+   
+   Then, install the IBM Cloud CLI and the Event Streams CLI. You can find the RESOURCE_GROUP in `travis.yml` and the CLOUD_API_KEY in 1Password:
+   ```bash
+   curl -sL https://ibm.biz/idt-installer | bash
+   bx login --apikey {CLOUD_API_KEY}
+   bx target -g {RESOURCE_GROUP}
+   bx plugin install event-streams
+   bx es init
+   ```
+           
+   Select the number corresponding to the KAFKA_INSTANCE in `travis.yml`.
+
+   The last step before running the tests is to install the `hri-test-helpers` gem locally. Run the following commands:
+      ```bash
+         gem install specific_install
+         gem specific_install -l git@github.ibm.com:wffh-hri/hri-test-helpers.git -b master
+      ```
+   Then, add the following line to Gemfile, but *do not commit this change to Github*:
+   ```gem 'hri-test-helpers```
+
+   Then, from within the top directory of this project, run the integration tests with:
      
     ```rspec test/spec --tag ~@broken```
     
 # Dredd Tests
-Dredd is used to verify the implemented API meets our published [specification](https://github.com/Alvearie/hri-api-spec/blob/master/management-api/management.yml).
-By default it generates a test for every endpoint, uses the example values for input, and verifies the response matches the 200 response schema. All other responses are skipped. Ruby 'hooks' are used to modify the default behavior and do setup/teardown. 
+Dredd is used to verify the implemented API meets our published [specification](https://github.ibm.com/wffh-hri/api-spec/blob/develop/management-api/management.yml).
+By default, it generates a test for every endpoint, uses the example values for input, and verifies the response matches the 200 response schema. All other responses are skipped. Ruby 'hooks' are used to modify the default behavior and do setup/teardown.
 Here are some helpful documentation links:
 * https://dredd.org/en/latest/hooks/ruby.html
 * https://dredd.org/en/latest/data-structures.html#transaction
@@ -63,14 +102,14 @@ gem install dredd_hooks
 ```
 
 ### Running Dredd Tests
-First you need to convert the API spec to Swagger 2.0, so checkout the api-spec [repo](https://github.com/Alvearie/hri-api-spec).
+First you need to convert the API spec to Swagger 2.0, so checkout the api-spec [repo](https://github.ibm.com/wffh-hri/api-spec).
 Then use api-spec-converter to convert it. You should make a branch with the same name if changes are needed. The Travis build will checkout the same branch if it exists. 
 ```bash
 api-spec-converter -f openapi_3 -t swagger_2 -s yaml api-spec/management-api/management.yml > api-spec/management-api/management.swagger.yml
 ```
-Then run Dredd.  Make sure you replace the base url with the one for your current branch. 
+Then, from the `mgmt-api` directory, run the Dredd tests:
 ```bash
-dredd ../api-spec/management-api/management.swagger.yml https://fc40a048.us-south.apigw.appdomain.cloud/hri --sorted --language=ruby --hookfiles=test/spec/*_helper.rb --hookfiles=test/spec/dredd_hooks.rb --hooks-worker-connect-timeout=5000
+dredd -r xunit -o dreddtests.xml ../api-spec/management.swagger.yml ${HRI_URL/https/http} --sorted --language=ruby --hookfiles=test/spec/dredd_hooks.rb --hooks-worker-connect-timeout=5000
 ```
 
 ### Debugging

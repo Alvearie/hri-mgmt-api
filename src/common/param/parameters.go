@@ -5,30 +5,26 @@
  */
 package param
 
-// These must match the values used in the manifest
 const (
-	TenantIndex = 3
-	BatchIndex  = 5
-	StreamIndex = 5
+	BatchId             string = "id"
+	TenantId            string = "tenantId"
+	StreamId            string = "id"
+	DataType            string = "dataType"
+	Metadata            string = "metadata"
+	Name                string = "name"
+	IntegratorId        string = "integratorId"
+	Status              string = "status"
+	StartDate           string = "startDate"
+	GteDate             string = "gteDate"
+	LteDate             string = "lteDate"
+	Topic               string = "topic"
+	RecordCount         string = "recordCount" // deprecated
+	ExpectedRecordCount string = "expectedRecordCount"
+	ActualRecordCount   string = "actualRecordCount"
+	InvalidThreshold    string = "invalidThreshold"
+	InvalidRecordCount  string = "invalidRecordCount"
+	FailureMessage      string = "failureMessage"
 
-	BoundCreds string = "__bx_creds"
-	OwHeaders  string = "__ow_headers"
-
-	BatchId           string = "id"
-	DataType          string = "dataType"
-	Metadata          string = "metadata"
-	Name              string = "name"
-	Status            string = "status"
-	StartDate         string = "startDate"
-	Topic             string = "topic"
-	TenantId          string = "tenantId"
-	RecordCount       string = "recordCount"
-	StreamId          string = "id"
-	NumPartitions     string = "numPartitions"
-	RetentionMs       string = "retentionMs"
-	RetentionBytes    string = "retentionBytes"
-	CleanupPolicy     string = "cleanupPolicy"
-	SegmentMs         string = "segmentMs"
-	SegmentBytes      string = "segmentBytes"
-	SegmentIndexBytes string = "segmentIndexBytes"
+	Size string = "size"
+	From string = "from"
 )

@@ -9,30 +9,31 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
 	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
+	"github.com/go-playground/validator/v10"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"ibm.com/watson/health/foundation/hri/common/eventstreams"
+	"ibm.com/watson/health/foundation/hri/common/logwrapper"
+	"ibm.com/watson/health/foundation/hri/common/model"
+	"ibm.com/watson/health/foundation/hri/common/test"
 	"net/http"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
 )
 
 const (
-	numPartitions               float64 = 1
-	retentionMs                 float64 = 86400000
-	topicAlreadyExistsMessage   string  = "topic already exists"
-	invalidCleanupPolicyMessage string  = "invalid cleanup policy"
-	forbiddenMessage            string  = "forbidden"
-	unauthorizedMessage         string  = "unauthorized"
-	kafkaConnectionMessage              = "Unable to connect to Kafka"
+	numPartitions               int64  = 1
+	retentionMs                 int    = 86400000
+	topicAlreadyExistsMessage   string = "topic already exists"
+	invalidCleanupPolicyMessage string = "invalid cleanup policy"
+	forbiddenMessage            string = "forbidden"
+	unauthorizedMessage         string = "unauthorized"
+	kafkaConnectionMessage      string = "Unable to connect to Kafka"
 )
 
 var StatusForbidden = http.Response{StatusCode: 403}
@@ -52,199 +53,184 @@ var OtherError = es.ModelError{
 	Message:   kafkaConnectionMessage,
 }
 
+var getInt64Pointer = func(num int64) *int64 {
+	return &num
+}
+
+var getIntPointer = func(num int) *int {
+	return &num
+}
+
+var getStringPointer = func(str string) *string {
+	return &str
+}
+
 func TestCreate(t *testing.T) {
-	os.Setenv(response.EnvOwActivationId, "activation123")
+	logwrapper.Initialize("error", os.Stdout)
 
 	tenantId := "tenant123"
 	streamId1 := "data-integrator123.qualifier_123"
-	streamId2 := "data-integrator123"
+	requestId := "request-id"
 	baseTopicName := strings.Join([]string{tenantId, streamId1}, ".")
-	baseTopicNameNoQualifier := strings.Join([]string{tenantId, streamId2}, ".")
 
-	validArgs := map[string]interface{}{
-		path.ParamOwPath:    fmt.Sprintf("/hri/tenants/%s/streams/%s", tenantId, streamId1),
-		param.NumPartitions: numPartitions,
-		param.RetentionMs:   retentionMs,
+	validStreamsRequest := model.CreateStreamsRequest{
+		NumPartitions: getInt64Pointer(numPartitions),
+		RetentionMs:   getIntPointer(retentionMs),
 	}
-	validArgsNoQualifier := map[string]interface{}{
-		path.ParamOwPath:    fmt.Sprintf("/hri/tenants/%s/streams/%s", tenantId, streamId2),
-		param.NumPartitions: numPartitions,
-		param.RetentionMs:   retentionMs,
-	}
-	missingPathArgs := map[string]interface{}{
-		param.NumPartitions: numPartitions,
-		param.RetentionMs:   retentionMs,
-	}
-	missingTenantArgs := map[string]interface{}{
-		path.ParamOwPath:    fmt.Sprintf("/hri/tenants"),
-		param.NumPartitions: numPartitions,
-		param.RetentionMs:   retentionMs,
-	}
-	missingStreamArgs := map[string]interface{}{
-		path.ParamOwPath:    fmt.Sprintf("/hri/tenants/%s/streams", tenantId),
-		param.NumPartitions: numPartitions,
-		param.RetentionMs:   retentionMs,
-	}
-
-	badParamResponse := map[string]interface{}{"bad": "param"}
 
 	testCases := []struct {
 		name                   string
-		args                   map[string]interface{}
-		validatorResponse      map[string]interface{}
+		streamsRequest         model.CreateStreamsRequest
+		tenantId               string
+		streamId               string
+		validationEnabled      bool
 		modelInError           *es.ModelError
 		modelNotificationError *es.ModelError
+		modelOutError          *es.ModelError
+		modelInvalidError      *es.ModelError
 		mockResponse           *http.Response
-		deleteError            error
 		expectedTopic          string
-		expected               map[string]interface{}
+		expectedTopics         []string
+		expectedReturnCode     int
+		expectedError          error
 	}{
 		{
-			name:              "bad-param",
-			args:              validArgs,
-			validatorResponse: badParamResponse,
-			expected:          badParamResponse,
+			name:               "not-authorized",
+			streamsRequest:     validStreamsRequest,
+			tenantId:           tenantId,
+			streamId:           streamId1,
+			modelInError:       &es.ModelError{},
+			mockResponse:       &StatusForbidden,
+			expectedError:      fmt.Errorf(eventstreams.UnauthorizedMsg),
+			expectedReturnCode: http.StatusUnauthorized,
+			expectedTopic:      baseTopicName,
 		},
 		{
-			name:     "missing-path",
-			args:     missingPathArgs,
-			expected: response.Error(http.StatusBadRequest, "Required parameter '__ow_path' is missing"),
+			name:               "missing-auth-header",
+			streamsRequest:     validStreamsRequest,
+			tenantId:           tenantId,
+			streamId:           streamId1,
+			modelInError:       &es.ModelError{},
+			mockResponse:       &StatusUnauthorized,
+			expectedError:      fmt.Errorf(eventstreams.MissingHeaderMsg),
+			expectedReturnCode: http.StatusUnauthorized,
+			expectedTopic:      baseTopicName,
 		},
 		{
-			name:     "missing-tenant-id",
-			args:     missingTenantArgs,
-			expected: response.Error(http.StatusBadRequest, "The path is shorter than the requested path parameter; path: [ hri tenants], requested index: 3"),
-		},
-		{
-			name:     "missing-stream-id",
-			args:     missingStreamArgs,
-			expected: response.Error(http.StatusBadRequest, "The path is shorter than the requested path parameter; path: [ hri tenants tenant123 streams], requested index: 5"),
-		},
-		{
-			name: "invalid-tenant-id capital",
-			args: map[string]interface{}{
-				path.ParamOwPath:    fmt.Sprintf("/hri/tenants/tenantId/streams/stream-id"),
-				param.NumPartitions: numPartitions,
-				param.RetentionMs:   retentionMs,
-			},
-			expected: response.Error(http.StatusBadRequest, "TenantId: tenantId must be lower-case alpha-numeric, '-', or '_'. 'I' is not allowed."),
-		},
-		{
-			name: "invalid-stream-id capital",
-			args: map[string]interface{}{
-				path.ParamOwPath:    fmt.Sprintf("/hri/tenants/%s/streams/streamId", tenantId),
-				param.NumPartitions: numPartitions,
-				param.RetentionMs:   retentionMs,
-			},
-			expected: response.Error(http.StatusBadRequest, "StreamId: streamId must be lower-case alpha-numeric, '-', or '_', and no more than one '.'. 'I' is not allowed."),
-		},
-		{
-			name:          "not-authorized",
-			args:          validArgs,
-			modelInError:  &es.ModelError{},
-			mockResponse:  &StatusForbidden,
-			expected:      response.Error(http.StatusUnauthorized, eventstreams.UnauthorizedMsg),
-			expectedTopic: baseTopicName,
-		},
-		{
-			name:          "missing-auth-header",
-			args:          validArgs,
-			modelInError:  &es.ModelError{},
-			mockResponse:  &StatusUnauthorized,
-			expected:      response.Error(http.StatusUnauthorized, eventstreams.MissingHeaderMsg),
-			expectedTopic: baseTopicName,
-		},
-		{
-			name:          "in-topic-already-exists",
-			args:          validArgs,
-			modelInError:  &TopicAlreadyExistsError,
-			mockResponse:  &StatusUnprocessableEntity,
-			expected:      response.Error(http.StatusConflict, topicAlreadyExistsMessage),
-			expectedTopic: baseTopicName,
+			name:               "in-topic-already-exists",
+			streamsRequest:     validStreamsRequest,
+			tenantId:           tenantId,
+			streamId:           streamId1,
+			modelInError:       &TopicAlreadyExistsError,
+			mockResponse:       &StatusUnprocessableEntity,
+			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
+			expectedReturnCode: http.StatusConflict,
+			expectedTopic:      baseTopicName,
 		},
 		{
 			name:                   "notification-topic-already-exists",
-			args:                   validArgs,
+			streamsRequest:         validStreamsRequest,
+			tenantId:               tenantId,
+			streamId:               streamId1,
 			modelNotificationError: &TopicAlreadyExistsError,
 			mockResponse:           &StatusUnprocessableEntity,
-			expected:               response.Error(http.StatusConflict, topicAlreadyExistsMessage),
+			expectedError:          fmt.Errorf(topicAlreadyExistsMessage),
+			expectedReturnCode:     http.StatusConflict,
 			expectedTopic:          baseTopicName,
+			expectedTopics:         []string{eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.InSuffix},
 		},
 		{
-			name:                   "notification-fail-and-delete-fail",
-			args:                   validArgs,
-			modelNotificationError: &TopicAlreadyExistsError,
-			mockResponse:           &StatusUnprocessableEntity,
-			deleteError:            errors.New("failed to delete in topic"),
-			expected:               response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName+eventstreams.InSuffix, "failed to delete in topic")),
-			expectedTopic:          baseTopicName,
+			name:               "out-topic-already-exists",
+			streamsRequest:     validStreamsRequest,
+			tenantId:           tenantId,
+			streamId:           streamId1,
+			validationEnabled:  true,
+			modelOutError:      &TopicAlreadyExistsError,
+			mockResponse:       &StatusUnprocessableEntity,
+			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
+			expectedReturnCode: http.StatusConflict,
+			expectedTopic:      baseTopicName,
+			expectedTopics: []string{
+				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.InSuffix,
+				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.NotificationSuffix,
+			},
 		},
 		{
-			name:          "invalid-cleanup-policy",
-			args:          validArgs,
-			modelInError:  &invalidCleanupPolicyError,
-			mockResponse:  &StatusUnprocessableEntity,
-			expected:      response.Error(http.StatusBadRequest, invalidCleanupPolicyMessage),
-			expectedTopic: baseTopicName,
+			name:               "invalid-topic-already-exists",
+			streamsRequest:     validStreamsRequest,
+			tenantId:           tenantId,
+			streamId:           streamId1,
+			validationEnabled:  true,
+			modelInvalidError:  &TopicAlreadyExistsError,
+			mockResponse:       &StatusUnprocessableEntity,
+			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
+			expectedReturnCode: http.StatusConflict,
+			expectedTopic:      baseTopicName,
+			expectedTopics: []string{
+				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.InSuffix,
+				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.NotificationSuffix,
+				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.OutSuffix,
+			},
 		},
 		{
-			name:          "in-conn-error",
-			args:          validArgs,
-			modelInError:  &OtherError,
-			mockResponse:  &StatusUnprocessableEntity,
-			expected:      response.Error(http.StatusInternalServerError, kafkaConnectionMessage),
-			expectedTopic: baseTopicName,
+			name:               "invalid-cleanup-policy",
+			streamsRequest:     validStreamsRequest,
+			tenantId:           tenantId,
+			streamId:           streamId1,
+			modelInError:       &invalidCleanupPolicyError,
+			mockResponse:       &StatusUnprocessableEntity,
+			expectedReturnCode: http.StatusBadRequest,
+			expectedError:      fmt.Errorf(invalidCleanupPolicyMessage),
+			expectedTopic:      baseTopicName,
 		},
 		{
-			name:                   "notification-conn-error",
-			args:                   validArgs,
-			modelNotificationError: &OtherError,
-			mockResponse:           &StatusUnprocessableEntity,
-			expected:               response.Error(http.StatusInternalServerError, kafkaConnectionMessage),
-			expectedTopic:          baseTopicName,
+			name:               "in-conn-error",
+			streamsRequest:     validStreamsRequest,
+			tenantId:           tenantId,
+			streamId:           streamId1,
+			modelInError:       &OtherError,
+			mockResponse:       &StatusUnprocessableEntity,
+			expectedReturnCode: http.StatusInternalServerError,
+			expectedError:      fmt.Errorf(kafkaConnectionMessage),
+			expectedTopic:      baseTopicName,
 		},
 		{
-			name:          "good-request-qualifier",
-			args:          validArgs,
-			expected:      response.Success(http.StatusCreated, map[string]interface{}{param.StreamId: streamId1}),
-			expectedTopic: baseTopicName,
-		},
-		{
-			name:          "good-request-no-qualifier",
-			args:          validArgsNoQualifier,
-			expected:      response.Success(http.StatusCreated, map[string]interface{}{param.StreamId: streamId2}),
-			expectedTopic: baseTopicNameNoQualifier,
+			name:               "good-request-no-qualifier-with-validation",
+			streamsRequest:     validStreamsRequest,
+			tenantId:           tenantId,
+			streamId:           streamId1,
+			validationEnabled:  true,
+			expectedReturnCode: http.StatusCreated,
+			expectedTopic:      baseTopicName,
+			expectedTopics: []string{
+				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.InSuffix,
+				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.NotificationSuffix,
+				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.OutSuffix,
+				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.InvalidSuffix,
+			},
 		},
 	}
 
 	for _, tc := range testCases {
-		validator := test.FakeValidator{
-			T: t,
-			Required: []param.Info{
-				{param.NumPartitions, reflect.Float64},
-				{param.RetentionMs, reflect.Float64},
-			},
-			Optional: []param.Info{
-				{param.CleanupPolicy, reflect.String},
-				{param.RetentionBytes, reflect.Float64},
-				{param.SegmentMs, reflect.Float64},
-				{param.SegmentBytes, reflect.Float64},
-				{param.SegmentIndexBytes, reflect.Float64},
-			},
-			Response: tc.validatorResponse,
-		}
-
 		controller := gomock.NewController(t)
 		defer controller.Finish()
 		mockService := test.NewMockService(controller)
 
 		var mockInErr error
 		var mockNotificationErr error
+		var mockOutErr error
+		var mockInvalidErr error
 		if tc.modelInError != nil {
 			mockInErr = errors.New(tc.modelInError.Message)
 		}
 		if tc.modelNotificationError != nil {
 			mockNotificationErr = errors.New(tc.modelNotificationError.Message)
+		}
+		if tc.modelOutError != nil {
+			mockOutErr = errors.New(tc.modelOutError.Message)
+		}
+		if tc.modelInvalidError != nil {
+			mockInvalidErr = errors.New(tc.modelInvalidError.Message)
 		}
 
 		mockService.
@@ -261,6 +247,18 @@ func TestCreate(t *testing.T) {
 
 		mockService.
 			EXPECT().
+			CreateTopic(context.Background(), getTestTopicRequest(tc.expectedTopic, eventstreams.OutSuffix)).
+			Return(nil, tc.mockResponse, mockOutErr).
+			MaxTimes(1)
+
+		mockService.
+			EXPECT().
+			CreateTopic(context.Background(), getTestTopicRequest(tc.expectedTopic, eventstreams.InvalidSuffix)).
+			Return(nil, tc.mockResponse, mockInvalidErr).
+			MaxTimes(1)
+
+		mockService.
+			EXPECT().
 			HandleModelError(mockInErr).
 			Return(tc.modelInError).
 			MaxTimes(1)
@@ -273,28 +271,52 @@ func TestCreate(t *testing.T) {
 
 		mockService.
 			EXPECT().
-			DeleteTopic(context.Background(), eventstreams.TopicPrefix+tc.expectedTopic+eventstreams.InSuffix).
-			Return(nil, nil, tc.deleteError).
+			HandleModelError(mockOutErr).
+			Return(tc.modelOutError).
+			MaxTimes(1)
+
+		mockService.
+			EXPECT().
+			HandleModelError(mockInvalidErr).
+			Return(tc.modelInvalidError).
 			MaxTimes(1)
 
 		t.Run(tc.name, func(t *testing.T) {
-			if actual := Create(tc.args, validator, mockService); !reflect.DeepEqual(tc.expected, actual) {
-				t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", tc.expected, actual))
+			topicsCreated, returnCode, err := Create(tc.streamsRequest, tc.tenantId, tc.streamId, tc.validationEnabled, requestId, mockService)
+
+			if tc.expectedTopics == nil {
+				tc.expectedTopics = make([]string, 0)
+			}
+
+			actualReturnedValues := map[string]interface{}{
+				"topicsCreated": topicsCreated,
+				"returnCode":    returnCode,
+				"errorMessage":  err,
+			}
+
+			expectedReturnValues := map[string]interface{}{
+				"topicsCreated": tc.expectedTopics,
+				"returnCode":    tc.expectedReturnCode,
+				"errorMessage":  tc.expectedError,
+			}
+
+			if !reflect.DeepEqual(expectedReturnValues, actualReturnedValues) {
+				t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", expectedReturnValues, actualReturnedValues))
 			}
 		})
 	}
 }
 
 func TestSetUpTopicConfigs(t *testing.T) {
-	var configsValue float64 = 10485760
+	var configsValue = 10485760
 	expectedConfigs := []es.ConfigCreate{
 		{
 			Name:  "retention.ms",
-			Value: strconv.Itoa(int(retentionMs)),
+			Value: strconv.Itoa(retentionMs),
 		},
 		{
 			Name:  "retention.bytes",
-			Value: strconv.Itoa(int(configsValue)),
+			Value: strconv.Itoa(configsValue),
 		},
 		{
 			Name:  "cleanup.policy",
@@ -302,37 +324,25 @@ func TestSetUpTopicConfigs(t *testing.T) {
 		},
 		{
 			Name:  "segment.ms",
-			Value: strconv.Itoa(int(configsValue)),
+			Value: strconv.Itoa(configsValue),
 		},
 		{
 			Name:  "segment.bytes",
-			Value: strconv.Itoa(int(configsValue)),
+			Value: strconv.Itoa(configsValue),
 		},
 		{
 			Name:  "segment.index.bytes",
-			Value: strconv.Itoa(int(configsValue)),
+			Value: strconv.Itoa(configsValue),
 		},
 	}
-	validArgs := map[string]interface{}{
-		param.RetentionMs:       retentionMs,
-		param.RetentionBytes:    configsValue,
-		param.CleanupPolicy:     "compact",
-		param.SegmentMs:         configsValue,
-		param.SegmentBytes:      configsValue,
-		param.SegmentIndexBytes: configsValue,
+	validArgs := model.CreateStreamsRequest{
+		RetentionMs:       getIntPointer(retentionMs),
+		RetentionBytes:    getIntPointer(configsValue),
+		CleanupPolicy:     getStringPointer("compact"),
+		SegmentMs:         getIntPointer(configsValue),
+		SegmentBytes:      getIntPointer(configsValue),
+		SegmentIndexBytes: getIntPointer(configsValue),
 	}
-	configs := setUpTopicConfigs(validArgs)
-	assert.Equal(t, expectedConfigs, configs)
-}
-
-func TestSetUpTopicConfigsNoExtras(t *testing.T) {
-	expectedConfigs := []es.ConfigCreate{
-		{
-			Name:  "retention.ms",
-			Value: strconv.Itoa(int(retentionMs)),
-		},
-	}
-	validArgs := map[string]interface{}{param.RetentionMs: retentionMs}
 	configs := setUpTopicConfigs(validArgs)
 	assert.Equal(t, expectedConfigs, configs)
 }
@@ -340,10 +350,150 @@ func TestSetUpTopicConfigsNoExtras(t *testing.T) {
 func getTestTopicRequest(streamName string, topicSuffix string) es.TopicCreateRequest {
 	return es.TopicCreateRequest{
 		Name:           eventstreams.TopicPrefix + streamName + topicSuffix,
-		PartitionCount: int64(numPartitions),
+		PartitionCount: numPartitions,
 		Configs: []es.ConfigCreate{{
 			Name:  "retention.ms",
-			Value: strconv.Itoa(int(retentionMs)),
+			Value: strconv.Itoa(retentionMs),
 		}},
+	}
+}
+
+func TestCreateRequestValidation(t *testing.T) {
+	testCases := []struct {
+		name                       string
+		request                    model.CreateStreamsRequest
+		expectedValidationFailures map[string]string
+	}{
+		{
+			name:    "missing required fields fail validation",
+			request: model.CreateStreamsRequest{
+				// Required fields omitted
+			},
+			expectedValidationFailures: map[string]string{
+				"TenantId":      "required",
+				"StreamId":      "required",
+				"NumPartitions": "required",
+				"RetentionMs":   "required",
+			},
+		},
+		{
+			name: "values smaller than minimum fail validation",
+			request: model.CreateStreamsRequest{
+				TenantId:          test.ValidTenantId,
+				StreamId:          test.ValidStreamId,
+				NumPartitions:     getInt64Pointer(-1),
+				RetentionMs:       getIntPointer(-1),
+				RetentionBytes:    getIntPointer(-1),
+				SegmentMs:         getIntPointer(-1),
+				SegmentBytes:      getIntPointer(-1),
+				SegmentIndexBytes: getIntPointer(-1),
+			},
+			expectedValidationFailures: map[string]string{
+				"NumPartitions":     "min",
+				"RetentionMs":       "min",
+				"RetentionBytes":    "min",
+				"SegmentMs":         "min",
+				"SegmentBytes":      "min",
+				"SegmentIndexBytes": "min",
+			},
+		},
+		{
+			name: "values bigger than maximum fail validation",
+			request: model.CreateStreamsRequest{
+				TenantId:          test.ValidTenantId,
+				StreamId:          test.ValidStreamId,
+				NumPartitions:     getInt64Pointer(100),
+				RetentionMs:       getIntPointer(2592000001),
+				RetentionBytes:    getIntPointer(1073741825),
+				SegmentMs:         getIntPointer(2592000001),
+				SegmentBytes:      getIntPointer(536870913),
+				SegmentIndexBytes: getIntPointer(104857601),
+			},
+			expectedValidationFailures: map[string]string{
+				"NumPartitions":     "max",
+				"RetentionMs":       "max",
+				"RetentionBytes":    "max",
+				"SegmentMs":         "max",
+				"SegmentBytes":      "max",
+				"SegmentIndexBytes": "max",
+			},
+		},
+		{
+			name: "invalid cleanupPolicy fails validation",
+			request: model.CreateStreamsRequest{
+				TenantId:      test.ValidTenantId,
+				StreamId:      test.ValidStreamId,
+				NumPartitions: getInt64Pointer(1),
+				RetentionMs:   getIntPointer(3600000),
+				CleanupPolicy: getStringPointer("bogus"),
+			},
+			expectedValidationFailures: map[string]string{
+				"CleanupPolicy": "oneof",
+			},
+		},
+		{
+			name: "delete is a valid cleanupPolicy",
+			request: model.CreateStreamsRequest{
+				TenantId:      test.ValidTenantId,
+				StreamId:      test.ValidStreamId,
+				NumPartitions: getInt64Pointer(1),
+				RetentionMs:   getIntPointer(3600000),
+				CleanupPolicy: getStringPointer("delete"),
+			},
+		},
+		{
+			name: "compact is a valid cleanupPolicy",
+			request: model.CreateStreamsRequest{
+				TenantId:      test.ValidTenantId,
+				StreamId:      test.ValidStreamId,
+				NumPartitions: getInt64Pointer(1),
+				RetentionMs:   getIntPointer(3600000),
+				CleanupPolicy: getStringPointer("compact"),
+			},
+		},
+		{
+			name: "valid request",
+			request: model.CreateStreamsRequest{
+				TenantId:          test.ValidTenantId,
+				StreamId:          test.ValidStreamId,
+				NumPartitions:     getInt64Pointer(1),
+				RetentionMs:       getIntPointer(3600000),
+				CleanupPolicy:     getStringPointer("compact"),
+				RetentionBytes:    getIntPointer(10485760),
+				SegmentMs:         getIntPointer(300000),
+				SegmentBytes:      getIntPointer(10485760),
+				SegmentIndexBytes: getIntPointer(102400),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			customValidator, _ := model.GetValidator()
+			err := customValidator.Validator.Struct(tc.request)
+
+			if validationErrors, isValidationErrors := err.(validator.ValidationErrors); isValidationErrors {
+				expectedInvalidFields := make([]string, len(tc.expectedValidationFailures))
+				for key := range tc.expectedValidationFailures {
+					expectedInvalidFields = append(expectedInvalidFields, key)
+				}
+				actualInvalidFields := make([]string, len(tc.expectedValidationFailures))
+
+				for _, fieldError := range validationErrors {
+					assert.Equal(t, tc.expectedValidationFailures[fieldError.StructField()], fieldError.Tag(),
+						fmt.Sprintf("Unexpected validation error for %s", fieldError.StructField()))
+					actualInvalidFields = append(actualInvalidFields, fieldError.StructField())
+				}
+
+				sort.Strings(actualInvalidFields)
+				sort.Strings(expectedInvalidFields)
+				if !reflect.DeepEqual(actualInvalidFields, expectedInvalidFields) {
+					t.Error(fmt.Sprintf("Expected invalid fields: [%v], actual invalid fields: [%v]",
+						expectedInvalidFields, actualInvalidFields))
+				}
+			} else if err != nil {
+				assert.Fail(t, "unexpectedly received InvalidValidationError", err)
+			}
+		})
 	}
 }

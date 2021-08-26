@@ -1,30 +1,24 @@
 #!/usr/bin/env bash
 set -x
-# Requires an HRI_API_KEY if authorization is enabled
 
 passing=0
 failing=0
 output=""
 
-# Acquire Service Endpoint
-healthcheckAction=$(ibmcloud fn action list | awk '/healthcheck/{print $1}')
-apiHost=$(ibmcloud fn property get --apihost | awk '{print $4}')
-healthcheckUrl="https://$apiHost/api/v1/web$healthcheckAction"
-
-echo 'Run Smoke Tests'
-
-# Don't display FN_WEB_SECURE_KEY
-set +x
-HRI_API_STATUS=$(curl --write-out "%{http_code}\n" --silent --output /dev/null "$healthcheckUrl" -H "X-Require-Whisk-Auth: $FN_WEB_SECURE_KEY")
-set -x
-if [ $HRI_API_STATUS -eq 200 ]; then
+./src/hri -config-path=test/spec/test_config/valid_config.yml -kafka-properties=security.protocol:sasl_ssl,sasl.mechanism:PLAIN,sasl.username:token,sasl.password:$KAFKA_PASSWORD,ssl.endpoint.identification.algorithm:https >/dev/null &
+sleep 1
+HRI_WEB_SERVER_STATUS=$(curl -k --write-out "%{http_code}\n" --silent "$HRI_URL/healthcheck" )
+if [ $HRI_WEB_SERVER_STATUS -eq 200 ]; then
   passing=$((passing+1))
   failure='/>'
 else
   failing=$((failing+1))
-  HRI_API_ERROR=$(curl "$healthcheckUrl" -H "X-Require-Whisk-Auth: ${FN_WEB_SECURE_KEY}")
-  failure="><failure message=\"Expected HRI API healthcheck status to return code 200\" type=\"FAILURE\">$HRI_API_ERROR</failure></testcase>"
+  HRI_API_ERROR=$(curl "$HRI_URL/healthcheck")
+  failure="><failure message=\"Expected HRI Web Server healthcheck status to return code 200\" type=\"FAILURE\">$HRI_API_ERROR</failure></testcase>"
 fi
+PROCESS_ID=$(lsof -iTCP:1323 -sTCP:LISTEN | grep -o '[0-9]\+' | sed 1q)
+kill $PROCESS_ID
+
 output="$output\n<testcase classname=\"HRI-API\" name=\"GET Healthcheck\" time=\"0\"${failure}"
 
 echo

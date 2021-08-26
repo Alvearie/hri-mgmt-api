@@ -11,7 +11,12 @@ src/testCoverage.out
 
 build/
 src/github.com
+src/hri
 pkg
+.gradle
+.DS_Store
+test/.idea
+test/jwt_assertion_tokens.json
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
@@ -26,3 +31,7 @@ test/jwt_assertion_tokens.json
 
 #VS Code:
 *.code-workspace
+
+# Docker test files
+docker/test.env
+

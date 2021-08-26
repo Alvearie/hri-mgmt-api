@@ -1,32 +1,34 @@
-# This creates an IBM Function's zipped actionloop executable for every *.go file in the base src/ directory.
-# Each of these files should have a 'main' method and use common/actionloopmin to implement the actionloop protocol.
+# This creates a binary executable file, src/hri, which creates a web server.
 # Also '// +build !tests' must be at the beginning of the file, so it is excluded from tests.
-MAINS:= $(wildcard src/*.go)
-BUILD:=build
-BIN:=$(MAINS:src/%.go=$(BUILD)/%-bin.zip)
+# While the other functions are still in an unconverted state, they will also contain an // +build ignore which prevents the compiler from complaining about there being several definitions of func main().
+HRI:=./src/hri
 SRCS:=$(find src -name *.go)
+TEST:=./src/testCoverage.out
 
-# Multiple builds on the same input files is causing the Makefile's automatic rebuild only on dependency file modification to not work properly. Added clean to the default build, so the actions are always built.
-bins: clean test format $(BIN)
+$(HRI): clean format tidy $(TEST) src/go.mod src/go.sum $(SRCS)
+	cd src; go build
 
-$(BIN): $(SRCS) src/go.mod src/go.sum $(BUILD)
-	cd src; GOOS=linux GOACH=amd64 go build -o exec $(@:$(BUILD)/%-bin.zip=%.go)
-	cd src; zip ../$@ -qr exec
-	rm src/exec
+test: clean $(TEST)
 
 # '-tags tests' is used to excluded the multiple main declarations from test builds
-# GOPRIVATE environment variable needs to be set in order for this project to be able to access the private Resource Controller golang client
-test:
+$(TEST): $(SRCS) src/go.mod src/go.sum
 	cd src; go test -coverprofile testCoverage.out ./... -v -tags tests
+
+coverage:
+	cd src; go tool cover -html=testCoverage.out
 
 format:
 	cd src; go fmt ./...
 
-clean:
-	-rm -f $(BUILD)/*.zip 2>/dev/null
+tidy:
+	cd src; go mod tidy
 
-$(BUILD):
-	mkdir $(BUILD)
+deps:
+	cd src; go list -m all
+
+clean:
+	-rm ./src/hri
+	-rm ./src/testCoverage.out
 
 # targets that don't produce physical files and get run every time
-.PHONY: test clean
+.PHONY: coverage clean format tidy deps

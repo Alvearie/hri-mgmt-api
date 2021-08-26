@@ -8,112 +8,115 @@ package elastic
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/elastic/go-elasticsearch/v6/esapi"
-	"log"
+	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"net/http"
 )
 
-const msgClientErr string = "Elastic client error: %s"
-const MsgNilResponse string = "Elastic client returned nil response without an error"
-const msgParseErr string = "Error parsing the Elastic search response body: %s"
-const msgDocNotFound string = "The document for tenantId: %s with document (batch) ID: %s was not found"
-const msgResponseErr string = "%s: %s"
-const msgUnexpectedErr string = "Unexpected Elastic Error - %s"
-const msgTransformResult string = "Error transforming result -> %s"
+const msgClientErr string = "elasticsearch client error: %w"
+const MsgNilResponse string = "elasticsearch client returned nil response without an error"
+const msgParseErr string = "error parsing the Elasticsearch response body: %w"
+const msgUnexpectedErr string = "unexpected Elasticsearch %d error"
+const msgEmptyResultErr string = "unexpected empty result"
 
-func handleNotFound(body map[string]interface{}, tenantId string, logger *log.Logger) (string, map[string]interface{}) {
-	var msg string
-	var rtnBody map[string]interface{}
-	if foundFlag, ok := body["found"]; ok {
-		if foundFlag == false { //handle HTTP 404/NotFound errors
-			logger.Println("got 'found=false' -> Find batchId...")
-			batchId := body["_id"]
-			msg = fmt.Sprintf(msgDocNotFound, tenantId, batchId)
-			rtnBody = map[string]interface{}{"error": fmt.Sprintf(msgDocNotFound, tenantId, batchId)}
-		}
-	}
-	return msg, rtnBody
-}
-
-// If error is nil, attempts to parse the json body of the Response.
-// If successful, returns parsed body and optionally an error map, otherwise returns nil body and an error map.
-// Note that this function will close the Response Body before returning.
-func DecodeBody(res *esapi.Response, err error, tenantId string, logger *log.Logger) (map[string]interface{}, map[string]interface{}) {
-	respErr := handleRespErr(err, logger, res)
-	if respErr != nil {
-		return nil, respErr
+func DecodeBody(res *esapi.Response, elasticClientError error) (map[string]interface{}, *ResponseError) {
+	err := checkForClientErr(res, elasticClientError)
+	if err != nil {
+		return nil, err
 	}
 
 	defer res.Body.Close()
 
 	var body map[string]interface{}
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		msg := fmt.Sprintf(msgParseErr, err.Error())
-		logger.Println(msg)
-		return nil, response.Error(http.StatusInternalServerError, msg)
+		err = fmt.Errorf(msgParseErr, err)
+		return nil, &ResponseError{ErrorObj: err, Code: http.StatusInternalServerError}
 	}
 
 	if res.IsError() {
-		var msg string
 		if errBody, ok := body["error"].(map[string]interface{}); ok {
-			if rootCause, ok := errBody["root_cause"].(map[string]interface{}); ok {
-				msg = fmt.Sprintf(msgResponseErr, rootCause["type"], rootCause["reason"])
-			} else {
-				msg = fmt.Sprintf(msgResponseErr, errBody["type"], errBody["reason"])
-			}
-		} else if body["found"] != nil {
-			msg, body = handleNotFound(body, tenantId, logger)
-		} else { //Default: err handler -> No "error" element in body
-			msg = fmt.Sprintf(msgUnexpectedErr, body)
-			return nil, response.Error(http.StatusInternalServerError, msg)
+			return nil, getErrorFromElasticErrorResponse(errBody, res.StatusCode)
+		} else if errMsg, ok := body["error"].(string); ok {
+			return nil, &ResponseError{ErrorObj: fmt.Errorf(errMsg), Code: res.StatusCode}
 		}
 
-		logger.Println(msg)
-		return body, response.Error(res.StatusCode, msg)
+		// Elastic returned an error code, but no error information was returned in the response. This is normal Elastic
+		//   behavior for some endpoints, most notably when a document isn't found using the Get Document API.
+		return body, &ResponseError{ErrorObj: nil, Code: res.StatusCode}
 	}
 
 	return body, nil
 }
 
-func DecodeBodyFromJsonArray(res *esapi.Response, err error, logger *log.Logger) ([]map[string]interface{}, map[string]interface{}) {
-	respErr := handleRespErr(err, logger, res)
+func getErrorFromElasticErrorResponse(elasticError map[string]interface{}, statusCode int) *ResponseError {
+	errorType := elasticError["type"].(string)
+	err := fmt.Errorf("%s: %s", errorType, elasticError["reason"].(string))
+
+	if rootCauses, ok := elasticError["root_cause"].([]interface{}); ok && len(rootCauses) > 0 {
+		// The elastic error returned a root_cause section with more detailed error information.
+
+		// Elastic's root_cause field contains a list of root causes. However, only one root cause is usually present,
+		//   so only the first root cause will be returned in the response.
+		rootCause := rootCauses[0].(map[string]interface{})
+		rootCauseType := rootCause["type"].(string)
+
+		if rootCauseType != errorType {
+			// Elastic will often duplicate the error "type" and "reason" in the root_cause section, so the additional error
+			//   information is not added if both error and root_error types are identical.
+			rootCauseErr := fmt.Errorf("%s: %s", rootCauseType, rootCause["reason"])
+			return &ResponseError{ErrorObj: fmt.Errorf("%v: %w", err, rootCauseErr), Code: statusCode,
+				ErrorType: errorType, RootCause: rootCauseType}
+		}
+	}
+
+	return &ResponseError{ErrorObj: err, Code: statusCode, ErrorType: errorType}
+}
+
+func DecodeBodyFromJsonArray(res *esapi.Response, err error) ([]map[string]interface{}, *ResponseError) {
+	clientErr := checkForClientErr(res, err)
+	if clientErr != nil {
+		return nil, clientErr
+	}
+
+	defer res.Body.Close()
+
+	if res.IsError() {
+		// If an error occurred, then the response is (probably) an elastic error
+		_, elasticErr := DecodeBody(res, err)
+		if elasticErr != nil && len(elasticErr.ErrorType) != 0 {
+			// DecodeBody was able to extract error information
+			return nil, elasticErr
+		}
+
+		// DecodeBody wasn't able to extract error information, or the response was in some unanticipated format.
+		return nil, &ResponseError{ErrorObj: fmt.Errorf(msgUnexpectedErr, res.StatusCode), Code: http.StatusInternalServerError}
+	}
+
 	var body []map[string]interface{}
-	if respErr != nil {
-		return body, respErr
-	}
-
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		msg := fmt.Sprintf(msgParseErr, err.Error())
-		logger.Println(msg)
-		return nil, response.Error(http.StatusInternalServerError, msg)
+	if parseErr := json.NewDecoder(res.Body).Decode(&body); parseErr != nil {
+		return nil, &ResponseError{ErrorObj: fmt.Errorf(msgParseErr, parseErr), Code: http.StatusInternalServerError}
 	}
 
 	return body, nil
 }
 
-func DecodeFirstArrayElement(res *esapi.Response, err error, logger *log.Logger) (map[string]interface{}, map[string]interface{}) {
-	decoded, errResp := DecodeBodyFromJsonArray(res, err, logger)
+func DecodeFirstArrayElement(res *esapi.Response, err error) (map[string]interface{}, *ResponseError) {
+	decoded, errResp := DecodeBodyFromJsonArray(res, err)
 	if errResp != nil {
 		return nil, errResp
 	}
 
 	if len(decoded) == 0 {
-		msg := fmt.Sprintf(msgTransformResult, "Uh-Oh: we got no Object inside this ElasticSearch Results Array")
-		logger.Println(msg)
-		return nil, response.Error(http.StatusInternalServerError, msg)
+		return nil, &ResponseError{ErrorObj: fmt.Errorf(msgEmptyResultErr), Code: http.StatusInternalServerError}
 	}
-	return decoded[0], errResp
+
+	return decoded[0], nil
 }
 
-func handleRespErr(err error, logger *log.Logger, res *esapi.Response) map[string]interface{} {
+func checkForClientErr(res *esapi.Response, err error) *ResponseError {
 	if err != nil {
-		msg := fmt.Sprintf(msgClientErr, err.Error())
-		logger.Println(msg)
-		return response.Error(http.StatusInternalServerError, msg)
+		return &ResponseError{ErrorObj: fmt.Errorf(msgClientErr, err), Code: http.StatusInternalServerError}
 	} else if res == nil {
-		logger.Print(MsgNilResponse)
-		return response.Error(http.StatusInternalServerError, MsgNilResponse)
+		return &ResponseError{ErrorObj: fmt.Errorf(MsgNilResponse), Code: http.StatusInternalServerError}
 	}
 	return nil
 }

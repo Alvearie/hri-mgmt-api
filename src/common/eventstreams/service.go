@@ -7,16 +7,14 @@ package eventstreams
 
 import (
 	"context"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
 	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
+	configPkg "ibm.com/watson/health/foundation/hri/common/config"
 	"net/http"
 )
 
 const (
-	kafkaAdminUrl     string = "kafka_admin_url"
 	bearerTokenHeader string = "authorization"
-	MissingHeaderMsg  string = "Missing header 'Authorization'"
+	MissingHeaderMsg  string = "missing header 'Authorization'"
 	UnauthorizedMsg   string = "Unauthorized to manage resource"
 )
 
@@ -31,7 +29,7 @@ type EventStreamsConnect struct {
 	*es.DefaultApiService
 }
 
-// This method is a part of the Service interface solely for the purpose of mocking it in unit tests to cover all error cases
+// HandleModelError is a part of the Service interface solely for the purpose of mocking it in unit tests to cover all error cases
 func (connect EventStreamsConnect) HandleModelError(err error) *es.ModelError {
 	if err != nil {
 		genericError, ok := err.(es.GenericOpenAPIError)
@@ -44,25 +42,10 @@ func (connect EventStreamsConnect) HandleModelError(err error) *es.ModelError {
 	return nil
 }
 
-func CreateService(params map[string]interface{}) (Service, map[string]interface{}) {
-	conf := es.NewConfiguration()
-	adminUrl, err := param.ExtractString(params, kafkaAdminUrl)
-	if err != nil {
-		return nil, response.Error(http.StatusInternalServerError, err.Error())
-	}
-	conf.BasePath = adminUrl
-
-	headerMap, err := param.ExtractValues(params, param.OwHeaders)
-	if err != nil {
-		return nil, response.Error(http.StatusInternalServerError, err.Error())
-	}
-
-	bearerToken := headerMap[bearerTokenHeader]
-	if bearerToken == nil {
-		return nil, response.Error(http.StatusUnauthorized, MissingHeaderMsg)
-	}
-	conf.AddDefaultHeader(bearerTokenHeader, bearerToken.(string))
-
-	client := es.NewAPIClient(conf)
-	return EventStreamsConnect{client.DefaultApi}, nil
+func CreateServiceFromConfig(config configPkg.Config, bearerToken string) Service {
+	esConfig := es.NewConfiguration()
+	esConfig.BasePath = config.KafkaAdminUrl
+	esConfig.AddDefaultHeader(bearerTokenHeader, bearerToken)
+	client := es.NewAPIClient(esConfig)
+	return EventStreamsConnect{client.DefaultApi}
 }
