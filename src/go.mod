@@ -1,4 +1,4 @@
-module ibm.com/watson/health/foundation/hri
+module github.com/Alvearie/hri-mgmt-api
 
 require (
 	github.com/IBM/event-streams-go-sdk-generator v1.0.0

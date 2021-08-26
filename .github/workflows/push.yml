@@ -34,7 +34,8 @@ jobs:
         curl -sL https://ibm.biz/idt-installer | bash
         ibmcloud plugin install doi
         go get -u github.com/jstemmer/go-junit-report
-        ibmcloud login --apikey $CLOUD_API_KEY -r us-south
+        ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; travis_terminate 1; }
+        ibmcloud plugin install event-streams
         ./run-unittests.sh
         make bins
         NAMESPACE="$GITHUB_REF" ./deploy.sh --skipSecureApi
