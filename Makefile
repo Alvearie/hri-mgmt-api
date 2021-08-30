@@ -6,7 +6,7 @@ SRCS:=$(find src -name *.go)
 TEST:=./src/testCoverage.out
 
 $(HRI): clean format tidy $(TEST) src/go.mod src/go.sum $(SRCS)
-	cd src; go build
+	cd src; go build -o hri
 
 test: clean $(TEST)
 
