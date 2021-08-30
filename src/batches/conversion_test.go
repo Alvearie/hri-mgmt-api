@@ -6,7 +6,7 @@
 package batches
 
 import (
-	"ibm.com/watson/health/foundation/hri/batches/status"
+	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"reflect"
 	"testing"
 )

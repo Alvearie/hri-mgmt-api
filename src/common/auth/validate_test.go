@@ -10,15 +10,60 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/coreos/go-oidc"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"ibm.com/watson/health/foundation/hri/common/response"
 	"net/http"
 	"os"
 	"reflect"
 	"testing"
 )
+
+// this is for manual testing with a specific OIDC provider (AppID)
+func /*Test*/ OidcLib(t *testing.T) {
+	const iss = "https://us-south.appid.cloud.ibm.com/oauth/v4/12345"
+	const audienceId = "b8f85fbe-b00a-4296-b54b-e9ec09a5b2f3"
+	username := os.Getenv("APPID_USERNAME")
+	password := os.Getenv("APPID_PASSWORD")
+
+	// First get a token from AppID
+	request, err := http.NewRequest("POST", iss+"/token", bytes.NewBuffer([]byte("grant_type=client_credentials&audience="+audienceId)))
+	if err != nil {
+		t.Fatalf("Error creating new http request: %v", err)
+	}
+	request.SetBasicAuth(username, password)
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := http.Client{}
+	resp, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("Error executing AppID token POST: %v", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		t.Fatalf("Non 200 from AppID token POST: %v", resp)
+	}
+
+	var body map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("Error decoding AppID token response: %v", err)
+	}
+
+	validator := theValidator{
+		issuer:      iss,
+		audienceId:  audienceId,
+		providerNew: newProvider,
+	}
+
+	_, errResp := validator.getSignedToken(requestId, body["access_token"].(string))
+
+	if errResp != nil {
+		t.Fatalf("Error: %v", errResp)
+	}
+}
 
 type fakeClaimsHolder struct {
 	claims HriClaims

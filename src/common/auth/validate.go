@@ -8,9 +8,9 @@ package auth
 import (
 	"context"
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/coreos/go-oidc"
-	"ibm.com/watson/health/foundation/hri/common/logwrapper"
-	"ibm.com/watson/health/foundation/hri/common/response"
 	"net/http"
 	"strings"
 )

@@ -8,9 +8,9 @@ package batches
 import (
 	"errors"
 	"fmt"
-	"ibm.com/watson/health/foundation/hri/batches/status"
-	"ibm.com/watson/health/foundation/hri/common/param"
-	"ibm.com/watson/health/foundation/hri/common/param/esparam"
+	"github.com/Alvearie/hri-mgmt-api/batches/status"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
+	"github.com/Alvearie/hri-mgmt-api/common/param/esparam"
 	"strings"
 )
 

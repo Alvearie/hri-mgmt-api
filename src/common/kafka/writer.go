@@ -8,8 +8,8 @@ package kafka
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"ibm.com/watson/health/foundation/hri/common/config"
 	"strings"
 )
 

@@ -8,9 +8,9 @@ package streams
 import (
 	"context"
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
-	"ibm.com/watson/health/foundation/hri/common/eventstreams"
-	"ibm.com/watson/health/foundation/hri/common/logwrapper"
 	"net/http"
 	"strings"
 )

@@ -6,7 +6,7 @@
 package test
 
 import (
-	"ibm.com/watson/health/foundation/hri/common/param"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"reflect"
 	"testing"
 )

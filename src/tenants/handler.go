@@ -7,14 +7,14 @@
 package tenants
 
 import (
+	"github.com/Alvearie/hri-mgmt-api/common/config"
+	"github.com/Alvearie/hri-mgmt-api/common/elastic"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
+	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/labstack/echo/v4"
-	"ibm.com/watson/health/foundation/hri/common/config"
-	"ibm.com/watson/health/foundation/hri/common/elastic"
-	"ibm.com/watson/health/foundation/hri/common/logwrapper"
-	"ibm.com/watson/health/foundation/hri/common/model"
-	"ibm.com/watson/health/foundation/hri/common/param"
-	"ibm.com/watson/health/foundation/hri/common/response"
 	"net/http"
 )
 

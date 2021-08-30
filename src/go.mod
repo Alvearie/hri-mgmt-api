@@ -17,6 +17,7 @@ require (
 	github.com/newrelic/go-agent/v3/integrations/nrecho-v4 v1.0.1
 	github.com/peterbourgon/ff/v3 v3.1.0
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
+	github.com/segmentio/kafka-go v0.4.17
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect

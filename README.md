@@ -35,7 +35,7 @@ cd src; go test ./... -v -tags tests
     --- PASS: TestEsDocToBatch/example1 (0.00s)
 ...
 PASS
-ok  	ibm.com/watson/health/foundation/hri/healthcheck	2.802s
+ok  	github.com/Alvearie/hri-mgmt-api/healthcheck	2.802s
 cd src; GOOS=linux GOACH=amd64 go build -o exec batches_create.go
 cd src; zip ../build/batches_create-bin.zip -qr exec
 rm src/exec

@@ -14,9 +14,9 @@ import (
 	context "context"
 	reflect "reflect"
 
+	response "github.com/Alvearie/hri-mgmt-api/common/response"
 	go_oidc "github.com/coreos/go-oidc"
 	gomock "github.com/golang/mock/gomock"
-	response "ibm.com/watson/health/foundation/hri/common/response"
 )
 
 // MockValidator is a mock of Validator interface.

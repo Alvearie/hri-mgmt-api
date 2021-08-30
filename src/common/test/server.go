@@ -7,8 +7,8 @@
 package test
 
 import (
+	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/labstack/echo/v4"
-	"ibm.com/watson/health/foundation/hri/common/model"
 	"net/http"
 	"net/http/httptest"
 )

@@ -9,8 +9,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/test"
 	"github.com/stretchr/testify/assert"
-	"ibm.com/watson/health/foundation/hri/common/test"
 	"os"
 	"reflect"
 	"testing"

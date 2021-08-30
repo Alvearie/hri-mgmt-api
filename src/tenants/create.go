@@ -7,10 +7,10 @@ package tenants
 
 import (
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/elastic"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/elastic/go-elasticsearch/v7"
-	"ibm.com/watson/health/foundation/hri/common/elastic"
-	"ibm.com/watson/health/foundation/hri/common/logwrapper"
-	"ibm.com/watson/health/foundation/hri/common/param"
 	"net/http"
 )
 

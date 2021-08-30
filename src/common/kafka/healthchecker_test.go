@@ -8,9 +8,9 @@ package kafka
 import (
 	"errors"
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/stretchr/testify/assert"
-	"ibm.com/watson/health/foundation/hri/common/config"
 	"testing"
 )
 

@@ -8,11 +8,11 @@ package main
 
 import (
 	"errors"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
+	"github.com/Alvearie/hri-mgmt-api/common/test"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
-	"ibm.com/watson/health/foundation/hri/common/model"
-	"ibm.com/watson/health/foundation/hri/common/param"
-	"ibm.com/watson/health/foundation/hri/common/test"
 	"net/http"
 	"net/http/httptest"
 	"runtime/debug"

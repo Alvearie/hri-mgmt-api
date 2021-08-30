@@ -6,9 +6,9 @@
 package tenants
 
 import (
+	"github.com/Alvearie/hri-mgmt-api/common/elastic"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/elastic/go-elasticsearch/v7"
-	"ibm.com/watson/health/foundation/hri/common/elastic"
-	"ibm.com/watson/health/foundation/hri/common/logwrapper"
 	"net/http"
 )
 

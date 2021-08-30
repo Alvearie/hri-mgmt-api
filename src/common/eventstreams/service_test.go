@@ -7,9 +7,9 @@ package eventstreams
 
 import (
 	"errors"
+	"github.com/Alvearie/hri-mgmt-api/common/config"
 	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
 	"github.com/stretchr/testify/assert"
-	"ibm.com/watson/health/foundation/hri/common/config"
 	"testing"
 )
 

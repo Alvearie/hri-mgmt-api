@@ -8,17 +8,17 @@ package batches
 
 import (
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/batches/status"
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
+	"github.com/Alvearie/hri-mgmt-api/common/config"
+	"github.com/Alvearie/hri-mgmt-api/common/elastic"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
+	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	"ibm.com/watson/health/foundation/hri/batches/status"
-	"ibm.com/watson/health/foundation/hri/common/auth"
-	"ibm.com/watson/health/foundation/hri/common/config"
-	"ibm.com/watson/health/foundation/hri/common/elastic"
-	"ibm.com/watson/health/foundation/hri/common/kafka"
-	"ibm.com/watson/health/foundation/hri/common/logwrapper"
-	"ibm.com/watson/health/foundation/hri/common/model"
-	"ibm.com/watson/health/foundation/hri/common/response"
 	"net/http"
 )
 

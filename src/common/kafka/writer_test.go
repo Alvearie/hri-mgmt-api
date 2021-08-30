@@ -9,10 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"ibm.com/watson/health/foundation/hri/common/config"
 	"testing"
 )
 
