@@ -61,5 +61,5 @@ jobs:
         FN_WEB_SECURE_KEY: ${{ secrets.FN_WEB_SECURE_KEY }}
         HRI_API_KEY: ${{ secrets.HRI_API_KEY }}
         GIT_API_KEY: ${{ secrets.GIT_API_KEY }}
-        SASL_PLAIN_PASSWORD: ${{ secrets.SASL_PLAIN_PASSWORD }}
+        KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
         ASOC_KEY_SECRET: ${{ secrets.ASOC_KEY_SECRET }}

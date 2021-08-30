@@ -19,7 +19,7 @@ describe 'HRI Management API ' do
     @elastic = ElasticHelper.new
     @cos_helper = COSHelper.new
 
-    @kafka = Kafka.new(KAFKA_BROKERS, sasl_plain_username: 'token', sasl_plain_password: ENV['SASL_PLAIN_PASSWORD'], ssl_ca_certs_from_system: true)
+    @kafka = Kafka.new(KAFKA_BROKERS, sasl_plain_username: 'token', sasl_plain_password: ENV['KAFKA_PASSWORD'], ssl_ca_certs_from_system: true)
     @kafka_consumer = @kafka.consumer(group_id: 'rspec-test-consumer')
     @kafka_consumer.subscribe("ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.notification")
 
