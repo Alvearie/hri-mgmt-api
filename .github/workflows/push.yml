@@ -34,8 +34,7 @@ jobs:
         ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; travis_terminate 1; }
         ibmcloud plugin install event-streams
         ./run-unittests.sh
-        NAMESPACE="$GITHUB_REF" ./deploy.sh --skipSecureApi
-        ./run-dreddtests.sh
+        ./run-smoketests.sh
       env:
         TENANT_ID: Test
         TOOLCHAIN_ID: 55446d64-25c7-40a0-9af9-440d1b409f76
