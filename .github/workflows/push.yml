@@ -54,7 +54,9 @@ jobs:
         ELASTIC_SVC_ACCOUNT: elastic-search-credential
         KAFKA_INSTANCE: hri-dev1-event-streams
         KAFKA_SVC_ACCOUNT: event-streams-credential
+        HRI_URL: https://localhost:1323/hri
         CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
+        ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
         ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
         FN_WEB_SECURE_KEY: ${{ secrets.FN_WEB_SECURE_KEY }}
         HRI_API_KEY: ${{ secrets.HRI_API_KEY }}
