@@ -59,6 +59,9 @@ jobs:
       run: ./run-smoketests.sh
 
     - name: Install Ruby
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       run: |
         gpg --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
         curl -sSL https://get.rvm.io | bash -s stable --ruby
@@ -67,8 +70,8 @@ jobs:
         rvm list
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
-        printf '%s\n' "$SSH_PRIVATE_KEY" > git_deploy_key
-        chmod 600 git_deploy_key
-        eval "$(ssh-agent -s)"
-        setsid ssh-add git_deploy_key </dev/null
+#        printf '%s\n' "$SSH_PRIVATE_KEY" > git_deploy_key
+#        chmod 600 git_deploy_key
+#        eval "$(ssh-agent -s)"
+#        setsid ssh-add git_deploy_key </dev/null
         gem specific_install -l git@github.ibm.com:wffh-hri/hri-test-helpers.git -b main
