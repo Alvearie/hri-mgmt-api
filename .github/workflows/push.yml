@@ -70,6 +70,5 @@ jobs:
         echo $SSH_PRIVATE_KEY > git_deploy_key
         chmod 600 git_deploy_key
         eval "$(ssh-agent -s)"
-        ssh-keygen -H  -F github.ibm.com
         setsid ssh-add git_deploy_key </dev/null
         gem specific_install -l https://github.ibm.com/wffh-hri/hri-test-helpers.git -b main
