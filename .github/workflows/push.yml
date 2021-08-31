@@ -60,6 +60,12 @@ jobs:
     - name: Run Smoke Tests
       run: ./run-smoketests.sh
 
+    - name: Checkout hri-test-helpers gem
+      uses: actions/checkout@v2
+      with:
+        repository: https://github.ibm.com/wffh-hri/hri-test-helpers.git
+        ssh-key: $SSH_PRIVATE_KEY
+
     - name: Install Ruby and Gems
       run: |
         ls -a ~
