@@ -68,6 +68,9 @@ jobs:
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
         echo $SSH_PRIVATE_KEY > git_deploy_key
+        echo $REGION > test_file
+        cat test_file
+        echo "End of File"
         chmod 600 git_deploy_key
         eval "$(ssh-agent -s)"
         setsid ssh-add git_deploy_key </dev/null
