@@ -29,6 +29,7 @@ jobs:
       KAFKA_INSTANCE: hri-dev1-event-streams
       KAFKA_SVC_ACCOUNT: event-streams-credential
       HRI_URL: https://localhost:1323/hri
+      SSH_AUTH_SOCK: /tmp/ssh_agent.sock
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
       ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
@@ -59,12 +60,6 @@ jobs:
     - name: Run Smoke Tests
       run: ./run-smoketests.sh
 
-    - name: Install SSH Key
-      uses: shimataro/ssh-key-action@v2
-      with:
-        key: $SSH_PRIVATE_KEY
-        known_hosts: $SSH_HOST
-
     - name: Install Ruby and Gems
       run: |
         gpg --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
@@ -74,4 +69,9 @@ jobs:
         rvm list
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
+        ssh-keyscan github.ibm.com >> /home/runner/.ssh/known_hosts
+        echo $SSH_PRIVATE_KEY > /home/runner/.ssh/github_actions
+        chmod 600 /home/runner/.ssh/github_actions
+        ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+        ssh-add /home/runner/.ssh/github_actions
         gem specific_install -l git@github.ibm.com:wffh-hri/hri-test-helpers.git -b main
