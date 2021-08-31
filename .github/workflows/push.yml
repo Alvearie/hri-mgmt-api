@@ -74,4 +74,4 @@ jobs:
         rvm list
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
-        gem specific_install -l https://github.ibm.com/wffh-hri/hri-test-helpers.git -b main
+        gem specific_install -l git@github.ibm.com:wffh-hri/hri-test-helpers.git -b main
