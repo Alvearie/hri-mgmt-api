@@ -37,6 +37,7 @@ jobs:
       GIT_API_KEY: ${{ secrets.GIT_API_KEY }}
       KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
       ASOC_KEY_SECRET: ${{ secrets.ASOC_KEY_SECRET }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
     steps:
     - name: Set up Go 1.13
@@ -57,13 +58,6 @@ jobs:
     - name: Run Smoke Tests
       run: ./run-smoketests.sh
 
-    - name: Install SSH Key
-      uses: shimataro/ssh-key-action@v2
-      with:
-        key: ${{ secrets.PRIVATE_SSH_KEY }}
-        name: git_deploy_key
-        known_hosts: ${{ secrets.SSH_HOST }}
-
     - name: Install Ruby and Gems
       run: |
         gpg --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
@@ -73,4 +67,8 @@ jobs:
         rvm list
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
+        echo $SSH_PRIVATE_KEY > git_deploy_key
+        chmod 600 git_deploy_key
+        eval "$(ssh-agent -s)"
+        setsid ssh-add git_deploy_key </dev/null
         gem specific_install -l https://github.ibm.com/wffh-hri/hri-test-helpers.git -b main
