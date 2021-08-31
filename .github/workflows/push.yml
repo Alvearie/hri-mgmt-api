@@ -72,4 +72,4 @@ jobs:
         eval "$(ssh-agent -s)"
         ssh-keygen -H  -F github.ibm.com
         setsid ssh-add git_deploy_key </dev/null
-        gem specific_install -l git@github.ibm.com:wffh-hri/hri-test-helpers.git -b main
+        gem specific_install -l https://github.ibm.com/wffh-hri/hri-test-helpers.git -b main
