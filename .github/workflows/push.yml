@@ -60,12 +60,14 @@ jobs:
     - name: Run Smoke Tests
       run: ./run-smoketests.sh
 
-    - name: Checkout hri-test-helpers gem
-      uses: actions/checkout@v2
+    - name: Install SSH key
+      uses: shimataro/ssh-key-action@v2
       with:
-        repository: https://github.ibm.com/wffh-hri/hri-test-helpers.git
-        ssh-key: $SSH_PRIVATE_KEY
-
+        key: $SSH_PRIVATE_KEY
+        name: git_deploy_key
+        known_hosts: $SSH_HOST
+        if_key_exists: fail
+        
     - name: Install Ruby and Gems
       run: |
         ls -a ~
@@ -77,9 +79,4 @@ jobs:
         rvm list
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
-        ssh-keyscan github.ibm.com >> ~/.ssh/known_hosts
-        echo $SSH_PRIVATE_KEY > ~/.ssh/github_actions
-        chmod 600 ~/.ssh/github_actions
-        ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-        ssh-add ~/.ssh/github_actions
         gem specific_install -l git@github.ibm.com:wffh-hri/hri-test-helpers.git -b main
