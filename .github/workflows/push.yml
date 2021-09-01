@@ -69,6 +69,9 @@ jobs:
         rvm list
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
+        mkdir ~/.ssh
+        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
         eval "$(ssh-agent -s)"
-        ssh-add - <<< "${SSH_PRIVATE_KEY}"
+        ssh-keyscan -t rsa github.ibm.com
         gem specific_install -l git@github.ibm.com:wffh-hri/hri-test-helpers.git -b main
