@@ -64,7 +64,7 @@ jobs:
       uses: PhutureCorp/container-ssh-agent@v0.0.1
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-        home-dir: "~/"
+        home-dir: "~/home/runner"
         
     - name: Install Ruby and Gems
       run: |
