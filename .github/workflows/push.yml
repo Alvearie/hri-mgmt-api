@@ -71,7 +71,8 @@ jobs:
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
         mkdir ~/.ssh
         echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
+        chmod 600 id_rsa
         eval "$(ssh-agent -s)"
         ssh-keyscan -t rsa github.ibm.com
+        setsid ssh-add id_rsa </dev/null
         gem specific_install -l git@github.ibm.com:wffh-hri/hri-test-helpers.git -b main
