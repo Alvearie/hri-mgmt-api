@@ -10,11 +10,10 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
     env:
-      TENANT_ID: Test
+      TENANT_ID: test
       TOOLCHAIN_ID: 55446d64-25c7-40a0-9af9-440d1b409f76
       ELASTIC_URL: https://c9acb36a-0feb-4b6e-aac1-6651c71d19e4.2adb0220806343e3ae11df79c89b377f.databases.appdomain.cloud:32085
       ELASTIC_CERT_FILE: elastic-cert64
-      ELASTIC_USER: ibm_cloud_1a27be2f_c7eb_4395_9cc4_71940b7f75d8
       COS_URL: https://s3.us-east.cloud-object-storage.appdomain.cloud
       IAM_CLOUD_URL: https://iam.cloud.ibm.com
       EVENTSTREAMS_BROKERS: broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093
@@ -32,6 +31,9 @@ jobs:
       SSH_AUTH_SOCK: /tmp/ssh_agent.sock
       API_SPEC_DEV_BRANCH: main
       API_SPEC_TAG: v3.0-2.0.1
+      APPID_URL: https://us-east.appid.cloud.ibm.com
+      APPID_TENANT: 0f389ea4-778e-4831-9b29-6156c4c1df1e
+      JWT_AUDIENCE_ID: 21e7d376-9cdb-4a9d-a11f-9b76c007244d
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
       ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}

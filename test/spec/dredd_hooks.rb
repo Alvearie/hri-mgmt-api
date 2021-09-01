@@ -7,7 +7,7 @@ require_relative '../env'
 include DreddHooks::Methods
 
 DREDD_TENANT_ID = 'provider1234'
-TENANT_ID_TENANTS_STREAMS = "#{ENV['TRAVIS_BRANCH'].tr('.-', '')}".downcase
+TENANT_ID_TENANTS_STREAMS = "#{ENV['GITHUB_REF'].tr('.-', '')}".downcase
 TENANT_ID_BATCHES = ENV['TENANT_ID']
 
 elastic = HRITestHelpers::ElasticHelper.new({url: ENV['ELASTIC_URL'], username: ENV['ELASTIC_USERNAME'], password: ENV['ELASTIC_PASSWORD']})
@@ -16,8 +16,8 @@ before_all do |transactions|
   puts 'before all'
   @iam_token = HRITestHelpers::IAMHelper.new(ENV['IAM_CLOUD_URL']).get_access_token(ENV['CLOUD_API_KEY'])
   app_id_helper = HRITestHelpers::AppIDHelper.new(ENV['APPID_URL'], ENV['APPID_TENANT'], @iam_token, ENV['JWT_AUDIENCE_ID'])
-  @token_integrator = app_id_helper.get_access_token('hri_integration_tenant_test_data_integrator', 'tenant_test tenant_provider1234 hri_data_integrator', ENV['APPID_HRI_AUDIENCE'])
-  @token_internal = app_id_helper.get_access_token('hri_integration_tenant_test_internal', 'tenant_test tenant_provider1234 hri_consumer hri_internal', ENV['APPID_HRI_AUDIENCE'])
+  @token_integrator = app_id_helper.get_access_token('hri_integration_tenant_test_data_integrator', 'tenant_test tenant_provider1234 hri_data_integrator', ENV['JWT_AUDIENCE_ID'])
+  @token_internal = app_id_helper.get_access_token('hri_integration_tenant_test_internal', 'tenant_test tenant_provider1234 hri_consumer hri_internal', ENV['JWT_AUDIENCE_ID'])
   @token_invalid_tenant = app_id_helper.get_access_token('hri_integration_tenant_test_invalid', 'tenant_test_invalid')
   @content_type = 'application/json; charset=UTF-8'
 
