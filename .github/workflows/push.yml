@@ -70,7 +70,7 @@ jobs:
         curl -sSL https://get.rvm.io | bash -s stable --ruby
         source /home/runner/.rvm/scripts/rvm
         rvm install ruby-2.6.5
-        rvm list
+        rvm --default use ruby-2.6.5
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
         mkdir ~/.ssh
