@@ -4,13 +4,13 @@ npm install -g api-spec-converter
 npm install -g dredd@12.2.0
 gem install dredd_hooks
 
-echo 'Clone hribld/api-spec Repo'
-git clone https://hribld:${gitApiKey}@github.ibm.com/wffh-hri/api-spec.git api-spec
+echo 'Clone hri-api-spec Repo'
+git clone https://github.com/Alvearie/hri-api-spec.git api-spec
 cd api-spec
-echo "if exists, checkout ${TRAVIS_BRANCH}"
-exists=$(git show-ref refs/remotes/origin/${TRAVIS_BRANCH})
+echo "if exists, checkout ${GITHUB_REF}"
+exists=$(git show-ref refs/remotes/origin/${GITHUB_REF})
 if [[ -n "$exists" ]]; then
-  git checkout ${TRAVIS_BRANCH}
+  git checkout ${GITHUB_REF}
 elif [ -n "$API_SPEC_TAG" ]; then
   git checkout -b mgmt-api_auto_dredd $API_SPEC_TAG
 else

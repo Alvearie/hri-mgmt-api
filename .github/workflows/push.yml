@@ -30,6 +30,8 @@ jobs:
       KAFKA_SVC_ACCOUNT: event-streams-credential
       HRI_URL: https://localhost:1323/hri
       SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+      API_SPEC_DEV_BRANCH: main
+      API_SPEC_TAG: v3.0-2.0.1
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
       ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
@@ -77,3 +79,6 @@ jobs:
         ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
         setsid ssh-add ~/.ssh/git_deploy_key </dev/null
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b add-public
+
+    - name: Run Dredd Tests
+      run: ./run-dreddtests.sh
