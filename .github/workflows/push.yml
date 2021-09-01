@@ -76,5 +76,4 @@ jobs:
         ssh-keyscan -t rsa github.ibm.com
         ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
         setsid ssh-add ~/.ssh/git_deploy_key </dev/null
-        ssh git@github.ibm.com -vvvv
         gem specific_install -l git@github.ibm.com:wffh-hri/hri-test-helpers.git -b main
