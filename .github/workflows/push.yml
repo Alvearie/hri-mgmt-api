@@ -64,6 +64,7 @@ jobs:
       uses: PhutureCorp/container-ssh-agent@v0.0.1
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        home-dir: "/"
         
     - name: Install Ruby and Gems
       run: |
@@ -75,4 +76,3 @@ jobs:
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
         gem specific_install -l git@github.ibm.com:wffh-hri/hri-test-helpers.git -b main
-        
