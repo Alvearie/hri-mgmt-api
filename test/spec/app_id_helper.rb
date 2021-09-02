@@ -20,10 +20,6 @@ class AppIDHelper
       end
     end
 
-    if @credentials.nil?
-      raise "Unable to get AppID Application credentials for #{application_name}"
-    end
-
     response = @helper.rest_post("#{@app_id_url}/oauth/v4/#{ENV['APPID_TENANT']}/token", {'grant_type' => 'client_credentials', 'scope' => scopes, 'audience' => (audience_override.nil? ? ENV['JWT_AUDIENCE_ID'] : audience_override)}, {'Content-Type' => 'application/x-www-form-urlencoded', 'Accept' => 'application/json', 'Authorization' => "Basic #{@credentials}"})
     raise 'App ID token request failed' unless response.code == 200
     JSON.parse(response.body)['access_token']

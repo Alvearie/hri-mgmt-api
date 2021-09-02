@@ -64,7 +64,7 @@ func TestGetById(t *testing.T) {
 			),
 			expected: response.Error(
 				http.StatusInternalServerError,
-				fmt.Sprintf("%s", elasticErrMsg),
+				fmt.Sprintf("Could not retrieve tenant pi001: elasticsearch client error: %s", elasticErrMsg),
 			),
 		},
 		{
@@ -102,33 +102,6 @@ func TestGetById(t *testing.T) {
 				},
 			),
 			expected: response.Error(http.StatusNotFound, "Tenant: bad-tenant not found"),
-		},
-		{
-			name: "body decode error on ES OK Response",
-			args: validPathArg,
-			transport: test.NewFakeTransport(t).AddCall(
-				"/_cat/indices/pi001-batches",
-				test.ElasticCall{
-					ResponseBody: `{bad json message : "`,
-				},
-			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: invalid character 'b' looking for beginning of object key string"),
-		},
-		{
-			name: "body decode error on ES Response: 400 Bad Request",
-			args: validPathArg,
-			transport: test.NewFakeTransport(t).AddCall(
-				"/_cat/indices/pi001-batches",
-				test.ElasticCall{
-					ResponseStatusCode: http.StatusBadRequest,
-					ResponseBody:       `{bad json message : "`,
-				},
-			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: invalid character 'b' looking for beginning of object key string"),
 		},
 		{
 			name: "success-case",

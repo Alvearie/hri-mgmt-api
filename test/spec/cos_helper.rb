@@ -16,4 +16,9 @@ class COSHelper
     response.code == 200 ? response.body : File.read(File.join(File.dirname(__FILE__), 'fhir_practitioners.txt'))
   end
 
+  def upload_object_data(bucket_name, object_path, object)
+    response = @helper.rest_put("#{@cos_url}/#{bucket_name}/#{object_path}", object, {'Authorization' => "Bearer #{@iam_token}"})
+    raise 'Failed to upload object to COS' unless response.code == 200
+  end
+
 end

@@ -6,6 +6,7 @@
 package tenants
 
 import (
+	"fmt"
 	// "fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
@@ -32,19 +33,15 @@ func GetById(params map[string]interface{}, client *elasticsearch.Client) map[st
 	index := elastic.IndexFromTenantId(tenantId)
 	var res, err2 = client.Cat.Indices(client.Cat.Indices.WithIndex(index), client.Cat.Indices.WithFormat("json"))
 
-	if err2 != nil {
-		logger.Println(err2.Error())
-		return response.Error(http.StatusInternalServerError, err2.Error())
-	}
+	resultBody, elasticErr := elastic.DecodeBodyFromJsonArray(res, err2)
+	if elasticErr != nil {
+		if elasticErr.Code == http.StatusNotFound {
+			msg := "Tenant: " + tenantId + " not found"
+			logger.Println(msg)
+			return response.Error(http.StatusNotFound, msg)
+		}
 
-	if res.StatusCode == http.StatusNotFound {
-		logger.Println("Tenant not found")
-		return response.Error(http.StatusNotFound, "Tenant: "+tenantId+" not found")
-	}
-	// Decode response
-	resultBody, errResp := elastic.DecodeBodyFromJsonArray(res, err2, logger)
-	if errResp != nil {
-		return errResp
+		return elasticErr.LogAndBuildApiResponse(logger, fmt.Sprintf("Could not retrieve tenant %s", tenantId))
 	}
 
 	return response.Success(http.StatusOK, resultBody[0])

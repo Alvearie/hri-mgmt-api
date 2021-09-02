@@ -133,7 +133,7 @@ func TestHealthcheck(t *testing.T) {
 			expected:    response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: NotReported, unixTimestamp: NotReported"),
 		},
 		{
-			name: "bad-ES-response-body-EOF",
+			name: "ES-client-error",
 			transport: test.NewFakeTransport(t).AddCall(
 				"/_cat/health",
 				test.ElasticCall{
@@ -141,20 +141,8 @@ func TestHealthcheck(t *testing.T) {
 				},
 			),
 			kafkaReader: defaultKafkaReader,
-			expected:    response.Error(http.StatusInternalServerError, "Elastic client error: client error"),
-		},
-		{
-			name: "ES-client-error",
-			transport: test.NewFakeTransport(t).AddCall(
-				"/_cat/health",
-				test.ElasticCall{
-					ResponseBody: test.ReaderToString(ioutil.NopCloser(bytes.NewReader([]byte(``)))),
-				},
-			),
-			kafkaReader: defaultKafkaReader,
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: EOF"),
+			expected: response.Error(http.StatusInternalServerError,
+				"Could not perform elasticsearch health check: elasticsearch client error: client error"),
 		},
 		{
 			name: "Kafka-connection-returns-err",
@@ -183,7 +171,7 @@ func TestHealthcheck(t *testing.T) {
 			kafkaReader: test.FakePartitionReader{
 				T:          t,
 				Partitions: nil,
-				Err:        errors.New("Error contacting Kafka cluster: could not read partitions"),
+				Err:        errors.New("ResponseError contacting Kafka cluster: could not read partitions"),
 			},
 			expected: response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: Kafka status: Kafka Connection/Read Partition failed"),
 		},
@@ -214,7 +202,7 @@ func TestHealthcheck(t *testing.T) {
 			kafkaReader: test.FakePartitionReader{
 				T:          t,
 				Partitions: nil,
-				Err:        errors.New("Error contacting Kafka cluster: could not read partitions"),
+				Err:        errors.New("ResponseError contacting Kafka cluster: could not read partitions"),
 			},
 			expected: response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886| Kafka status: Kafka Connection/Read Partition failed"),
 		},

@@ -11,12 +11,16 @@ const (
 	TopicPrefix        string = "ingest."
 	InSuffix           string = ".in"
 	NotificationSuffix string = ".notification"
+	OutSuffix          string = ".out"
+	InvalidSuffix      string = ".invalid"
 )
 
 //See documentation on HRI topic naming conventions: https://alvearie.io/HRI/admin.html#onboarding-new-data-integrators
-func CreateTopicNames(tenantId string, streamId string) (string, string) {
+func CreateTopicNames(tenantId string, streamId string) (string, string, string, string) {
 	baseTopicName := strings.Join([]string{tenantId, streamId}, ".")
 	inTopicName := TopicPrefix + baseTopicName + InSuffix
 	notificationTopicName := TopicPrefix + baseTopicName + NotificationSuffix
-	return inTopicName, notificationTopicName
+	outTopicName := TopicPrefix + baseTopicName + OutSuffix
+	invalidTopicName := TopicPrefix + baseTopicName + InvalidSuffix
+	return inTopicName, notificationTopicName, outTopicName, invalidTopicName
 }

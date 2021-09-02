@@ -19,14 +19,10 @@ func Get(client *elasticsearch.Client) map[string]interface{} {
 
 	//Use elastic to return the list of indices
 	res, err := client.Cat.Indices(client.Cat.Indices.WithH("index"), client.Cat.Indices.WithFormat("json"))
-	if err != nil {
-		logger.Println(err.Error())
-		return response.Error(http.StatusInternalServerError, err.Error())
-	}
 
-	body, errResp := elastic.DecodeBodyFromJsonArray(res, err, logger)
-	if errResp != nil {
-		return errResp
+	body, elasticErr := elastic.DecodeBodyFromJsonArray(res, err)
+	if elasticErr != nil {
+		return elasticErr.LogAndBuildApiResponse(logger, "Could not retrieve tenants")
 	}
 
 	//sort through result for tenantIds and add to an array

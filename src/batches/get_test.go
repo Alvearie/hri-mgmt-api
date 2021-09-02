@@ -128,88 +128,6 @@ func TestGet(t *testing.T) {
 			test.NewFakeTransport(t),
 			response.Error(http.StatusBadRequest, "Error parsing 'from' parameter: strconv.Atoi: parsing \"b2\": invalid syntax"),
 		},
-		{"bad gteDate value",
-			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches", "gteDate": "2019-aaaef-01"},
-			auth.HriClaims{Scope: auth.HriConsumer},
-			test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_search",
-				test.ElasticCall{
-					RequestQuery: "from=0&size=10&track_total_hits=true",
-					// Note that ] and [ must be escaped because RequestBody is used as a regex pattern
-					RequestBody:        `{"query":{"bool":{"must":\[{"range":{"startDate":{"gte":"2019-aaaef-01"}}}\]}}}` + "\n",
-					ResponseStatusCode: http.StatusBadRequest,
-					ResponseBody: `
-						{
-							"error" : {
-								"root_cause" : [
-									{
-										"type" : "parse_exception",
-										"reason" : "failed to parse date field [2019-aaaef-01] with format [strict_date_optional_time||epoch_millis]"
-									}
-								],
-								"type" : "search_phase_execution_exception",
-								"reason" : "all shards failed",
-								"phase" : "query",
-								"grouped" : true,
-								"failed_shards" : [
-									{
-										"shard" : 0,
-										"index" : "test-batches",
-										"node" : "PfG7NJ8qSGGnNre4aczgPQ",
-										"reason" : {
-											"type" : "parse_exception",
-											"reason" : "failed to parse date field [2019-aaaef-01] with format [strict_date_optional_time||epoch_millis]",
-											"caused_by" : {
-												"type" : "illegal_argument_exception",
-												"reason" : "Unrecognized chars at the end of [2019-aaaef-01]: [-aaaef-01]"
-											}
-										}
-									}
-								]
-							},
-							"status" : 400
-						}`,
-				},
-			),
-			response.Error(http.StatusBadRequest, "parse_exception: failed to parse date field [2019-aaaef-01] with format [strict_date_optional_time||epoch_millis]"),
-		}, {
-			"invalid error Json in Response body",
-			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
-			auth.HriClaims{Scope: auth.HriConsumer},
-			test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_search",
-				test.ElasticCall{
-					RequestQuery:       "from=0&size=10&track_total_hits=true",
-					ResponseStatusCode: http.StatusBadRequest,
-					ResponseBody: `
-					{
-						"error" : {
-							"type" : "search_phase_execution_exception",
-							"reason" : "all shards failed",
-							"phase" : "query",
-							"grouped" : true,
-							"failed_shards" : [
-								{
-									"shard" : 0,
-									"index" : "test-monkee-batches",
-									"node" : "XX-ZZ-top",
-									"reason" : {
-										"type" : "parse_exception",
-										"reason" : "failed to parse date field [2019-aaaef-01] with format [strict_date_optional_time||epoch_millis]",
-										"caused_by" : {
-											"type" : "illegal_argument_exception",
-											"reason" : "Unrecognized chars at the end of [2019-aaaef-01]: [-aaaef-01]"
-										}
-									}
-								}
-							]
-						},
-						"status" : 400
-					}`,
-				},
-			),
-			response.Error(http.StatusBadRequest, "search_phase_execution_exception: all shards failed"),
-		},
 		{"bad name param_prohibited character",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches", "name": "{[]//zzx[]}"},
 			auth.HriClaims{Scope: auth.HriConsumer},
@@ -228,7 +146,6 @@ func TestGet(t *testing.T) {
 			test.NewFakeTransport(t),
 			response.Error(http.StatusBadRequest, "query parameters may not contain these characters: \"[]{}"),
 		},
-
 		{"client error",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
 			auth.HriClaims{Scope: auth.HriConsumer},
@@ -239,85 +156,8 @@ func TestGet(t *testing.T) {
 					ResponseErr:  errors.New("client error"),
 				},
 			),
-			response.Error(http.StatusInternalServerError, "Elastic client error: client error"),
-		},
-		{"response error",
-			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
-			auth.HriClaims{Scope: auth.HriConsumer},
-			test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_search",
-				test.ElasticCall{
-					RequestQuery:       "from=0&size=10&track_total_hits=true",
-					ResponseStatusCode: http.StatusBadRequest,
-					ResponseBody: `
-						{
-							"error": {
-								"type": "bad query",
-								"reason": "missing closing '}'"
-							}
-						}`,
-				},
-			),
-			response.Error(http.StatusBadRequest, "bad query: missing closing '}'"),
-		},
-		{"body decode error on OK",
-			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
-			auth.HriClaims{Scope: auth.HriConsumer},
-			test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_search",
-				test.ElasticCall{
-					RequestQuery: "from=0&size=10&track_total_hits=true",
-					ResponseBody: `{bad json message " "`,
-				},
-			),
-			response.Error(http.StatusInternalServerError, "Error parsing the Elastic search response body: invalid character 'b' looking for beginning of object key string"),
-		},
-		{"body decode error on 400",
-			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
-			auth.HriClaims{Scope: auth.HriConsumer},
-			test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_search",
-				test.ElasticCall{
-					RequestQuery:       "from=0&size=10&track_total_hits=true",
-					ResponseStatusCode: http.StatusBadRequest,
-					ResponseBody:       `{bad json message " "`,
-				},
-			),
-			response.Error(http.StatusInternalServerError, "Error parsing the Elastic search response body: invalid character 'b' looking for beginning of object key string"),
-		},
-		{"bad tenantId",
-			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
-			auth.HriClaims{Scope: auth.HriConsumer},
-			test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_search",
-				test.ElasticCall{
-					RequestQuery:       "from=0&size=10&track_total_hits=true",
-					ResponseStatusCode: http.StatusNotFound,
-					ResponseBody: `
-						{
-							"error": {
-								"root_cause" : [
-									{
-										"type" : "index_not_found_exception",
-										"reason" : "no such index",
-										"resource.type" : "index_or_alias",
-										"resource.id" : "1234-batches",
-										"index_uuid" : "_na_",
-										"index" : "1234-batches"
-									}
-								],
-								"type" : "index_not_found_exception",
-								"reason" : "no such index",
-								"resource.type" : "index_or_alias",
-								"resource.id" : "1234-batches",
-								"index_uuid" : "_na_",
-								"index" : "1234-batches"
-							},
-							"status" : 404
-						}`,
-				},
-			),
-			response.Error(http.StatusNotFound, "index_not_found_exception: no such index"),
+			response.Error(http.StatusInternalServerError,
+				"Could not retrieve batches: elasticsearch client error: client error"),
 		},
 		{"Missing scopes",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},

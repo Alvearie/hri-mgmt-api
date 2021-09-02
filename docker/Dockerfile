@@ -5,7 +5,6 @@
 # Use IBM's standard base image
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4
 
-
 # yum is required by the IBM CLI installer and it tries to install git, curl, docker, kubectl, and helm
 # The docker install fails and causes problems. We don't need it, so this adds a dummy file to trick
 # the installer into thinking that docker is installed.
@@ -34,7 +33,7 @@ COPY build \
 
 WORKDIR mgmt-api-release
 
-# Setup flink user
+# Setup hri user
 RUN groupadd -g 1000 hri && \
     useradd --shell /bin/bash -u 1000 -g 1000 -m hri && \
     chown -R hri:hri /mgmt-api-release

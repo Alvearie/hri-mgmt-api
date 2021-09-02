@@ -6,6 +6,7 @@
 package tenants
 
 import (
+	"fmt"
 	// "fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
@@ -31,16 +32,10 @@ func Delete(params map[string]interface{}, client *elasticsearch.Client) map[str
 
 	//make call to elastic to delete tenant
 	res, err2 := client.Indices.Delete(index)
-	if err2 != nil {
-		logger.Println(err2.Error())
-		return response.Error(http.StatusInternalServerError, err2.Error())
-	}
 
-	_, errResp := elastic.DecodeBody(res, err2, tenantId, logger)
-
-	if errResp != nil {
-		logger.Printf("Error in decode: %v", errResp)
-		return errResp
+	_, elasticErr := elastic.DecodeBody(res, err2)
+	if elasticErr != nil {
+		return elasticErr.LogAndBuildApiResponse(logger, fmt.Sprintf("Could not delete tenant [%s]", tenantId))
 	}
 
 	return map[string]interface{}{

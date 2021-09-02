@@ -6,6 +6,7 @@
 package tenants
 
 import (
+	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/path"
@@ -37,15 +38,11 @@ func Create(
 	//create new index
 	indexRes, err := esClient.Indices.Create(elastic.IndexFromTenantId(tenantId))
 
-	if err != nil {
-		logger.Printf("Unable to publish new tenant [%s]. %s", tenantId, err.Error())
-		return response.Error(http.StatusInternalServerError, err.Error())
-	}
-
 	// parse the response
-	_, errRes := elastic.DecodeBody(indexRes, err, tenantId, logger)
-	if errRes != nil {
-		return errRes
+	_, elasticErr := elastic.DecodeBody(indexRes, err)
+	if elasticErr != nil {
+		return elasticErr.LogAndBuildApiResponse(logger,
+			fmt.Sprintf("Unable to publish new tenant [%s]", tenantId))
 	}
 
 	// return the ID of the newly created tenant

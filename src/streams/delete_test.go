@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/path"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
@@ -37,9 +38,19 @@ func TestDelete(t *testing.T) {
 
 	validArgs := map[string]interface{}{
 		path.ParamOwPath: fmt.Sprintf("/hri/tenants/%s/streams/%s", tenantId, streamId1),
+		param.Validation: false,
+	}
+	validArgsWithValidation := map[string]interface{}{
+		path.ParamOwPath: fmt.Sprintf("/hri/tenants/%s/streams/%s", tenantId, streamId1),
+		param.Validation: true,
 	}
 	validArgsNoQualifier := map[string]interface{}{
 		path.ParamOwPath: fmt.Sprintf("/hri/tenants/%s/streams/%s", tenantId, streamId2),
+		param.Validation: false,
+	}
+	validArgsNoQualifierWithValidation := map[string]interface{}{
+		path.ParamOwPath: fmt.Sprintf("/hri/tenants/%s/streams/%s", tenantId, streamId2),
+		param.Validation: true,
 	}
 	missingPathArgs := map[string]interface{}{}
 	missingTenantArgs := map[string]interface{}{
@@ -60,6 +71,8 @@ func TestDelete(t *testing.T) {
 		validatorResponse      map[string]interface{}
 		modelInError           *es.ModelError
 		modelNotificationError *es.ModelError
+		modelOutError          *es.ModelError
+		modelInvalidError      *es.ModelError
 		mockResponse           *http.Response
 		expectedStream         string
 		expected               map[string]interface{}
@@ -112,6 +125,22 @@ func TestDelete(t *testing.T) {
 			expectedStream:         streamName,
 		},
 		{
+			name:           "out-conn-error",
+			args:           validArgsWithValidation,
+			modelOutError:  &OtherError,
+			mockResponse:   &StatusUnprocessableEntity,
+			expected:       response.Error(http.StatusInternalServerError, kafkaConnectionMessage),
+			expectedStream: streamName,
+		},
+		{
+			name:              "invalid-conn-error",
+			args:              validArgsWithValidation,
+			modelInvalidError: &OtherError,
+			mockResponse:      &StatusUnprocessableEntity,
+			expected:          response.Error(http.StatusInternalServerError, kafkaConnectionMessage),
+			expectedStream:    streamName,
+		},
+		{
 			name:           "in-topic-not-found",
 			args:           validArgs,
 			modelInError:   &NotFoundError,
@@ -128,6 +157,22 @@ func TestDelete(t *testing.T) {
 			expectedStream:         streamName,
 		},
 		{
+			name:           "out-topic-not-found",
+			args:           validArgsWithValidation,
+			modelOutError:  &NotFoundError,
+			mockResponse:   &StatusNotFound,
+			expected:       response.Error(http.StatusNotFound, topicNotFoundMessage),
+			expectedStream: streamName,
+		},
+		{
+			name:              "invalid-topic-not-found",
+			args:              validArgsWithValidation,
+			modelInvalidError: &NotFoundError,
+			mockResponse:      &StatusNotFound,
+			expected:          response.Error(http.StatusNotFound, topicNotFoundMessage),
+			expectedStream:    streamName,
+		},
+		{
 			name:           "good-request-qualifier",
 			args:           validArgs,
 			expected:       response.Success(http.StatusOK, map[string]interface{}{}),
@@ -139,9 +184,29 @@ func TestDelete(t *testing.T) {
 			expected:       response.Success(http.StatusOK, map[string]interface{}{}),
 			expectedStream: streamNameNoQualifier,
 		},
+		{
+			name:           "good-request-qualifier-with-validation",
+			args:           validArgsWithValidation,
+			expected:       response.Success(http.StatusOK, map[string]interface{}{}),
+			expectedStream: streamName,
+		},
+		{
+			name:           "good-request-no-qualifier-with-validation",
+			args:           validArgsNoQualifierWithValidation,
+			expected:       response.Success(http.StatusOK, map[string]interface{}{}),
+			expectedStream: streamNameNoQualifier,
+		},
 	}
 
 	for _, tc := range testCases {
+
+		validator := test.FakeValidator{
+			T: t,
+			Required: []param.Info{
+				{param.Validation, reflect.Bool},
+			},
+			Response: tc.validatorResponse,
+		}
 
 		controller := gomock.NewController(t)
 		defer controller.Finish()
@@ -149,11 +214,19 @@ func TestDelete(t *testing.T) {
 
 		var mockInErr error
 		var mockNotificationErr error
+		var mockOutErr error
+		var mockInvalidErr error
 		if tc.modelInError != nil {
 			mockInErr = errors.New(tc.modelInError.Message)
 		}
 		if tc.modelNotificationError != nil {
 			mockNotificationErr = errors.New(tc.modelNotificationError.Message)
+		}
+		if tc.modelOutError != nil {
+			mockOutErr = errors.New(tc.modelOutError.Message)
+		}
+		if tc.modelInvalidError != nil {
+			mockInvalidErr = errors.New(tc.modelInvalidError.Message)
 		}
 
 		mockService.
@@ -166,6 +239,16 @@ func TestDelete(t *testing.T) {
 			DeleteTopic(context.Background(), eventstreams.TopicPrefix+tc.expectedStream+eventstreams.NotificationSuffix).
 			Return(nil, tc.mockResponse, mockNotificationErr).
 			MaxTimes(1)
+		mockService.
+			EXPECT().
+			DeleteTopic(context.Background(), eventstreams.TopicPrefix+tc.expectedStream+eventstreams.OutSuffix).
+			Return(nil, tc.mockResponse, mockOutErr).
+			MaxTimes(1)
+		mockService.
+			EXPECT().
+			DeleteTopic(context.Background(), eventstreams.TopicPrefix+tc.expectedStream+eventstreams.InvalidSuffix).
+			Return(nil, tc.mockResponse, mockInvalidErr).
+			MaxTimes(1)
 
 		mockService.
 			EXPECT().
@@ -177,9 +260,19 @@ func TestDelete(t *testing.T) {
 			HandleModelError(mockNotificationErr).
 			Return(tc.modelNotificationError).
 			MaxTimes(1)
+		mockService.
+			EXPECT().
+			HandleModelError(mockOutErr).
+			Return(tc.modelOutError).
+			MaxTimes(1)
+		mockService.
+			EXPECT().
+			HandleModelError(mockInvalidErr).
+			Return(tc.modelInvalidError).
+			MaxTimes(1)
 
 		t.Run(tc.name, func(t *testing.T) {
-			if actual := Delete(tc.args, mockService); !reflect.DeepEqual(tc.expected, actual) {
+			if actual := Delete(tc.args, validator, mockService); !reflect.DeepEqual(tc.expected, actual) {
 				t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", tc.expected, actual))
 			}
 		})

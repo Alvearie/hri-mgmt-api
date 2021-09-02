@@ -4,6 +4,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+2>&1
+
 set -eo pipefail
 
 echo "CLOUD_API_KEY: ****"
@@ -16,7 +18,7 @@ echo "ELASTIC_SVC_ACCOUNT: $ELASTIC_SVC_ACCOUNT"
 echo "KAFKA_INSTANCE: $KAFKA_INSTANCE"
 echo "KAFKA_SVC_ACCOUNT: $KAFKA_SVC_ACCOUNT"
 echo "OIDC_ISSUER: $OIDC_ISSUER"
-echo "JWT_AUDIENCE_ID: $JWT_AUDIENCE_ID"
+echo "VALIDATION: $VALIDATION"
 
 # determine if IBM Cloud CLI is already installed
 set +e > /dev/null 2>&1
@@ -55,9 +57,19 @@ fi
 ibmcloud fn deploy --manifest mgmt-api-manifest.yml
 
 echo "Building OpenWhisk Parameters"
-params="$(cat <<EOF
+# set config parameters, all of them have to be set in the same command
+if [ -z "$VALIDATION" ] || [ "$VALIDATION" != true ]; then
+    echo "Setting Validation to false"
+    VALIDATION=false
+else
+    echo "Setting Validation to true"
+    VALIDATION=true
+fi
+
+params="$(cat << EOF
 {
   "issuer": "$OIDC_ISSUER",
+  "validation": $VALIDATION,
   "jwtAudienceId": "$JWT_AUDIENCE_ID"
 }
 EOF

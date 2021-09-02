@@ -13,11 +13,10 @@ There are several environment variables that must be set in the container.
 | ELASTIC_SVC_ACCOUNT | Name of Elasticsearch service ID |
 | KAFKA_INSTANCE      | Name of Event Streams (Kafka) instance |
 | KAFKA_SVC_ACCOUNT   | Name of Event Streams (Kafka) service ID |
-| TOOLCHAIN_ID        | ID of the Toolchain for publishing results to Insights |
-| Logical_App_Name    | Application Name smoke test results are published under in Insights |
+| VALIDATION          | Whether to deploy the Management API with Validation, e.g. 'true', 'false' |
 | OIDC_ISSUER         | The base URL of the OIDC issuer to use for OAuth authentication (e.g. `https://us-south.appid.cloud.ibm.com/oauth/v4/<tenantId>`)               |
 | APPID_PREFIX        | (Optional) Prefix string to append to the AppId applications and roles created during deployment                                                |
-| SET_UP_APPID        | (Optional) defaults to true. Set to false if you do not want the App ID set-up described [above](#using-app-id-for-oidc-authentication) enabled. |
+| SET_UP_APPID        | (Optional) defaults to true. Set to false if you do not want the App ID set-up enabled. |
 
 ## Implementation Details
 
@@ -25,12 +24,12 @@ The image entrypoint is `run.sh`, which:
  1. sets some environment variables
  1. logs into the IBM Cloud CLI
  1. calls `elastic.sh`
- 1. calls `appid.sh` 
+ 1. calls `appid.sh`
  1. calls `deploy.sh`
 
 `elastic.sh` turns off automatic index creation and sets the default template for batch indexes. These are idempotent actions, so they can be executed multiple times.
 
-`appid.sh` creates HRI application as well as HRI Consumer and HRI Data Integrator roles in AppId.
+`appid.sh` creates HRI and HRI Internal applications and HRI Internal, HRI Consumer, and HRI Data Integrator roles in AppId.
 
 `deploy.sh` deploys the Management API to IBM Functions and runs smoke tests (by calling the health check endpoint).
 

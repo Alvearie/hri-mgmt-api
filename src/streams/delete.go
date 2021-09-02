@@ -15,13 +15,25 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reflect"
 )
 
 func Delete(
 	args map[string]interface{},
+	validator param.Validator,
 	service eventstreams.Service) map[string]interface{} {
 
 	logger := log.New(os.Stdout, "streams/delete: ", log.Llongfile)
+
+	// validate that required input params are present
+	errResp := validator.Validate(
+		args,
+		param.Info{param.Validation, reflect.Bool},
+	)
+	if errResp != nil {
+		logger.Printf("Bad input params: %s", errResp)
+		return errResp
+	}
 
 	// extract tenantId and streamId path params from URL
 	tenantId, err := path.ExtractParam(args, param.TenantIndex)
@@ -35,7 +47,7 @@ func Delete(
 		return response.Error(http.StatusBadRequest, err.Error())
 	}
 
-	inTopicName, notificationTopicName := eventstreams.CreateTopicNames(tenantId, streamId)
+	inTopicName, notificationTopicName, outTopicName, invalidTopicName := eventstreams.CreateTopicNames(tenantId, streamId)
 
 	// delete the in and notification topics for the given tenant and data integrator pairing
 	_, inResp, inErr := service.DeleteTopic(context.Background(), inTopicName)
@@ -48,6 +60,23 @@ func Delete(
 	if notificationErr != nil {
 		logger.Printf("Unable to delete topic [%s]. %s", notificationTopicName, notificationErr.Error())
 		return getDeleteResponseError(notificationResp, service.HandleModelError(notificationErr))
+	}
+
+	validation := args[param.Validation].(bool)
+
+	//if validation is enabled, delete the out and invalid topics that were created
+	if validation {
+		_, outResp, outErr := service.DeleteTopic(context.Background(), outTopicName)
+		if outErr != nil {
+			logger.Printf("Unable to delete topic [%s]. %s", outTopicName, outErr.Error())
+			return getDeleteResponseError(outResp, service.HandleModelError(outErr))
+		}
+
+		_, invalidResp, invalidErr := service.DeleteTopic(context.Background(), invalidTopicName)
+		if invalidErr != nil {
+			logger.Printf("Unable to delete topic [%s]. %s", invalidTopicName, invalidErr.Error())
+			return getDeleteResponseError(invalidResp, service.HandleModelError(invalidErr))
+		}
 	}
 
 	return response.Success(http.StatusOK, map[string]interface{}{})

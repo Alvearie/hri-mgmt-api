@@ -18,6 +18,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -26,6 +27,8 @@ const (
 	invalidCleanupPolicy int32 = 42240
 
 	cleanupFailureMsg string = ", cleanup of associated topic [%s] also failed: %s"
+
+	onePartition int64 = 1
 )
 
 func Create(
@@ -40,6 +43,7 @@ func Create(
 		args,
 		param.Info{param.NumPartitions, reflect.Float64},
 		param.Info{param.RetentionMs, reflect.Float64},
+		param.Info{param.Validation, reflect.Bool},
 	)
 	if errResp != nil {
 		logger.Printf("Bad input params: %s", errResp)
@@ -81,7 +85,7 @@ func Create(
 		return response.Error(http.StatusBadRequest, err.Error())
 	}
 
-	inTopicName, notificationTopicName := eventstreams.CreateTopicNames(tenantId, streamId)
+	inTopicName, notificationTopicName, outTopicName, invalidTopicName := eventstreams.CreateTopicNames(tenantId, streamId)
 
 	//numPartitions and retentionTime configs are required, the rest are optional
 	numPartitions := int64(args[param.NumPartitions].(float64))
@@ -92,9 +96,11 @@ func Create(
 		PartitionCount: numPartitions,
 		Configs:        topicConfigs,
 	}
+
+	//create notification topic with only 1 Partition b/c of the small expected msg volume for this topic
 	notificationTopicRequest := es.TopicCreateRequest{
 		Name:           notificationTopicName,
-		PartitionCount: numPartitions,
+		PartitionCount: onePartition,
 		Configs:        topicConfigs,
 	}
 
@@ -109,13 +115,59 @@ func Create(
 	if notificationErr != nil {
 		logger.Printf("Unable to create new topic [%s]. %s", notificationTopicName, notificationErr.Error())
 		logger.Printf("Deleting associated 'in' topic [%s]...", inTopicName)
-		_, _, deleteErr := service.DeleteTopic(context.Background(), inTopicName)
-		var deleteErrorMsg = ""
-		if deleteErr != nil {
-			logger.Printf("Unable to delete topic [%s]. %s", inTopicName, deleteErr.Error())
-			deleteErrorMsg = fmt.Sprintf(cleanupFailureMsg, inTopicName, deleteErr.Error())
+		inTopicDeleted := deleteTopic(context.Background(), inTopicName, service, logger) //value will be bool, true if deleted successfully without errors
+
+		var deleteTopicsErrorMsg = createDeleteErrorMsg(inTopicName, inTopicDeleted, true, true)
+		return getCreateResponseError(notificationResponse, service.HandleModelError(notificationErr), deleteTopicsErrorMsg)
+	}
+
+	validation := args[param.Validation].(bool)
+	logger.Printf("Value of validation is [%t]", validation)
+
+	// if validation is enabled, create the out and invalid topics for the given tenant and stream pairing
+	if validation {
+		outTopicRequest := es.TopicCreateRequest{
+			Name:           outTopicName,
+			PartitionCount: numPartitions,
+			Configs:        topicConfigs,
 		}
-		return getCreateResponseError(notificationResponse, service.HandleModelError(notificationErr), deleteErrorMsg)
+
+		//create invalid topic with only 1 Partition b/c of the small expected msg volume for this topic
+		invalidTopicRequest := es.TopicCreateRequest{
+			Name:           invalidTopicName,
+			PartitionCount: onePartition,
+			Configs:        topicConfigs,
+		}
+
+		_, outResponse, outErr := service.CreateTopic(context.Background(), outTopicRequest)
+		if outErr != nil {
+			logger.Printf("Unable to create new topic [%s]. %s", outTopicName, outErr.Error())
+
+			//delete associated in and notification topics
+			logger.Printf("Deleting associated 'in' topic [%s]...", inTopicName)
+			inTopicDeleted := deleteTopic(context.Background(), inTopicName, service, logger)
+			logger.Printf("Deleting associated 'notification' topic [%s]...", notificationTopicName)
+			notificationTopicDeleted := deleteTopic(context.Background(), notificationTopicName, service, logger)
+
+			var deleteTopicsErrorMsg = createDeleteErrorMsg(inTopicName, inTopicDeleted, notificationTopicDeleted, true)
+			return getCreateResponseError(outResponse, service.HandleModelError(outErr), deleteTopicsErrorMsg)
+		}
+
+		_, invalidResponse, invalidErr := service.CreateTopic(context.Background(), invalidTopicRequest)
+		if invalidErr != nil {
+			logger.Printf("Unable to create new topic [%s]. %s", invalidTopicName, invalidErr.Error())
+
+			//delete associated in, notification, and out topics
+			logger.Printf("Deleting associated 'in' topic [%s]...", inTopicName)
+			inTopicDeleted := deleteTopic(context.Background(), inTopicName, service, logger)
+			logger.Printf("Deleting associated 'notification' topic [%s]...", notificationTopicName)
+			notificationTopicDeleted := deleteTopic(context.Background(), notificationTopicName, service, logger)
+			logger.Printf("Deleting associated 'out' topic [%s]...", outTopicName)
+			outTopicDeleted := deleteTopic(context.Background(), outTopicName, service, logger)
+
+			var deleteTopicsErrorMsg = createDeleteErrorMsg(inTopicName, inTopicDeleted, notificationTopicDeleted, outTopicDeleted)
+			return getCreateResponseError(invalidResponse, service.HandleModelError(invalidErr), deleteTopicsErrorMsg)
+		}
 	}
 
 	// return the name of the created stream
@@ -193,4 +245,41 @@ func getCreateResponseError(resp *http.Response, err *es.ModelError, deleteError
 		return response.Error(http.StatusBadRequest, err.Message+deleteError)
 	}
 	return response.Error(http.StatusInternalServerError, err.Message+deleteError)
+}
+
+func deleteTopic(ctx context.Context, topicName string, service eventstreams.Service, logger *log.Logger) bool {
+	_, _, deleteErr := service.DeleteTopic(ctx, topicName)
+
+	if deleteErr != nil {
+		logger.Printf("Unable to delete topic [%s]. %s", topicName, deleteErr.Error())
+		return false //topic was not deleted successfully and there was an error
+	}
+	return true //topic was deleted successfully
+}
+
+func createDeleteErrorMsg(inTopicName string, inTopicDeleted bool, notificationTopicDeleted bool, outTopicDeleted bool) string {
+	if inTopicDeleted && notificationTopicDeleted && outTopicDeleted {
+		return "" //if all topics deleted successfully, return empty error message
+	}
+
+	//if topics had errors when deleting, add them to the slice
+	var deleteErrorTopics []string
+	if !inTopicDeleted {
+		deleteErrorTopics = append(deleteErrorTopics, "in")
+	}
+	if !notificationTopicDeleted {
+		deleteErrorTopics = append(deleteErrorTopics, "notification")
+	}
+	if !outTopicDeleted {
+		deleteErrorTopics = append(deleteErrorTopics, "out")
+	}
+
+	deleteError := fmt.Sprintf("failed to delete %s topic(s)", strings.Join(deleteErrorTopics, ","))
+
+	//get topic name without in suffix
+	inTopic := []rune(inTopicName)
+	endIndex := len(inTopic) - len(eventstreams.InSuffix)
+	topic := string(inTopic[0:endIndex])
+
+	return fmt.Sprintf(cleanupFailureMsg, topic, deleteError)
 }

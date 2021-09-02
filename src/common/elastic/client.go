@@ -15,8 +15,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
+	"github.com/Alvearie/hri-mgmt-api/common/response"
 	service "github.com/IBM/resource-controller-go-sdk-generator/build/generated"
 	"github.com/elastic/go-elasticsearch/v7"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -24,10 +26,43 @@ import (
 // magical reference date must be used for some reason
 const DateTimeFormat string = "2006-01-02T15:04:05Z"
 
+type ResponseError struct {
+	ErrorObj error
+
+	// error code that should be returned by the hri-mgmt-api endpoint
+	Code int
+
+	// Elastic error type
+	ErrorType string
+
+	// Elastic root_cause type
+	RootCause string
+}
+
+func (elasticError ResponseError) Error() string {
+	if elasticError.ErrorObj == nil {
+		// An error was built, but no error information was provided.
+		// Return a generic error message with the statusCode
+		err := fmt.Errorf(msgUnexpectedErr, elasticError.Code)
+		return err.Error()
+	}
+
+	return elasticError.ErrorObj.Error()
+}
+
+func (elasticError ResponseError) LogAndBuildApiResponse(logger *log.Logger, message string) map[string]interface{} {
+	err := fmt.Errorf("%s: %w", message, elasticError)
+	logger.Printf("%v", err)
+	return response.Error(elasticError.Code, fmt.Sprintf("%v", err))
+}
+
 // encodes a map[string]interface{} query body into a byte buffer for the elastic client
 func EncodeQueryBody(queryBody map[string]interface{}) (*bytes.Buffer, error) {
 	var encodedBuffer bytes.Buffer
-	err := json.NewEncoder(&encodedBuffer).Encode(queryBody)
+	encoder := json.NewEncoder(&encodedBuffer)
+	encoder.SetEscapeHTML(false)
+
+	err := encoder.Encode(queryBody)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to encode query body as byte buffer: %s", err.Error()))
 	}

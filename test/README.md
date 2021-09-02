@@ -6,7 +6,7 @@
     ```bash
     brew install gnupg gnupg2
     ```
-    NOTE: This is dependent on Hombrew to be completely installed first.
+    NOTE: This is dependent on Homebrew to be completely installed first.
 
 3. Install Ruby
 
@@ -15,10 +15,10 @@
     ```bash
     rvm list
     ```
-5. If they're not listed in the script response above, install ruby 2.5.0  
+5. If they're not listed in the script response above, install ruby 2.6.5  
     ```bash
-    rvm install ruby-2.5.0
-    rvm use --default ruby-2.5.0
+    rvm install ruby-2.6.5
+    rvm use --default ruby-2.6.5
     gem install bundler
     ```
     
@@ -31,33 +31,47 @@
 7. (Optional) If running in IntelliJ, configure this project as an RVM Ruby project
 
     * Install the Ruby plugin `IntelliJ IDEA > Preferences... > Plugins`
-    * Configure Project `File > Project Structure > Project Settings > Project` and select `RVM: ruby-2.5.0`.
+    * Configure Project `File > Project Structure > Project Settings > Project` and select `RVM: ruby-2.6.5`.
     * Configure Module `File > Project Structure > Project Settings > Modules` and reconfigure module with RVM Ruby.
     
     NOTE: Ensure that your Ruby versions match across terminal default, Gemfile, and Gemfile.lock. If using IntelliJ, Ruby version in your module should match as well.
 
-8. (Optional) To run tests locally
-    - Export these environment variables. You can get most of the values from GitHub actions. Check IBM cloud service credentials or 1password for secure ones.
-      * HRI_API_KEY
-      * ELASTIC_URL
-      * ELASTIC_USER
-      * ELASTIC_PASSWORD
-      * SASL_PLAIN_PASSWORD
-      * COS_URL
-      * IAM_CLOUD_URL
-      * CLOUD_API_KEY
-      * APPID_URL
-      * APPID_TENANT
-      * TRAVIS_BRANCH
-    - Get an unencrypted copy of `jwt_assertion_tokens.json`
-    - Login with the IBM Cloud CLI and set the Functions namespace to match the branch being tested:   
-    ```ibmcloud fn property set --namespace <branch>```
-    - Run the tests:   
-    ```rspec spec --tag ~@broken```
+8. (Optional) To run tests locally, export these environment variables. You can get most of the values from GitHub actions. Check IBM cloud service credentials or our password manager for secure ones.
+
+    - ELASTIC_URL - Found in GitHub actions
+    - ELASTIC_USER - Found in GitHub actions
+    - ELASTIC_PASSWORD - IBM Cloud -> Elasticsearch service -> Service credentials -> elastic-search-credential -> "password" field
+    - SASL_PLAIN_PASSWORD
+    - COS_URL - Found in GitHub actions
+    - IAM_CLOUD_URL - Found in GitHub actions
+    - CLOUD_API_KEY - Password Manager
+    - EVENTSTREAMS_BROKERS - Found in GitHub actions
+    - APPID_URL - Found in GitHub actions
+    - APPID_TENANT - Found in GitHub actions
+    - JWT_AUDIENCE_ID - Found in GitHub actions
+
+   You will also need to set an environment variable called TRAVIS_BRANCH that corresponds to your current working branch.
+   
+   Then, install the IBM Cloud CLI, the Functions CLI, and the Event Streams CLI. You can find the RESOURCE_GROUP in GitHub actions and the CLOUD_API_KEY in our password manager:
+   ```bash
+   curl -sL https://ibm.biz/idt-installer | bash
+   bx login --apikey {CLOUD_API_KEY}
+   bx target -g {RESOURCE_GROUP}
+   bx plugin install cloud-functions
+   bx fn property set --namespace {TRAVIS_BRANCH}
+   bx plugin install event-streams
+   bx es init
+   ```
+           
+   Select the number corresponding to the KAFKA_INSTANCE in GitHub actions.
+    
+   Then, from within the top directory of this project, run the integration tests with:
+     
+    ```rspec test/spec --tag ~@broken```
     
 # Dredd Tests
 Dredd is used to verify the implemented API meets our published [specification](https://github.com/Alvearie/hri-api-spec/blob/main/management-api/management.yml).
-By default it generates a test for every endpoint, uses the example values for input, and verifies the response matches the 200 response schema. All other responses are skipped. Ruby 'hooks' are used to modify the default behavior and do setup/teardown. 
+By default, it generates a test for every endpoint, uses the example values for input, and verifies the response matches the 200 response schema. All other responses are skipped. Ruby 'hooks' are used to modify the default behavior and do setup/teardown. 
 Here are some helpful documentation links:
 * https://dredd.org/en/latest/hooks/ruby.html
 * https://dredd.org/en/latest/data-structures.html#transaction

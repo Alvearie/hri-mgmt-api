@@ -66,6 +66,8 @@ func GetStreamNames(topics []es.TopicDetail, tenantId string) []map[string]inter
 			streamId := strings.TrimPrefix(topicName, eventstreams.TopicPrefix+tenantId+".")
 			streamId = strings.TrimSuffix(streamId, eventstreams.InSuffix)
 			streamId = strings.TrimSuffix(streamId, eventstreams.NotificationSuffix)
+			streamId = strings.TrimSuffix(streamId, eventstreams.OutSuffix)
+			streamId = strings.TrimSuffix(streamId, eventstreams.InvalidSuffix)
 
 			//take unique stream names, we don't want duplicates due to a stream's multiple topics (in/notification)
 			if _, seen := seenStreamIds[streamId]; !seen {
@@ -79,5 +81,6 @@ func GetStreamNames(topics []es.TopicDetail, tenantId string) []map[string]inter
 
 func validTopicName(topicName string) bool {
 	return strings.HasPrefix(topicName, eventstreams.TopicPrefix) &&
-		(strings.HasSuffix(topicName, eventstreams.InSuffix) || strings.HasSuffix(topicName, eventstreams.NotificationSuffix))
+		(strings.HasSuffix(topicName, eventstreams.InSuffix) || strings.HasSuffix(topicName, eventstreams.NotificationSuffix) ||
+			strings.HasSuffix(topicName, eventstreams.OutSuffix) || strings.HasSuffix(topicName, eventstreams.InvalidSuffix))
 }

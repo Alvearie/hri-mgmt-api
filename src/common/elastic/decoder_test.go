@@ -9,174 +9,327 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"reflect"
 	"testing"
 )
 
 func TestDecodeBody(t *testing.T) {
-	errText := "errText"
-	errType := "errType"
-	errReason := "errReason"
-	errStatus := 300
-	tenantId := "tenant123"
-	batchId := "batch_no_exist"
-	indexName := tenantId + "-" + batchId
-	logger := log.New(ioutil.Discard, "responses/test: ", log.Llongfile)
-
 	testCases := []struct {
-		name         string
-		res          *esapi.Response
-		err          error
-		expectedBody map[string]interface{}
-		expectedErr  map[string]interface{}
+		name                  string
+		res                   *esapi.Response
+		clientError           error
+		expectedBody          map[string]interface{}
+		expectedResponseError *ResponseError
 	}{
 		{
-			name:        "has-err",
-			err:         errors.New(errText),
-			expectedErr: response.Error(http.StatusInternalServerError, fmt.Sprintf(msgClientErr, errText)),
-		},
-		{
-			name:        "nil-response",
-			expectedErr: response.Error(http.StatusInternalServerError, MsgNilResponse),
-		},
-		{
-			name:        "bad-json",
-			res:         &esapi.Response{Body: ioutil.NopCloser(bytes.NewReader([]byte(`{bad json: "`)))},
-			expectedErr: response.Error(http.StatusInternalServerError, fmt.Sprintf(msgParseErr, "invalid character 'b' looking for beginning of object key string")),
-		},
-		{
-			name:         "has-root-cause",
-			res:          &esapi.Response{StatusCode: errStatus, Body: ioutil.NopCloser(bytes.NewReader([]byte(fmt.Sprintf(`{"error": {"root_cause": {"type": "%s", "reason": "%s"}}}`, errType, errReason))))},
-			expectedErr:  response.Error(errStatus, fmt.Sprintf(msgResponseErr, errType, errReason)),
-			expectedBody: map[string]interface{}{"error": map[string]interface{}{"root_cause": map[string]interface{}{"type": errType, "reason": errReason}}},
-		},
-		{
-			name:         "no-root-cause",
-			res:          &esapi.Response{StatusCode: errStatus, Body: ioutil.NopCloser(bytes.NewReader([]byte(fmt.Sprintf(`{"error": {"type": "%s", "reason": "%s"}}`, errType, errReason))))},
-			expectedErr:  response.Error(errStatus, fmt.Sprintf(msgResponseErr, errType, errReason)),
-			expectedBody: map[string]interface{}{"error": map[string]interface{}{"type": errType, "reason": errReason}},
-		},
-		{
-			name:         "batch-not-found",
-			res:          &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(fmt.Sprintf(`{"_index": "%s", "_type":"_doc", "_id": "%s", "found":false}`, indexName, batchId))))},
-			expectedErr:  response.Error(http.StatusNotFound, fmt.Sprintf(msgDocNotFound, tenantId, batchId)),
-			expectedBody: map[string]interface{}{"error": fmt.Sprintf(msgDocNotFound, tenantId, batchId)},
-		},
-		{
-			name:        "unexpected-err",
-			res:         &esapi.Response{StatusCode: http.StatusServiceUnavailable, Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"unexpected response": " we did not expect this response:"}`)))},
-			expectedErr: response.Error(http.StatusInternalServerError, fmt.Sprintf(msgUnexpectedErr, map[string]interface{}{"unexpected response: we did not expect this response": ""})),
-		},
-		{
-			res:          &esapi.Response{Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"good": "json"}`)))},
-			expectedBody: map[string]interface{}{"good": "json"},
+			name: "200 OK Response",
+			res: &esapi.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				{"good": "json"}
+			`)))},
+			expectedBody: map[string]interface{}{
+				"good": "json",
+			},
+		}, {
+			name:        "Elastic Client Error",
+			clientError: errors.New("client Error"),
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf(msgClientErr, errors.New("client Error")),
+				Code:     http.StatusInternalServerError,
+			},
+		}, {
+			name: "Elastic No Response No Client Error",
+			expectedResponseError: &ResponseError{
+				ErrorObj: errors.New(MsgNilResponse),
+				Code:     http.StatusInternalServerError,
+			},
+		}, {
+			name: "Bad Json Response",
+			res: &esapi.Response{StatusCode: http.StatusBadRequest, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				{"bad": "json"
+			`)))},
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf(msgParseErr, errors.New("unexpected EOF")),
+				Code:     http.StatusInternalServerError,
+			},
+		}, {
+			name: "Elastic Error Response",
+			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				{
+					"error": {
+						"type": "index_not_found_exception",
+						"reason": "no such index",
+						"index_uuid": "_na_",
+						"resource.type": "index_or_alias",
+						"resource.id": "tenant-batches",
+						"index": "tenant-batches"
+					},
+					"status": 404
+				}
+			`)))},
+			expectedResponseError: &ResponseError{
+				ErrorObj:  fmt.Errorf("%s: %s", "index_not_found_exception", "no such index"),
+				Code:      http.StatusNotFound,
+				ErrorType: "index_not_found_exception"},
+		}, {
+			name: "Elastic Error Response with Identical Root Cause",
+			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				{
+					"error": {
+						"root_cause": [
+							{
+								"type": "index_not_found_exception",
+								"reason": "no such index",
+								"index_uuid": "_na_",
+								"resource.type": "index_or_alias",
+								"resource.id": "tenant-batches",
+								"index": "tenant-batches"
+							}
+						],
+						"type": "index_not_found_exception",
+						"reason": "no such index",
+						"index_uuid": "_na_",
+						"resource.type": "index_or_alias",
+						"resource.id": "tenant-batches",
+						"index": "tenant-batches"
+					},
+					"status": 404
+				}
+			`)))},
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf("%s: %s", "index_not_found_exception", "no such index"),
+				Code:     http.StatusNotFound, ErrorType: "index_not_found_exception"},
+		}, {
+			name: "Elastic Error Response with Different Root Cause",
+			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				{
+					"error": {
+						"root_cause": [
+							{
+								"type": "some_other_error",
+								"reason": "some other reason",
+								"index_uuid": "_na_",
+								"resource.type": "index_or_alias",
+								"resource.id": "tenant-batches",
+								"index": "tenant-batches"
+							},{
+								"type": "additional errors",
+								"reason": "will be ignored"
+							}
+						],
+						"type": "index_not_found_exception",
+						"reason": "no such index",
+						"index_uuid": "_na_",
+						"resource.type": "index_or_alias",
+						"resource.id": "tenant-batches",
+						"index": "tenant-batches"
+					},
+					"status": 404
+				}
+			`)))},
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf("%v: %w",
+					fmt.Errorf("%s: %s", "index_not_found_exception", "no such index"),
+					fmt.Errorf("%s: %s", "some_other_error", "some other reason"),
+				),
+				Code:      http.StatusNotFound,
+				ErrorType: "index_not_found_exception",
+				RootCause: "some_other_error",
+			},
+		}, {
+			name: "Elastic Error Message",
+			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				{
+					"error": "alias [test-batches] missing",
+					"status": 404
+				}
+			`)))},
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf("alias [test-batches] missing"),
+				Code:     http.StatusNotFound},
+		}, {
+			name: "Elastic No Error Context",
+			//
+			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				{
+					"_index": "test-batches",
+					"_type": "_doc",
+					"_id": "missing_doc_id",
+					"found": false
+				}
+			`)))},
+			expectedResponseError: &ResponseError{
+				ErrorObj: nil,
+				Code:     http.StatusNotFound,
+			},
+			expectedBody: map[string]interface{}{
+				"_index": "test-batches",
+				"_type":  "_doc",
+				"_id":    "missing_doc_id",
+				"found":  false,
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			body, err := DecodeBody(tc.res, tc.err, tenantId, logger)
+			body, responseErr := DecodeBody(tc.res, tc.clientError)
 			if !reflect.DeepEqual(body, tc.expectedBody) {
 				t.Errorf("Unexpected Body. Expected: [%v], Actual: [%v]", tc.expectedBody, body)
 			}
-			if !reflect.DeepEqual(err, tc.expectedErr) {
-				t.Errorf("Unexpected Error. Expected: [%v], Actual: [%v]", tc.expectedErr, err)
+			if !reflect.DeepEqual(responseErr, tc.expectedResponseError) {
+				t.Errorf("Unexpected ResponseError. Expected: [%v], Actual: [%v]",
+					tc.expectedResponseError, responseErr)
 			}
 		})
 	}
 }
 
 func TestDecodeBodyFromJsonArray(t *testing.T) {
-	errText := "arrayErrText"
-	logger := log.New(ioutil.Discard, "decodeBodyFromArray/test: ", log.Llongfile)
-	var validResult []map[string]interface{}
-	validValuesMap := map[string]interface{}{
-		"valid":  "json-array",
-		"status": "green",
-	}
-	validResult = append(validResult, validValuesMap)
-
 	testCases := []struct {
-		name         string
-		res          *esapi.Response
-		err          error
-		expectedBody []map[string]interface{}
-		expectedErr  map[string]interface{}
+		name                  string
+		res                   *esapi.Response
+		clientError           error
+		expectedBody          []map[string]interface{}
+		expectedResponseError *ResponseError
 	}{
 		{
-			name:         "success-case",
-			res:          &esapi.Response{Body: ioutil.NopCloser(bytes.NewReader([]byte(`[{"valid": "json-array", "status": "green"}]`)))},
-			expectedBody: validResult,
-		},
-		{
-			name:        "has-err",
-			err:         errors.New(errText),
-			expectedErr: response.Error(http.StatusInternalServerError, fmt.Sprintf(msgClientErr, errText)),
-		},
-		{
-			name:        "nil-response",
-			expectedErr: response.Error(http.StatusInternalServerError, MsgNilResponse),
-		},
-		{
-			name:        "decoder-error",
-			res:         &esapi.Response{Body: ioutil.NopCloser(bytes.NewReader([]byte(`{bad json:[]][ "`)))},
-			expectedErr: response.Error(http.StatusInternalServerError, fmt.Sprintf(msgParseErr, "invalid character 'b' looking for beginning of object key string")),
+			name: "success-case",
+			res: &esapi.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				[
+					{"valid": "json-array", "status": "green"}
+				]
+			`)))},
+			expectedBody: []map[string]interface{}{
+				map[string]interface{}{
+					"valid":  "json-array",
+					"status": "green",
+				},
+			},
+		}, {
+			name:        "Elastic Client Error",
+			clientError: errors.New("client Error"),
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf(msgClientErr, errors.New("client Error")),
+				Code:     http.StatusInternalServerError,
+			},
+		}, {
+			name: "Elastic No Response No Client Error",
+			expectedResponseError: &ResponseError{
+				ErrorObj: errors.New(MsgNilResponse),
+				Code:     http.StatusInternalServerError,
+			},
+		}, {
+			name: "Bad Json Response",
+			res: &esapi.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				[{"bad": "json"
+			`)))},
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf(msgParseErr, errors.New("unexpected EOF")),
+				Code:     http.StatusInternalServerError,
+			},
+		}, {
+			name: "Elastic Error Response",
+			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				{
+					"error": {
+						"root_cause": [
+							{
+								"type": "illegal_argument_exception",
+								"reason": "request [/_cat/indices/*-batches] contains unrecognized parameter: [badParam]"
+							}
+						],
+						"type": "illegal_argument_exception",
+						"reason": "request [/_cat/indices/*-batches] contains unrecognized parameter: [badParam]"
+					},
+					"status": 400
+				}
+			`)))},
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf("%s: %s",
+					"illegal_argument_exception",
+					"request [/_cat/indices/*-batches] contains unrecognized parameter: [badParam]",
+				),
+				Code:      http.StatusNotFound,
+				ErrorType: "illegal_argument_exception",
+			},
+		}, {
+			name: "Unrecognized Elastic Error Response",
+			res: &esapi.Response{StatusCode: http.StatusBadRequest, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				[
+					{"valid": "json-array", "status": "green"}
+				]
+			`)))},
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf(msgUnexpectedErr, http.StatusBadRequest),
+				Code:     http.StatusInternalServerError,
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			body, err := DecodeBodyFromJsonArray(tc.res, tc.err, logger)
+			body, responseErr := DecodeBodyFromJsonArray(tc.res, tc.clientError)
 			if !reflect.DeepEqual(body, tc.expectedBody) {
 				t.Errorf("Unexpected Body. Expected: [%v], Actual: [%v]", tc.expectedBody, body)
 			}
-			if !reflect.DeepEqual(err, tc.expectedErr) {
-				t.Errorf("Unexpected Error. Expected: [%v], Actual: [%v]", tc.expectedErr, err)
+			if !reflect.DeepEqual(responseErr, tc.expectedResponseError) {
+				t.Errorf("Unexpected ResponseError. Expected: [%v], Actual: [%v]",
+					tc.expectedResponseError, responseErr)
 			}
 		})
 	}
 }
 
-func TestDecodeFirstArrayElement(t *testing.T) {
-	logger := log.New(ioutil.Discard, "decodeBodyFromArrayAsMap/test: ", log.Llongfile)
-
+func TestDecodeFirstArrayElementUpdateMe(t *testing.T) {
 	testCases := []struct {
-		name         string
-		res          *esapi.Response
-		err          error
-		expectedBody map[string]interface{}
-		expectedErr  map[string]interface{}
+		name                  string
+		res                   *esapi.Response
+		clientError           error
+		expectedBody          map[string]interface{}
+		expectedResponseError *ResponseError
 	}{
 		{
-			name:         "success-case",
-			res:          &esapi.Response{Body: ioutil.NopCloser(bytes.NewReader([]byte(`[{"valid": "json-map-from-array", "status": "porcupine"}]`)))},
-			expectedBody: map[string]interface{}{"valid": "json-map-from-array", "status": "porcupine"},
-		},
-		{
-			name:        "empty-array",
-			res:         &esapi.Response{Body: ioutil.NopCloser(bytes.NewReader([]byte(`[]`)))},
-			expectedErr: response.Error(http.StatusInternalServerError, "Error transforming result -> Uh-Oh: we got no Object inside this ElasticSearch Results Array"),
-		},
-		{
-			name:        "decoded-body-from-array-error",
-			res:         &esapi.Response{Body: ioutil.NopCloser(bytes.NewReader([]byte(`{bad json:[]][ "`)))},
-			expectedErr: response.Error(http.StatusInternalServerError, fmt.Sprintf(msgParseErr, "invalid character 'b' looking for beginning of object key string")),
+			name: "success-case",
+			res: &esapi.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				[
+					{"valid": "json-array", "status": "green"}
+				]
+			`)))},
+			expectedBody: map[string]interface{}{
+				"valid":  "json-array",
+				"status": "green",
+			},
+		}, {
+			name:        "Elastic Client Error",
+			clientError: errors.New("client Error"),
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf(msgClientErr, errors.New("client Error")),
+				Code:     http.StatusInternalServerError,
+			},
+		}, {
+			name: "Empty Result",
+			res: &esapi.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
+				[]
+			`)))},
+			expectedResponseError: &ResponseError{
+				ErrorObj: fmt.Errorf(msgEmptyResultErr),
+				Code:     http.StatusInternalServerError,
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			body, err := DecodeFirstArrayElement(tc.res, tc.err, logger)
+			body, responseErr := DecodeFirstArrayElement(tc.res, tc.clientError)
 			if !reflect.DeepEqual(body, tc.expectedBody) {
 				t.Errorf("Unexpected Body. Expected: [%v], Actual: [%v]", tc.expectedBody, body)
 			}
-			if !reflect.DeepEqual(err, tc.expectedErr) {
-				t.Errorf("Unexpected Error. Expected: [%v], Actual: [%v]", tc.expectedErr, err)
+			if !reflect.DeepEqual(responseErr, tc.expectedResponseError) {
+				t.Errorf("Unexpected ResponseError. Expected: [%v], Actual: [%v]",
+					tc.expectedResponseError, responseErr)
 			}
 		})
 	}

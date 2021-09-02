@@ -19,6 +19,7 @@ import (
 )
 
 const msgMissingStatusElem = "Error: Elastic Search Result body does Not have the expected '_source' Element"
+const msgDocNotFound string = "The document for tenantId: %s with document (batch) ID: %s was not found"
 
 func GetById(params map[string]interface{}, claims auth.HriClaims, client *elasticsearch.Client) map[string]interface{} {
 	logger := log.New(os.Stdout, "batches/GetById: ", log.Llongfile)
@@ -49,9 +50,16 @@ func GetById(params map[string]interface{}, claims auth.HriClaims, client *elast
 
 	res, err := client.Get(index, batchId)
 
-	resultBody, errResp := elastic.DecodeBody(res, err, tenantId, logger)
-	if errResp != nil {
-		return errResp
+	resultBody, elasticErr := elastic.DecodeBody(res, err)
+	if elasticErr != nil {
+		if elasticErr.ErrorObj == nil && resultBody != nil && docNotFound(resultBody) {
+			msg := fmt.Sprintf(msgDocNotFound, tenantId, batchId)
+			logger.Println(msg)
+			return response.Error(http.StatusNotFound, msg)
+		}
+
+		return elasticErr.LogAndBuildApiResponse(logger,
+			fmt.Sprintf("Could not retrieve batch with id: %s", batchId))
 	}
 
 	errResponse := checkBatchAuthorization(claims, resultBody)
@@ -62,6 +70,13 @@ func GetById(params map[string]interface{}, claims auth.HriClaims, client *elast
 	return response.Success(http.StatusOK, EsDocToBatch(resultBody))
 }
 
+func docNotFound(resultBody map[string]interface{}) bool {
+	found, ok := resultBody["found"].(bool)
+	return ok && !found
+}
+
+// Data Integrators and Consumers can call this endpoint, but the behavior is slightly different. Consumers can see
+// all Batches, but Data Integrators are only allowed to see Batches they created.
 func checkBatchAuthorization(claims auth.HriClaims, resultBody map[string]interface{}) map[string]interface{} {
 	if claims.HasScope(auth.HriConsumer) { //= Always Authorized
 		return nil // return nil Error for Authorized

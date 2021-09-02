@@ -11,6 +11,7 @@ package main
 import (
 	"github.com/Alvearie/hri-mgmt-api/common/actionloopmin"
 	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/streams"
 	"log"
 	"os"
@@ -31,7 +32,7 @@ func deleteStreamMain(params map[string]interface{}) map[string]interface{} {
 		return err
 	}
 
-	resp := streams.Delete(params, service)
+	resp := streams.Delete(params, param.ParamValidator{}, service)
 	logger.Printf("processing time deleteStreamMain, %d milliseconds \n", time.Since(start).Milliseconds())
 	return resp
 }

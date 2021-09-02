@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # (C) Copyright IBM Corp. 2020
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -10,6 +11,7 @@ failing=0
 output=""
 
 # lookup the base API url for the current targeted functions namespace
+# Note: this doesn't work in MacOS due to differences in `sed` flags as compared to Linux.
 serviceUrl=$(ibmcloud fn api list -f | grep 'URL: ' | grep 'hri/healthcheck' -m 1 | sed -rn 's/^.*: (.*)\/hri.*/\1\/hri/p')
 
 echo 'Run Smoke Tests'

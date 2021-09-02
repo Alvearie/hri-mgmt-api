@@ -6,7 +6,6 @@
 package batches
 
 import (
-	"errors"
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/path"
@@ -65,7 +64,7 @@ func TestGetById(t *testing.T) {
 						}`,
 				},
 			),
-			expected: response.Success(http.StatusOK, map[string]interface{}{"id": "batch7j3", "name": "monkeyBatch", "status": "started", "startDate": "2019-12-13", "dataType": "claims", "topic": "ingest-test", "recordCount": float64(1)}),
+			expected: response.Success(http.StatusOK, map[string]interface{}{"id": "batch7j3", "name": "monkeyBatch", "status": "started", "startDate": "2019-12-13", "dataType": "claims", "topic": "ingest-test", "recordCount": float64(1), "expectedRecordCount": float64(1)}),
 		},
 		{
 			name: "batch not found",
@@ -164,65 +163,7 @@ func TestGetById(t *testing.T) {
 			),
 			expected: response.Error(
 				http.StatusNotFound,
-				"index_not_found_exception: no such index"),
-		},
-		{
-			name:   "bad-ES-response-body-EOF",
-			args:   validPathArg,
-			claims: auth.HriClaims{Scope: auth.HriConsumer},
-			transport: test.NewFakeTransport(t).AddCall(
-				"/tenant12x-batches/_doc/batch7j3",
-				test.ElasticCall{
-					ResponseStatusCode: http.StatusNotFound,
-					ResponseBody:       ``,
-				},
-			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: EOF"),
-		},
-		{
-			name:   "body decode error on ES OK Response",
-			args:   validPathArg,
-			claims: auth.HriClaims{Scope: auth.HriConsumer},
-			transport: test.NewFakeTransport(t).AddCall(
-				"/tenant12x-batches/_doc/batch7j3",
-				test.ElasticCall{
-					ResponseBody: `{bad json message : "`,
-				},
-			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: invalid character 'b' looking for beginning of object key string"),
-		},
-		{
-			name:   "body decode error on ES Response: 400 Bad Request",
-			args:   validPathArg,
-			claims: auth.HriClaims{Scope: auth.HriConsumer},
-			transport: test.NewFakeTransport(t).AddCall(
-				"/tenant12x-batches/_doc/batch7j3",
-				test.ElasticCall{
-					ResponseStatusCode: http.StatusBadRequest,
-					ResponseBody:       `{bad json message : "`,
-				},
-			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: invalid character 'b' looking for beginning of object key string"),
-		},
-		{
-			name:   "client error",
-			args:   validPathArg,
-			claims: auth.HriClaims{Scope: auth.HriConsumer},
-			transport: test.NewFakeTransport(t).AddCall(
-				"/tenant12x-batches/_doc/batch7j3",
-				test.ElasticCall{
-					ResponseErr: errors.New("some client error"),
-				},
-			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Elastic client error: some client error"),
+				"Could not retrieve batch with id: batch7j3: index_not_found_exception: no such index"),
 		},
 		{
 			name:   "integrator role integrator id matches sub claim",
@@ -252,7 +193,7 @@ func TestGetById(t *testing.T) {
 					}`,
 				},
 			),
-			expected: response.Success(http.StatusOK, map[string]interface{}{"id": "batch7j3", "integratorId": "dataIntegrator1", "name": "monkeyBatch", "status": "started", "startDate": "2019-12-13", "dataType": "claims", "topic": "ingest-test", "recordCount": float64(1)}),
+			expected: response.Success(http.StatusOK, map[string]interface{}{"id": "batch7j3", "integratorId": "dataIntegrator1", "name": "monkeyBatch", "status": "started", "startDate": "2019-12-13", "dataType": "claims", "topic": "ingest-test", "recordCount": float64(1), "expectedRecordCount": float64(1)}),
 		},
 		{
 			name:   "integrator role integrator id Does NOT Match sub claim",

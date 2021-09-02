@@ -10,13 +10,18 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
 	"github.com/IBM/resource-controller-go-sdk-generator/build/generated"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -27,6 +32,41 @@ type mockTransport struct{}
 
 func (t *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return &http.Response{Body: ioutil.NopCloser(strings.NewReader(MOCK_RESPONSE))}, nil
+}
+
+func TestResponseError(t *testing.T) {
+	logger := log.New(os.Stdout, "client_test/testResponseError: ", log.Llongfile)
+	responseMessage := "response message"
+
+	testCases := []struct {
+		name             string
+		code             int
+		error            error
+		expectedResponse map[string]interface{}
+	}{
+		{
+			name:             "Elastic Error Code and Error in Response",
+			code:             http.StatusNotFound,
+			error:            fmt.Errorf("error message"),
+			expectedResponse: response.Error(http.StatusNotFound, "response message: error message"),
+		}, {
+			name: "Elastic Error Code and No Error in Response",
+			code: http.StatusNotFound,
+			expectedResponse: response.Error(http.StatusNotFound,
+				fmt.Sprintf(responseMessage+": "+msgUnexpectedErr, http.StatusNotFound)),
+		},
+	}
+
+	for _, tc := range testCases {
+
+		t.Run(tc.name, func(t *testing.T) {
+			actual := &ResponseError{ErrorObj: tc.error, Code: tc.code}
+			actualResponse := actual.LogAndBuildApiResponse(logger, responseMessage)
+			if !reflect.DeepEqual(tc.expectedResponse, actualResponse) {
+				t.Errorf("actual response %v, expected response %v", actualResponse, tc.expectedResponse)
+			}
+		})
+	}
 }
 
 func TestClientFromTransport(t *testing.T) {
@@ -435,12 +475,6 @@ func TestFromConfigError(t *testing.T) {
 
 	client, _ := fromConfig(config)
 	assert.NotNil(t, client)
-}
-
-func TestIndexFromTenantId(t *testing.T) {
-	tenant1 := "fakeTenant"
-	rtnIndex := IndexFromTenantId(tenant1)
-	assert.Equal(t, "fakeTenant-batches", rtnIndex)
 }
 
 func TestTenantIdFromIndex(t *testing.T) {

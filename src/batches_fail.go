@@ -1,6 +1,6 @@
 // +build !tests
 
-/**
+/*
  * (C) Copyright IBM Corp. 2020
  *
  * SPDX-License-Identifier: Apache-2.0
@@ -24,13 +24,13 @@ import (
 )
 
 func main() {
-	actionloopmin.Main(sendCompleteMain)
+	actionloopmin.Main(failMain)
 }
 
-func sendCompleteMain(params map[string]interface{}) map[string]interface{} {
-	logger := log.New(os.Stdout, "batches/sendComplete: ", log.Llongfile)
+func failMain(params map[string]interface{}) map[string]interface{} {
+	logger := log.New(os.Stdout, "batches/fail: ", log.Llongfile)
 	start := time.Now()
-	logger.Printf("start sendCompleteMain, %s \n", start)
+	logger.Printf("start failMain, %s \n", start)
 
 	claims, errResp := auth.GetValidatedClaims(params, auth.AuthValidator{}, oidc.NewProvider)
 	if errResp != nil {
@@ -47,8 +47,8 @@ func sendCompleteMain(params map[string]interface{}) map[string]interface{} {
 		return response.Error(http.StatusInternalServerError, err.Error())
 	}
 
-	resp := batches.UpdateStatus(params, param.ParamValidator{}, claims, batches.SendComplete{}, esClient, kafkaWriter)
+	resp := batches.UpdateStatus(params, param.ParamValidator{}, claims, batches.Fail{}, esClient, kafkaWriter)
 
-	logger.Printf("processing time sendCompleteMain, %d milliseconds \n", time.Since(start).Milliseconds())
+	logger.Printf("processing time failMain, %d milliseconds \n", time.Since(start).Milliseconds())
 	return resp
 }

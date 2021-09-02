@@ -33,11 +33,11 @@ class HRIHelper
     @helper.rest_post(url, request_body, headers)
   end
 
-  def hri_put_batch(tenant_id, batch_id, action, record_count = {}, override_headers = {})
+  def hri_put_batch(tenant_id, batch_id, action, additional_params = {}, override_headers = {})
     url = "#{@base_url}/tenants/#{tenant_id}/batches/#{batch_id}/action/#{action}"
     headers = { 'Accept' => 'application/json',
                'Content-Type' => 'application/json' }.merge(override_headers)
-    @helper.rest_put(url, record_count.to_json, headers)
+    @helper.rest_put(url, additional_params.to_json, headers)
   end
 
   def hri_post_tenant(tenant_id, request_body = nil, override_headers = {})

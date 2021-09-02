@@ -3,6 +3,8 @@ The Alvearie Health Record Ingestion service: a common 'Deployment Ready Compone
 
 This repo contains the code for the Management API of the HRI, which uses [IBM Functions](https://cloud.ibm.com/docs/openwhisk?topic=cloud-functions-getting-started) (Serverless built on [OpenWhisk](https://openwhisk.apache.org/)) with [Golang](https://golang.org/doc/). Basically, this repo defines an API and maps endpoints to Golang executables packaged into 'actions'. IBM Functions takes care of standing up an API Gateway, executing & scaling the actions, and transmitting data between them. [mgmt-api-manifest.yml](mgmt-api-manifest.yml) defines the actions, API, and the mapping between them. A separate OpenAPI specification is maintained in [Alvearie/hri-api-spec](https://github.com/Alvearie/hri-api-spec) for external user's reference. Please Note: Any changes to this (RESTful) Management API for the HRI requires changes in both the hri-api-spec repo and this hri-mgmt-api repo.
 
+This version is compatible with HRI `v2.1`.
+
 ## Communication
 * Please [join](https://alvearie.io/contributions/requestSlackAccess) our Slack channel for further questions: [#health-record-ingestion](https://alvearie.slack.com/archives/C01GM43LFJ6)
 * Please see recent contributors or [maintainers](MAINTAINERS.md)
@@ -45,13 +47,16 @@ rm src/exec
 ## CI/CD
 Since this application must be deployed using IBM Functions in an IBM Cloud account, there isn't a way to launch and test the API & actions locally. So, we have set up GitHub actions to automatically deploy every branch in its own IBM Function's namespace in our IBM cloud account and run integration tests. They all share common Elastic Search and Event Streams instances. Once it's deployed, you can perform manual testing with your namespace. You can also use the IBM Functions UI or IBM Cloud CLI to modify the actions or API in your namespace. When the GitHub branch is deleted, the associated IBM Function's namespace is also automatically deleted. 
 
+### Releases
+Releases are created by creating GitHub tags, which triggers a build that packages everything into a Docker image to deploy the Management API. See [docker/README.md](docker/README.md) for more details.
+
 ### Docker image build
-Images are published on every `develop` branch build with the tag `<branch>-timestamp`.
+Images are published on every `develop` branch build with the tag `develop-timestamp`.
 
 ## Code Overview
 
 ### IBM Function Actions - Golang Mains
-For each API endpoint, there is a Golang executable packaged into an IBM Function's 'action' to service the requests. There are several `.go` files in the base `src/` directory, one for each action and no others, each of which defines `func main()`. If you're familiar with Golang, you might be asking how there can be multiple files with different definitions of `func main()`. The Makefile takes care of compiling each one into a separate executable, and each file includes a [Build Constraint](https://golang.org/pkg/go/build/#hdr-Build_Constraints) to exclude it from unit tests. This also means these files are not unit tested and thus are kept as small as possible. Each one sets up any required clients and then calls an implementation method in a sub package. They also use `common.actionloopmin.Main()` to implement the OpenWhisk [action loop protocol](https://github.com/apache/openwhisk-runtime-go/blob/main/docs/ACTION.md). 
+For each API endpoint, there is a Golang executable packaged into an IBM Function's 'action' to service the requests. There are several `.go` files in the base `src/` directory, one for each action and no others, each of which defines `func main()`. If you're familiar with Golang, you might be asking how there can be multiple files with different definitions of `func main()`. The Makefile takes care of compiling each one into a separate executable, and each file includes a [Build Constraint](https://golang.org/pkg/go/build/#hdr-Build_Constraints) to exclude it from unit tests. This also means these files are not unit tested and thus are kept as small as possible. Each one sets up any required clients and then calls an implementation method in a sub package. They also use `common.actionloopmin.Main()` to implement the OpenWhisk [action loop protocol](https://github.com/apache/openwhisk-runtime-go/blob/master/docs/ACTION.md). 
 
 The compiled binaries have to be named `exec` and put in a zip file. Additionally, a `exec.env` file has to be included, which contains the name of the docker container to use when running the action. All the zip files are written to the `build` directory when running `make`. 
 
@@ -77,14 +82,15 @@ The goal is to have 90% code coverage with unit tests. The build automatically p
 The API that this repo implements is defined in [Alvearie/hri-api-spec](https://github.com/Alvearie/hri-api-spec) using OpenAPI 3.0. There are automated Dredd tests to make sure the implemented API meets the spec. If there are changes to the API, make them to the specification repo using a branch with the same name. Then the Dredd tests will run against the modified API specification. 
 
 ### Authentication & Authorization
-All endpoints (except the health check) require an OAuth 2.0 JWT bearer access token per [RFC8693](https://tools.ietf.org/html/rfc8693) in the `Authorization` header field. The Tenant and Stream endpoints require IAM tokens, but the Batch endpoints require a token with HRI and Tenant scopes for authorization. The Batch token issuer is configurable via a bound parameter, and must be OIDC compliant because the code dynamically uses the OIDC defined well know endpoints to validate tokens. Integration and testing have already been completed with App ID, the standard IBM Cloud solution.
+All endpoints (except the health check) require an OAuth 2.0 JWT bearer access token per [RFC8693](https://tools.ietf.org/html/rfc8693) in the `Authorization` header field. The Tenant and Stream endpoints require IAM tokens, but the Batch endpoints require a token with HRI and Tenant scopes for authorization. The Batch token issuer is configurable via a bound parameter, and must be OIDC compliant because the code dynamically uses the OIDC defined well know endpoints to validate tokens. Integration and testing have already been completed with [App ID](https://cloud.ibm.com/docs/appid), the standard IBM Cloud solution.
 
 Batch JWT access token scopes:
-- hri_data_integrator - Data Integrators can create, get, and change the status of batches, but only ones that they created.
-- hri_consumer - Consumers can list and get Batches
+- hri_data_integrator - Data Integrators can create, get, and call 'sendComplete' and 'terminate' endpoints for batches, but only ones that they created.
+- hri_consumer - Consumers can list and get batches.
+- hri_internal - For internal processing, can call batch 'processingComplete' and 'fail' endpoints.
 - tenant_<tenantId> - provides access to this tenant's batches. This scope must use the prefix 'tenant_'. For example, if a data integrator tries to create a batch by making an HTTP POST call to `tenants/24/batches`, the token must contain scope `tenant_24`, where the `24` is the tenantId.
  
-The scopes claim must contain one or more of the HRI roles ("hri_data_integrator", "hri_consumer") as well as the tenant id of the tenant being accessed.
+The scopes claim must contain one or more of the HRI roles ("hri_data_integrator", "hri_consumer", "hri_internal") as well as the tenant id of the tenant being accessed.
 
 ## Contribution Guide
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.

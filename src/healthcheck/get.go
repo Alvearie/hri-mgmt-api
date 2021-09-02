@@ -30,9 +30,9 @@ func Get(params map[string]interface{}, client *elasticsearch.Client, partReader
 
 	//1. Do ElasticSearch healthCheck call
 	resp, err := client.Cat.Health(client.Cat.Health.WithFormat("json"))
-	respBody, errResp := elastic.DecodeFirstArrayElement(resp, err, logger)
-	if errResp != nil {
-		return errResp
+	respBody, elasticErr := elastic.DecodeFirstArrayElement(resp, err)
+	if elasticErr != nil {
+		return elasticErr.LogAndBuildApiResponse(logger, "Could not perform elasticsearch health check")
 	}
 
 	var isErr bool = false

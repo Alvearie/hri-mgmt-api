@@ -87,6 +87,7 @@ func appendRange(params map[string]interface{}, paramName string, gteParam strin
 func Get(params map[string]interface{}, claims auth.HriClaims, client *elasticsearch.Client) map[string]interface{} {
 	logger := log.New(os.Stdout, "batches/get: ", log.Llongfile)
 
+	// Data Integrators and Consumers can use this endpoint, so either scope allows access
 	if !claims.HasScope(auth.HriConsumer) && !claims.HasScope(auth.HriIntegrator) {
 		errMsg := auth.MsgAccessTokenMissingScopes
 		logger.Println(errMsg)
@@ -171,26 +172,9 @@ func Get(params map[string]interface{}, claims auth.HriClaims, client *elasticse
 		client.Search.WithTrackTotalHits(true),
 	)
 
-	body, errResp := elastic.DecodeBody(res, err, tenantId, logger)
-	if errResp != nil {
-		// check for parse exceptions
-		if body != nil {
-			if body["error"].(map[string]interface{})["type"] == "search_phase_execution_exception" {
-				causes, ok := body["error"].(map[string]interface{})["root_cause"].([]interface{})
-				if !ok {
-					logger.Println("unable to decode error.root_cause")
-					return errResp
-				}
-				for _, value := range causes {
-					entry := value.(map[string]interface{})
-					if entry["type"].(string) == "parse_exception" {
-						return response.Error(http.StatusBadRequest, fmt.Sprintf("%v: %v", entry["type"], entry["reason"]))
-					}
-				}
-			}
-		}
-
-		return errResp
+	body, elasticErr := elastic.DecodeBody(res, err)
+	if elasticErr != nil {
+		return elasticErr.LogAndBuildApiResponse(logger, "Could not retrieve batches")
 	}
 
 	hits := body["hits"].(map[string]interface{})["hits"].([]interface{})

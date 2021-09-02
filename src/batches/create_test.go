@@ -34,39 +34,66 @@ func TestCreate(t *testing.T) {
 	topicBase := "batchTopic"
 	inputTopic := topicBase + inputSuffix
 	batchMetadata := map[string]interface{}{"operation": "update"}
+	batchInvalidThreshold := 10
 
 	validArgs := map[string]interface{}{
-		path.ParamOwPath: fmt.Sprintf("/hri/tenants/%s/batches", tenantId),
-		param.Name:       batchName,
-		param.Topic:      inputTopic,
-		param.DataType:   batchDataType,
-		param.Metadata:   batchMetadata,
+		path.ParamOwPath:       fmt.Sprintf("/hri/tenants/%s/batches", tenantId),
+		param.Name:             batchName,
+		param.Topic:            inputTopic,
+		param.DataType:         batchDataType,
+		param.Metadata:         batchMetadata,
+		param.InvalidThreshold: batchInvalidThreshold,
 	}
 
 	validClaims := auth.HriClaims{Scope: auth.HriIntegrator, Subject: integratorId}
 
 	validBatchMetadata := map[string]interface{}{
-		param.BatchId:      batchId,
-		param.Name:         batchName,
-		param.IntegratorId: integratorId,
-		param.Topic:        inputTopic,
-		param.DataType:     batchDataType,
-		param.Status:       status.Started.String(),
-		param.StartDate:    "ignored",
-		param.Metadata:     batchMetadata,
+		param.BatchId:          batchId,
+		param.Name:             batchName,
+		param.IntegratorId:     integratorId,
+		param.Topic:            inputTopic,
+		param.DataType:         batchDataType,
+		param.Status:           status.Started.String(),
+		param.StartDate:        "ignored",
+		param.Metadata:         batchMetadata,
+		param.InvalidThreshold: batchInvalidThreshold,
 	}
 
 	elasticIndexRequestBody, err := json.Marshal(map[string]interface{}{
-		param.Name:         batchName,
-		param.IntegratorId: integratorId,
-		param.Topic:        inputTopic,
-		param.DataType:     batchDataType,
-		param.Status:       status.Started.String(),
-		param.StartDate:    test.DatePattern,
-		param.Metadata:     batchMetadata,
+		param.Name:             batchName,
+		param.IntegratorId:     integratorId,
+		param.Topic:            inputTopic,
+		param.DataType:         batchDataType,
+		param.Status:           status.Started.String(),
+		param.StartDate:        test.DatePattern,
+		param.Metadata:         batchMetadata,
+		param.InvalidThreshold: batchInvalidThreshold,
 	})
 	if err != nil {
 		t.Fatal("Unable to marshal expected elastic Index request body")
+	}
+
+	elasticIndexRequestBodyDefaultThreshold, err := json.Marshal(map[string]interface{}{
+		param.Name:             batchName,
+		param.IntegratorId:     integratorId,
+		param.Topic:            inputTopic,
+		param.DataType:         batchDataType,
+		param.Status:           status.Started.String(),
+		param.StartDate:        test.DatePattern,
+		param.Metadata:         batchMetadata,
+		param.InvalidThreshold: -1,
+	})
+
+	invalidThresholdBody := map[string]interface{}{
+		param.BatchId:          batchId,
+		param.Name:             batchName,
+		param.IntegratorId:     integratorId,
+		param.Topic:            inputTopic,
+		param.DataType:         batchDataType,
+		param.Status:           status.Started.String(),
+		param.StartDate:        "ignored",
+		param.Metadata:         batchMetadata,
+		param.InvalidThreshold: -1,
 	}
 
 	badParamResponse := map[string]interface{}{"bad": "param"}
@@ -80,6 +107,7 @@ func TestCreate(t *testing.T) {
 		transport         *test.FakeTransport
 		writerError       error
 		expected          map[string]interface{}
+		kafkaValue        map[string]interface{}
 	}{
 		{
 			name:      "unauthorized",
@@ -102,6 +130,7 @@ func TestCreate(t *testing.T) {
 			transport:         test.NewFakeTransport(t),
 			validatorResponse: badParamResponse,
 			expected:          badParamResponse,
+			kafkaValue:        validBatchMetadata,
 		},
 		{
 			name: "missing-path",
@@ -115,6 +144,7 @@ func TestCreate(t *testing.T) {
 			expected: response.Error(
 				http.StatusBadRequest,
 				"Required parameter '__ow_path' is missing"),
+			kafkaValue: validBatchMetadata,
 		},
 		{
 			name:   "bad-response",
@@ -129,8 +159,9 @@ func TestCreate(t *testing.T) {
 			),
 			expected: response.Error(
 				http.StatusInternalServerError,
-				fmt.Sprintf("Elastic client error: %s", elasticErrMsg),
+				fmt.Sprintf("Batch creation failed: elasticsearch client error: %s", elasticErrMsg),
 			),
+			kafkaValue: validBatchMetadata,
 		},
 		{
 			name:   "writer-error",
@@ -148,6 +179,7 @@ func TestCreate(t *testing.T) {
 			),
 			writerError: errors.New("Unable to write to Kafka"),
 			expected:    response.Error(http.StatusInternalServerError, "Unable to write to Kafka"),
+			kafkaValue:  validBatchMetadata,
 		},
 		{
 			name:   "good-request",
@@ -160,7 +192,28 @@ func TestCreate(t *testing.T) {
 					ResponseBody: fmt.Sprintf(`{"%s": "%s"}`, esparam.EsDocId, batchId),
 				},
 			),
-			expected: response.Success(http.StatusCreated, map[string]interface{}{param.BatchId: batchId}),
+			expected:   response.Success(http.StatusCreated, map[string]interface{}{param.BatchId: batchId}),
+			kafkaValue: validBatchMetadata,
+		},
+		{
+			name: "missing-invalid-threshold",
+			args: map[string]interface{}{
+				path.ParamOwPath: fmt.Sprintf("/hri/tenants/%s/batches", tenantId),
+				param.Name:       batchName,
+				param.Topic:      inputTopic,
+				param.DataType:   batchDataType,
+				param.Metadata:   batchMetadata,
+			},
+			claims: validClaims,
+			transport: test.NewFakeTransport(t).AddCall(
+				fmt.Sprintf("/%s-batches/_doc", tenantId),
+				test.ElasticCall{
+					RequestBody:  string(elasticIndexRequestBodyDefaultThreshold),
+					ResponseBody: fmt.Sprintf(`{"%s": "%s"}`, esparam.EsDocId, batchId),
+				},
+			),
+			expected:   response.Success(http.StatusCreated, map[string]interface{}{param.BatchId: batchId}),
+			kafkaValue: invalidThresholdBody,
 		},
 	}
 
@@ -184,7 +237,7 @@ func TestCreate(t *testing.T) {
 			T:             t,
 			ExpectedTopic: topicBase + notificationSuffix,
 			ExpectedKey:   batchId,
-			ExpectedValue: validBatchMetadata,
+			ExpectedValue: tc.kafkaValue,
 			Error:         tc.writerError,
 		}
 

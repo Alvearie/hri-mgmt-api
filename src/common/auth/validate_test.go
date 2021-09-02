@@ -367,7 +367,7 @@ func TestGetValidatedClaimsExtractionError(t *testing.T) {
 
 	claims, err := GetValidatedClaims(params, mockValidator, nil)
 
-	// we expect to get back an empty set of claims and a bad token error
+	// we expect to get back an empty set of claims and a bad claims error
 	expClaims := HriClaims{}
 	expErr := response.Error(http.StatusUnauthorized, badClaimsHolderErr)
 

@@ -10,11 +10,12 @@ type BatchStatus int
 const (
 	Unknown BatchStatus = iota
 	Started
+	SendCompleted
 	Completed
 	Failed
 	Terminated
 )
 
 func (s BatchStatus) String() string {
-	return [...]string{"unknown", "started", "completed", "failed", "terminated"}[s]
+	return [...]string{"unknown", "started", "sendCompleted", "completed", "failed", "terminated"}[s]
 }

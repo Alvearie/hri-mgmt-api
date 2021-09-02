@@ -79,10 +79,11 @@ func Create(
 	)
 
 	// parse the response
-	body, errRes := elastic.DecodeBody(indexRes, err, tenantId, logger)
-	if errRes != nil {
-		return errRes
+	body, elasticErr := elastic.DecodeBody(indexRes, err)
+	if elasticErr != nil {
+		return elasticErr.LogAndBuildApiResponse(logger, "Batch creation failed")
 	}
+
 	batchId := body[esparam.EsDocId].(string)
 
 	// add batchId to info and publish to the notification topic
@@ -106,12 +107,17 @@ func buildBatchInfo(args map[string]interface{}, integrator string) map[string]i
 	currentTime := time.Now().UTC()
 
 	info := map[string]interface{}{
-		param.Name:         args[param.Name].(string),
-		param.IntegratorId: integrator,
-		param.Topic:        args[param.Topic].(string),
-		param.DataType:     args[param.DataType].(string),
-		param.Status:       status.Started.String(),
-		param.StartDate:    currentTime.Format(elastic.DateTimeFormat),
+		param.Name:             args[param.Name].(string),
+		param.IntegratorId:     integrator,
+		param.Topic:            args[param.Topic].(string),
+		param.DataType:         args[param.DataType].(string),
+		param.Status:           status.Started.String(),
+		param.StartDate:        currentTime.Format(elastic.DateTimeFormat),
+		param.InvalidThreshold: args[param.InvalidThreshold],
+	}
+
+	if info[param.InvalidThreshold] == nil {
+		info[param.InvalidThreshold] = -1
 	}
 
 	if val, ok := args[param.Metadata]; ok {

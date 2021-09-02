@@ -36,6 +36,58 @@ func TestEsDocToBatch(t *testing.T) {
 				},
 			},
 			map[string]interface{}{
+				"id":                  "1",
+				"name":                "batch-2019-10-07",
+				"topic":               "ingest.1.fhir",
+				"dataType":            "claims",
+				"integratorId":        "dataIntegrator1",
+				"status":              "started",
+				"recordCount":         100,
+				"expectedRecordCount": 100,
+				"startDate":           "2019-10-30T12:34:00Z",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := EsDocToBatch(tt.esDoc); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("EsDocToBatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeBatchRecordCountValues(t *testing.T) {
+	tests := []struct {
+		name       string
+		inputBatch map[string]interface{}
+		expected   map[string]interface{}
+	}{
+		{"set-record-count-from-expected-record-count",
+			map[string]interface{}{
+				"id":                  "1",
+				"name":                "batch-2019-10-07",
+				"topic":               "ingest.1.fhir",
+				"dataType":            "claims",
+				"integratorId":        "dataIntegrator1",
+				"status":              "started",
+				"expectedRecordCount": 100,
+				"startDate":           "2019-10-30T12:34:00Z",
+			},
+			map[string]interface{}{
+				"id":                  "1",
+				"name":                "batch-2019-10-07",
+				"topic":               "ingest.1.fhir",
+				"dataType":            "claims",
+				"integratorId":        "dataIntegrator1",
+				"status":              "started",
+				"recordCount":         100,
+				"expectedRecordCount": 100,
+				"startDate":           "2019-10-30T12:34:00Z",
+			},
+		},
+		{"set-expected-record-count-from-record-count",
+			map[string]interface{}{
 				"id":           "1",
 				"name":         "batch-2019-10-07",
 				"topic":        "ingest.1.fhir",
@@ -45,12 +97,66 @@ func TestEsDocToBatch(t *testing.T) {
 				"recordCount":  100,
 				"startDate":    "2019-10-30T12:34:00Z",
 			},
+			map[string]interface{}{
+				"id":                  "1",
+				"name":                "batch-2019-10-07",
+				"topic":               "ingest.1.fhir",
+				"dataType":            "claims",
+				"integratorId":        "dataIntegrator1",
+				"status":              "started",
+				"recordCount":         100,
+				"expectedRecordCount": 100,
+				"startDate":           "2019-10-30T12:34:00Z",
+			},
+		},
+		{"no-change-when-neither-set",
+			map[string]interface{}{
+				"id":           "1",
+				"name":         "batch-2019-10-07",
+				"topic":        "ingest.1.fhir",
+				"dataType":     "claims",
+				"integratorId": "dataIntegrator1",
+				"status":       "started",
+				"startDate":    "2019-10-30T12:34:00Z",
+			},
+			map[string]interface{}{
+				"id":           "1",
+				"name":         "batch-2019-10-07",
+				"topic":        "ingest.1.fhir",
+				"dataType":     "claims",
+				"integratorId": "dataIntegrator1",
+				"status":       "started",
+				"startDate":    "2019-10-30T12:34:00Z",
+			},
+		},
+		{"set-expected-record-count-from-record-count-0",
+			map[string]interface{}{
+				"id":           "1",
+				"name":         "batch-2019-10-07",
+				"topic":        "ingest.1.fhir",
+				"dataType":     "claims",
+				"integratorId": "dataIntegrator1",
+				"status":       "started",
+				"recordCount":  0,
+				"startDate":    "2019-10-30T12:34:00Z",
+			},
+			map[string]interface{}{
+				"id":                  "1",
+				"name":                "batch-2019-10-07",
+				"topic":               "ingest.1.fhir",
+				"dataType":            "claims",
+				"integratorId":        "dataIntegrator1",
+				"status":              "started",
+				"recordCount":         0,
+				"expectedRecordCount": 0,
+				"startDate":           "2019-10-30T12:34:00Z",
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := EsDocToBatch(tt.esDoc); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("EsDocToBatch() = %v, want %v", got, tt.want)
+			if got := NormalizeBatchRecordCountValues(tt.inputBatch); !reflect.DeepEqual(got, tt.expected) {
+				t.Errorf("EsDocToBatch() = %v, want %v", got, tt.expected)
 			}
 		})
 	}

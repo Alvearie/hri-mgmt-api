@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # (C) Copyright IBM Corp. 2020
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -15,7 +16,7 @@ exists=$(git show-ref refs/remotes/origin/${TRAVIS_BRANCH})
 if [[ -n "$exists" ]]; then
   git checkout ${TRAVIS_BRANCH}
 else
-  git checkout support-1.x
+  git checkout support-2.x
 fi
 
 # convert API to swagger 2.0

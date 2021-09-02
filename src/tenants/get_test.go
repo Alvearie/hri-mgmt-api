@@ -49,33 +49,8 @@ func TestGet(t *testing.T) {
 			),
 			expected: response.Error(
 				http.StatusInternalServerError,
-				fmt.Sprintf("%s", elasticErrMsg),
+				fmt.Sprintf("Could not retrieve tenants: elasticsearch client error: %s", elasticErrMsg),
 			),
-		},
-		{
-			name: "body decode error on ES OK Response",
-			ft: test.NewFakeTransport(t).AddCall(
-				"/_cat/indices",
-				test.ElasticCall{
-					ResponseBody: `{bad json message : "`,
-				},
-			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: invalid character 'b' looking for beginning of object key string"),
-		},
-		{
-			name: "body decode error on ES Response: 400 Bad Request",
-			ft: test.NewFakeTransport(t).AddCall(
-				"/_cat/indices",
-				test.ElasticCall{
-					ResponseStatusCode: http.StatusBadRequest,
-					ResponseBody:       `{bad json message : "`,
-				},
-			),
-			expected: response.Error(
-				http.StatusInternalServerError,
-				"Error parsing the Elastic search response body: invalid character 'b' looking for beginning of object key string"),
 		},
 		{"simple",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/"},

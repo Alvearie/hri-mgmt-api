@@ -16,15 +16,22 @@ const (
 	OidcIssuer       string = "issuer"
 	JwtAudienceId    string = "jwtAudienceId"
 
-	BatchId      string = "id"
-	DataType     string = "dataType"
-	Metadata     string = "metadata"
-	Name         string = "name"
-	Status       string = "status"
-	StartDate    string = "startDate"
-	Topic        string = "topic"
-	RecordCount  string = "recordCount"
-	IntegratorId string = "integratorId"
+	Validation string = "validation"
+
+	BatchId             string = "id"
+	DataType            string = "dataType"
+	Metadata            string = "metadata"
+	Name                string = "name"
+	IntegratorId        string = "integratorId"
+	Status              string = "status"
+	StartDate           string = "startDate"
+	Topic               string = "topic"
+	RecordCount         string = "recordCount" // deprecated
+	ExpectedRecordCount string = "expectedRecordCount"
+	ActualRecordCount   string = "actualRecordCount"
+	InvalidThreshold    string = "invalidThreshold"
+	InvalidRecordCount  string = "invalidRecordCount"
+	FailureMessage      string = "failureMessage"
 
 	TenantId string = "tenantId"
 

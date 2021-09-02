@@ -65,39 +65,60 @@ func TestCreate(t *testing.T) {
 		path.ParamOwPath:    fmt.Sprintf("/hri/tenants/%s/streams/%s", tenantId, streamId1),
 		param.NumPartitions: numPartitions,
 		param.RetentionMs:   retentionMs,
+		param.Validation:    false,
+	}
+	validArgsWithValidation := map[string]interface{}{
+		path.ParamOwPath:    fmt.Sprintf("/hri/tenants/%s/streams/%s", tenantId, streamId1),
+		param.NumPartitions: numPartitions,
+		param.RetentionMs:   retentionMs,
+		param.Validation:    true,
 	}
 	validArgsNoQualifier := map[string]interface{}{
 		path.ParamOwPath:    fmt.Sprintf("/hri/tenants/%s/streams/%s", tenantId, streamId2),
 		param.NumPartitions: numPartitions,
 		param.RetentionMs:   retentionMs,
+		param.Validation:    false,
+	}
+	validArgsNoQualifierWithValidation := map[string]interface{}{
+		path.ParamOwPath:    fmt.Sprintf("/hri/tenants/%s/streams/%s", tenantId, streamId2),
+		param.NumPartitions: numPartitions,
+		param.RetentionMs:   retentionMs,
+		param.Validation:    true,
 	}
 	missingPathArgs := map[string]interface{}{
 		param.NumPartitions: numPartitions,
 		param.RetentionMs:   retentionMs,
+		//param.Validation: false,
 	}
 	missingTenantArgs := map[string]interface{}{
 		path.ParamOwPath:    fmt.Sprintf("/hri/tenants"),
 		param.NumPartitions: numPartitions,
 		param.RetentionMs:   retentionMs,
+		//param.Validation: false,
 	}
 	missingStreamArgs := map[string]interface{}{
 		path.ParamOwPath:    fmt.Sprintf("/hri/tenants/%s/streams", tenantId),
 		param.NumPartitions: numPartitions,
 		param.RetentionMs:   retentionMs,
+		//param.Validation: false,
 	}
 
 	badParamResponse := map[string]interface{}{"bad": "param"}
 
 	testCases := []struct {
-		name                   string
-		args                   map[string]interface{}
-		validatorResponse      map[string]interface{}
-		modelInError           *es.ModelError
-		modelNotificationError *es.ModelError
-		mockResponse           *http.Response
-		deleteError            error
-		expectedTopic          string
-		expected               map[string]interface{}
+		name                    string
+		args                    map[string]interface{}
+		validatorResponse       map[string]interface{}
+		modelInError            *es.ModelError
+		modelNotificationError  *es.ModelError
+		modelOutError           *es.ModelError
+		modelInvalidError       *es.ModelError
+		mockResponse            *http.Response
+		deleteInError           error
+		deleteNotificationError error
+		deleteOutError          error
+		expectedTopic           string
+		expected                map[string]interface{}
 	}{
 		{
 			name:              "bad-param",
@@ -171,13 +192,125 @@ func TestCreate(t *testing.T) {
 			expectedTopic:          baseTopicName,
 		},
 		{
-			name:                   "notification-fail-and-delete-fail",
+			name:          "out-topic-already-exists",
+			args:          validArgsWithValidation,
+			modelOutError: &TopicAlreadyExistsError,
+			mockResponse:  &StatusUnprocessableEntity,
+			expected:      response.Error(http.StatusConflict, topicAlreadyExistsMessage),
+			expectedTopic: baseTopicName,
+		},
+		{
+			name:              "invalid-topic-already-exists",
+			args:              validArgsWithValidation,
+			modelInvalidError: &TopicAlreadyExistsError,
+			mockResponse:      &StatusUnprocessableEntity,
+			expected:          response.Error(http.StatusConflict, topicAlreadyExistsMessage),
+			expectedTopic:     baseTopicName,
+		},
+		{
+			name:                   "notification-topic-create-fail-and-delete-in-topic-fail",
 			args:                   validArgs,
 			modelNotificationError: &TopicAlreadyExistsError,
 			mockResponse:           &StatusUnprocessableEntity,
-			deleteError:            errors.New("failed to delete in topic"),
-			expected:               response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName+eventstreams.InSuffix, "failed to delete in topic")),
+			deleteInError:          errors.New("failed to delete in topic"),
+			expected:               response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete in topic(s)")),
 			expectedTopic:          baseTopicName,
+		},
+		{
+			name:          "out-topic-create-fail-and-delete-in-topic-fail",
+			args:          validArgsWithValidation,
+			modelOutError: &TopicAlreadyExistsError,
+			mockResponse:  &StatusUnprocessableEntity,
+			deleteInError: errors.New("failed to delete in topic"),
+			expected:      response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete in topic(s)")),
+			expectedTopic: baseTopicName,
+		},
+		{
+			name:                    "out-topic-create-fail-and-delete-notification-topic-fail",
+			args:                    validArgsWithValidation,
+			modelOutError:           &TopicAlreadyExistsError,
+			mockResponse:            &StatusUnprocessableEntity,
+			deleteNotificationError: errors.New("failed to delete notification topic"),
+			expected:                response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete notification topic(s)")),
+			expectedTopic:           baseTopicName,
+		},
+		{
+			name:              "invalid-topic-create-fail-and-delete-in-topic-fail",
+			args:              validArgsWithValidation,
+			modelInvalidError: &TopicAlreadyExistsError,
+			mockResponse:      &StatusUnprocessableEntity,
+			deleteInError:     errors.New("failed to delete in topic"),
+			expected:          response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete in topic(s)")),
+			expectedTopic:     baseTopicName,
+		},
+		{
+			name:                    "invalid-topic-create-fail-and-delete-notification-topic-fail",
+			args:                    validArgsWithValidation,
+			modelInvalidError:       &TopicAlreadyExistsError,
+			mockResponse:            &StatusUnprocessableEntity,
+			deleteNotificationError: errors.New("failed to delete notification topic"),
+			expected:                response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete notification topic(s)")),
+			expectedTopic:           baseTopicName,
+		},
+		{
+			name:              "invalid-topic-create-fail-and-delete-out-topic-fail",
+			args:              validArgsWithValidation,
+			modelInvalidError: &TopicAlreadyExistsError,
+			mockResponse:      &StatusUnprocessableEntity,
+			deleteOutError:    errors.New("failed to delete out topic"),
+			expected:          response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete out topic(s)")),
+			expectedTopic:     baseTopicName,
+		},
+		{
+			name:                    "out-topic-create-fail-and-delete-in-topic-fail-and-delete-notification-topic-fail",
+			args:                    validArgsWithValidation,
+			modelOutError:           &TopicAlreadyExistsError,
+			mockResponse:            &StatusUnprocessableEntity,
+			deleteInError:           errors.New("failed to delete in topic"),
+			deleteNotificationError: errors.New("failed to notification in topic"),
+			expected:                response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete in,notification topic(s)")),
+			expectedTopic:           baseTopicName,
+		},
+		{
+			name:                    "invalid-topic-create-fail-and-delete-in-topic-fail-and-delete-notification-topic-fail",
+			args:                    validArgsWithValidation,
+			modelInvalidError:       &TopicAlreadyExistsError,
+			mockResponse:            &StatusUnprocessableEntity,
+			deleteInError:           errors.New("failed to delete in topic"),
+			deleteNotificationError: errors.New("failed to notification in topic"),
+			expected:                response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete in,notification topic(s)")),
+			expectedTopic:           baseTopicName,
+		},
+		{
+			name:              "invalid-topic-create-fail-and-delete-in-topic-fail-and-delete-out-topic-fail",
+			args:              validArgsWithValidation,
+			modelInvalidError: &TopicAlreadyExistsError,
+			mockResponse:      &StatusUnprocessableEntity,
+			deleteInError:     errors.New("failed to delete in topic"),
+			deleteOutError:    errors.New("failed to delete out topic"),
+			expected:          response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete in,out topic(s)")),
+			expectedTopic:     baseTopicName,
+		},
+		{
+			name:                    "invalid-topic-create-fail-and-delete-notification-topic-fail-and-delete-out-topic-fail",
+			args:                    validArgsWithValidation,
+			modelInvalidError:       &TopicAlreadyExistsError,
+			mockResponse:            &StatusUnprocessableEntity,
+			deleteNotificationError: errors.New("failed to delete notification topic"),
+			deleteOutError:          errors.New("failed to out notification topic"),
+			expected:                response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete notification,out topic(s)")),
+			expectedTopic:           baseTopicName,
+		},
+		{
+			name:                    "invalid-topic-create-fail-and-delete-in-topic-fail-and-delete-notification-topic-fail-and-delete-out-topic-fail",
+			args:                    validArgsWithValidation,
+			modelInvalidError:       &TopicAlreadyExistsError,
+			mockResponse:            &StatusUnprocessableEntity,
+			deleteInError:           errors.New("failed to delete in topic"),
+			deleteNotificationError: errors.New("failed to delete notification topic"),
+			deleteOutError:          errors.New("failed to out notification topic"),
+			expected:                response.Error(http.StatusConflict, topicAlreadyExistsMessage+fmt.Sprintf(cleanupFailureMsg, eventstreams.TopicPrefix+baseTopicName, "failed to delete in,notification,out topic(s)")),
+			expectedTopic:           baseTopicName,
 		},
 		{
 			name:          "invalid-cleanup-policy",
@@ -204,6 +337,22 @@ func TestCreate(t *testing.T) {
 			expectedTopic:          baseTopicName,
 		},
 		{
+			name:          "out-conn-error",
+			args:          validArgsWithValidation,
+			modelOutError: &OtherError,
+			mockResponse:  &StatusUnprocessableEntity,
+			expected:      response.Error(http.StatusInternalServerError, kafkaConnectionMessage),
+			expectedTopic: baseTopicName,
+		},
+		{
+			name:              "invalid-conn-error",
+			args:              validArgsWithValidation,
+			modelInvalidError: &OtherError,
+			mockResponse:      &StatusUnprocessableEntity,
+			expected:          response.Error(http.StatusInternalServerError, kafkaConnectionMessage),
+			expectedTopic:     baseTopicName,
+		},
+		{
 			name:          "good-request-qualifier",
 			args:          validArgs,
 			expected:      response.Success(http.StatusCreated, map[string]interface{}{param.StreamId: streamId1}),
@@ -215,6 +364,18 @@ func TestCreate(t *testing.T) {
 			expected:      response.Success(http.StatusCreated, map[string]interface{}{param.StreamId: streamId2}),
 			expectedTopic: baseTopicNameNoQualifier,
 		},
+		{
+			name:          "good-request-qualifier-with-validation",
+			args:          validArgsWithValidation,
+			expected:      response.Success(http.StatusCreated, map[string]interface{}{param.StreamId: streamId1}),
+			expectedTopic: baseTopicName,
+		},
+		{
+			name:          "good-request-no-qualifier-with-validation",
+			args:          validArgsNoQualifierWithValidation,
+			expected:      response.Success(http.StatusCreated, map[string]interface{}{param.StreamId: streamId2}),
+			expectedTopic: baseTopicNameNoQualifier,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -223,6 +384,7 @@ func TestCreate(t *testing.T) {
 			Required: []param.Info{
 				{param.NumPartitions, reflect.Float64},
 				{param.RetentionMs, reflect.Float64},
+				{param.Validation, reflect.Bool},
 			},
 			Optional: []param.Info{
 				{param.CleanupPolicy, reflect.String},
@@ -240,11 +402,32 @@ func TestCreate(t *testing.T) {
 
 		var mockInErr error
 		var mockNotificationErr error
+		var mockOutErr error
+		var mockInvalidErr error
 		if tc.modelInError != nil {
 			mockInErr = errors.New(tc.modelInError.Message)
 		}
 		if tc.modelNotificationError != nil {
 			mockNotificationErr = errors.New(tc.modelNotificationError.Message)
+		}
+		if tc.modelOutError != nil {
+			mockOutErr = errors.New(tc.modelOutError.Message)
+		}
+		if tc.modelInvalidError != nil {
+			mockInvalidErr = errors.New(tc.modelInvalidError.Message)
+		}
+
+		var mockDeleteInError error
+		var mockDeleteNotificationError error
+		var mockDeleteOutError error
+		if tc.deleteInError != nil {
+			mockDeleteInError = tc.deleteInError
+		}
+		if tc.deleteNotificationError != nil {
+			mockDeleteNotificationError = tc.deleteNotificationError
+		}
+		if tc.deleteOutError != nil {
+			mockDeleteOutError = tc.deleteOutError
 		}
 
 		mockService.
@@ -261,6 +444,18 @@ func TestCreate(t *testing.T) {
 
 		mockService.
 			EXPECT().
+			CreateTopic(context.Background(), getTestTopicRequest(tc.expectedTopic, eventstreams.OutSuffix)).
+			Return(nil, tc.mockResponse, mockOutErr).
+			MaxTimes(1)
+
+		mockService.
+			EXPECT().
+			CreateTopic(context.Background(), getTestTopicRequest(tc.expectedTopic, eventstreams.InvalidSuffix)).
+			Return(nil, tc.mockResponse, mockInvalidErr).
+			MaxTimes(1)
+
+		mockService.
+			EXPECT().
 			HandleModelError(mockInErr).
 			Return(tc.modelInError).
 			MaxTimes(1)
@@ -273,8 +468,32 @@ func TestCreate(t *testing.T) {
 
 		mockService.
 			EXPECT().
+			HandleModelError(mockOutErr).
+			Return(tc.modelOutError).
+			MaxTimes(1)
+
+		mockService.
+			EXPECT().
+			HandleModelError(mockInvalidErr).
+			Return(tc.modelInvalidError).
+			MaxTimes(1)
+
+		mockService.
+			EXPECT().
 			DeleteTopic(context.Background(), eventstreams.TopicPrefix+tc.expectedTopic+eventstreams.InSuffix).
-			Return(nil, nil, tc.deleteError).
+			Return(nil, nil, mockDeleteInError).
+			MaxTimes(1)
+
+		mockService.
+			EXPECT().
+			DeleteTopic(context.Background(), eventstreams.TopicPrefix+tc.expectedTopic+eventstreams.NotificationSuffix).
+			Return(nil, nil, mockDeleteNotificationError).
+			MaxTimes(1)
+
+		mockService.
+			EXPECT().
+			DeleteTopic(context.Background(), eventstreams.TopicPrefix+tc.expectedTopic+eventstreams.OutSuffix).
+			Return(nil, nil, mockDeleteOutError).
 			MaxTimes(1)
 
 		t.Run(tc.name, func(t *testing.T) {
@@ -323,6 +542,69 @@ func TestSetUpTopicConfigs(t *testing.T) {
 	}
 	configs := setUpTopicConfigs(validArgs)
 	assert.Equal(t, expectedConfigs, configs)
+}
+
+func TestCreateDeleteErrorMsg(t *testing.T) {
+	tenantId := "tenant123"
+	streamId1 := "data-integrator123.qualifier_123"
+	baseTopicName := strings.Join([]string{tenantId, streamId1}, ".")
+
+	testCases := []struct {
+		inTopicName              string
+		inTopicDeleted           bool
+		notificationTopicDeleted bool
+		outTopicDeleted          bool
+		expected                 string
+	}{
+		{
+			inTopicDeleted:           true,
+			notificationTopicDeleted: true,
+			outTopicDeleted:          true,
+			expected:                 "",
+		},
+		{
+			inTopicDeleted:           false,
+			notificationTopicDeleted: true,
+			outTopicDeleted:          true,
+			expected:                 fmt.Sprintf(cleanupFailureMsg, baseTopicName, "failed to delete in topic(s)"),
+		},
+		{
+			inTopicDeleted:           true,
+			notificationTopicDeleted: false,
+			outTopicDeleted:          true,
+			expected:                 fmt.Sprintf(cleanupFailureMsg, baseTopicName, "failed to delete notification topic(s)"),
+		},
+		{
+			inTopicDeleted:           false,
+			notificationTopicDeleted: false,
+			outTopicDeleted:          true,
+			expected:                 fmt.Sprintf(cleanupFailureMsg, baseTopicName, "failed to delete in,notification topic(s)"),
+		},
+		{
+			inTopicDeleted:           true,
+			notificationTopicDeleted: true,
+			outTopicDeleted:          false,
+			expected:                 fmt.Sprintf(cleanupFailureMsg, baseTopicName, "failed to delete out topic(s)"),
+		},
+		{
+			inTopicDeleted:           true,
+			notificationTopicDeleted: false,
+			outTopicDeleted:          false,
+			expected:                 fmt.Sprintf(cleanupFailureMsg, baseTopicName, "failed to delete notification,out topic(s)"),
+		},
+		{
+			inTopicDeleted:           false,
+			notificationTopicDeleted: false,
+			outTopicDeleted:          false,
+			expected:                 fmt.Sprintf(cleanupFailureMsg, baseTopicName, "failed to delete in,notification,out topic(s)"),
+		},
+	}
+
+	for _, tc := range testCases {
+		if actual := createDeleteErrorMsg(baseTopicName+eventstreams.InSuffix, tc.inTopicDeleted, tc.notificationTopicDeleted, tc.outTopicDeleted); !reflect.DeepEqual(tc.expected, actual) {
+			t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", tc.expected, actual))
+		}
+	}
 }
 
 func TestSetUpTopicConfigsNoExtras(t *testing.T) {

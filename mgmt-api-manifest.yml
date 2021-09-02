@@ -4,26 +4,26 @@
 
 packages:
     hri_mgmt_api:
-        version: 1.2.5
+        version: 2.1.5
         actions:
             create_batch:
                 function: build/batches_create-bin.zip
                 runtime: go:1.15
                 web-export: true
                 annotations:
-                  require-whisk-auth: $FN_WEB_SECURE_KEY
+                    require-whisk-auth: $FN_WEB_SECURE_KEY
             get_batches:
                 function: build/batches_get-bin.zip
                 runtime: go:1.15
                 web-export: true
                 annotations:
-                  require-whisk-auth: $FN_WEB_SECURE_KEY
+                    require-whisk-auth: $FN_WEB_SECURE_KEY
             get_batch_by_id:
                 function: build/batches_get_by_id-bin.zip
                 runtime: go:1.15
                 web-export: true
                 annotations:
-                  require-whisk-auth: $FN_WEB_SECURE_KEY
+                    require-whisk-auth: $FN_WEB_SECURE_KEY
             healthcheck:
                 function: build/healthcheck_get-bin.zip
                 runtime: go:1.15
@@ -36,8 +36,20 @@ packages:
                 web-export: true
                 annotations:
                     require-whisk-auth: $FN_WEB_SECURE_KEY
+            processing_complete:
+                function: build/batches_processingcomplete-bin.zip
+                runtime: go:1.15
+                web-export: true
+                annotations:
+                    require-whisk-auth: $FN_WEB_SECURE_KEY
             terminate_batch:
                 function: build/batches_terminate-bin.zip
+                runtime: go:1.15
+                web-export: true
+                annotations:
+                    require-whisk-auth: $FN_WEB_SECURE_KEY
+            fail_batch:
+                function: build/batches_fail-bin.zip
                 runtime: go:1.15
                 web-export: true
                 annotations:
@@ -67,23 +79,23 @@ packages:
                 annotations:
                     require-whisk-auth: $FN_WEB_SECURE_KEY
             get_streams:
-              function: build/streams_get-bin.zip
-              runtime: go:1.15
-              web-export: true
-              annotations:
-                require-whisk-auth: $FN_WEB_SECURE_KEY
+                function: build/streams_get-bin.zip
+                runtime: go:1.15
+                web-export: true
+                annotations:
+                    require-whisk-auth: $FN_WEB_SECURE_KEY
             create_stream:
-              function: build/streams_create-bin.zip
-              runtime: go:1.15
-              web-export: true
-              annotations:
-                require-whisk-auth: $FN_WEB_SECURE_KEY
+                function: build/streams_create-bin.zip
+                runtime: go:1.15
+                web-export: true
+                annotations:
+                    require-whisk-auth: $FN_WEB_SECURE_KEY
             delete_stream:
-              function: build/streams_delete-bin.zip
-              runtime: go:1.15
-              web-export: true
-              annotations:
-                require-whisk-auth: $FN_WEB_SECURE_KEY
+                function: build/streams_delete-bin.zip
+                runtime: go:1.15
+                web-export: true
+                annotations:
+                    require-whisk-auth: $FN_WEB_SECURE_KEY
         apis:
             hri-batches:
                 hri:
@@ -120,18 +132,26 @@ packages:
                         send_complete:
                             method: PUT
                             response: http
+                    tenants/{tenantId}/batches/{batchId}/action/processingComplete:
+                        processing_complete:
+                            method: PUT
+                            response: http
                     tenants/{tenantId}/batches/{batchId}/action/terminate:
                         terminate_batch:
                             method: PUT
                             response: http
+                    tenants/{tenantId}/batches/{batchId}/action/fail:
+                        fail_batch:
+                            method: PUT
+                            response: http
                     tenants/{tenantId}/streams:
-                      get_streams:
-                        method: GET
-                        response: http
+                        get_streams:
+                            method: GET
+                            response: http
                     tenants/{tenantId}/streams/{streamId}:
-                      create_stream:
-                        method: POST
-                        response: http
-                      delete_stream:
-                        method: DELETE
-                        response: http
+                        create_stream:
+                            method: POST
+                            response: http
+                        delete_stream:
+                            method: DELETE
+                            response: http

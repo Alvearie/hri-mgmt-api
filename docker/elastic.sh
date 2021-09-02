@@ -23,22 +23,21 @@ echo "ES baseUrl: ${baseUrl/:\/\/*@/://}"
 rtn=0
 
 # set auto-index creation off
-echo
 echo "Setting ElasticSearch auto index creation to false"
-curl -X PUT -sS -f $baseUrl/_cluster/settings  -H 'Content-Type: application/json' -d'
+curl -sS -f -X PUT $baseUrl/_cluster/settings  -H 'Content-Type: application/json' -d'
 {
 "persistent": { "action.auto_create_index": "false" }
-}' || { echo 'Setting ElasticSearch auto index creation failed!' ; rtn=1; }
+}' || { echo -e 'Setting ElasticSearch auto index creation failed!' ; rtn=1; }
 
 # upload batches index template
 echo
-echo "Setting ElasticSearch Batches index template"
-curl -X PUT -sS -f $baseUrl/_index_template/batches -H 'Content-Type: application/json' -d '@batches.json' || 
+echo -e "Setting ElasticSearch Batches index template"
+curl -sS -f -X PUT $baseUrl/_index_template/batches -H 'Content-Type: application/json' -d '@batches.json' || 
 { 
-	echo -e '\nSetting ElasticSearch Batches index template failed!' ; rtn=1; 
+	echo -e 'Setting ElasticSearch Batches index template failed!' ; rtn=1; 
 }
 
 echo
-echo "ElasticSearch configuration complete"
+echo -e "ElasticSearch configuration complete"
 
 exit $rtn
