@@ -83,4 +83,5 @@ jobs:
         setsid ssh-add ~/.ssh/git_deploy_key </dev/null
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b add-public
         gem install dredd_hooks
+        echo "GITHUB REF: $GITHUB_REF"
         ./run-dreddtests.sh
