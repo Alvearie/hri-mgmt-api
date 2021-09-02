@@ -6,10 +6,10 @@ sudo npm install -g dredd@12.2.0
 echo 'Clone hri-api-spec Repo'
 git clone https://github.com/Alvearie/hri-api-spec.git api-spec
 cd api-spec
-echo "if exists, checkout ${GITHUB_REF}"
-exists=$(git show-ref refs/remotes/origin/${GITHUB_REF})
+echo "if exists, checkout ${BRANCH_NAME}"
+exists=$(git show-ref refs/remotes/origin/${BRANCH_NAME})
 if [[ -n "$exists" ]]; then
-  git checkout ${GITHUB_REF}
+  git checkout ${BRANCH_NAME}
 elif [ -n "$API_SPEC_TAG" ]; then
   git checkout -b mgmt-api_auto_dredd $API_SPEC_TAG
 else
