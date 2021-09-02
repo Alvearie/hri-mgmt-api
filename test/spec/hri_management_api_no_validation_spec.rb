@@ -68,11 +68,11 @@ describe 'HRI Management API Without Validation' do
     Logger.new(STDOUT).info("New Batch Created With ID: #{@batch_id}")
 
     #Get AppId Access Tokens
-    @token_invalid_tenant = @app_id_helper.get_access_token('hri_integration_tenant_test_invalid', 'tenant_test_invalid', ENV['JWT_AUDIENCE_ID'])
-    @token_no_roles = @app_id_helper.get_access_token('hri_integration_tenant_test', 'tenant_test', ENV['JWT_AUDIENCE_ID'])
-    @token_integrator_role_only = @app_id_helper.get_access_token('hri_integration_tenant_test_data_integrator', 'tenant_test hri_data_integrator', ENV['JWT_AUDIENCE_ID'])
-    @token_consumer_role_only = @app_id_helper.get_access_token('hri_integration_tenant_test_data_consumer', 'tenant_test hri_consumer', ENV['JWT_AUDIENCE_ID'])
-    @token_all_roles = @app_id_helper.get_access_token('hri_integration_tenant_test_integrator_consumer', 'tenant_test hri_data_integrator hri_consumer', ENV['JWT_AUDIENCE_ID'])
+    @token_invalid_tenant = @app_id_helper.get_access_token('hri_integration_tenant_test_invalid', 'tenant_test_invalid')
+    @token_no_roles = @app_id_helper.get_access_token('hri_integration_tenant_test', 'tenant_test')
+    @token_integrator_role_only = @app_id_helper.get_access_token('hri_integration_tenant_test_data_integrator', 'tenant_test hri_data_integrator')
+    @token_consumer_role_only = @app_id_helper.get_access_token('hri_integration_tenant_test_data_consumer', 'tenant_test hri_consumer')
+    @token_all_roles = @app_id_helper.get_access_token('hri_integration_tenant_test_integrator_consumer', 'tenant_test hri_data_integrator hri_consumer')
     @token_invalid_audience = @app_id_helper.get_access_token('hri_integration_tenant_test_integrator_consumer', 'tenant_test hri_data_integrator hri_consumer', ENV['APPID_TENANT'])
   end
 
