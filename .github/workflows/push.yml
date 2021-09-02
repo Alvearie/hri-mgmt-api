@@ -82,5 +82,4 @@ jobs:
         ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
         setsid ssh-add ~/.ssh/git_deploy_key </dev/null
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b add-public
-        rvm --default use ruby-2.6.5
         ./run-dreddtests.sh
