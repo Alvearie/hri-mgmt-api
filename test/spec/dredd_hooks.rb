@@ -8,7 +8,7 @@ include DreddHooks::Methods
 
 DREDD_TENANT_ID = 'provider1234'
 TENANT_ID_TENANTS_STREAMS = "#{ENV['BRANCH_NAME'].tr('.-', '')}".downcase
-TENANT_ID_BATCHES = ENV['EXISTING_TENANT_ID']
+TENANT_ID_BATCHES = ENV['TENANT_ID']
 
 elastic = HRITestHelpers::ElasticHelper.new({url: ENV['ELASTIC_URL'], username: ENV['ELASTIC_USERNAME'], password: ENV['ELASTIC_PASSWORD']})
 
