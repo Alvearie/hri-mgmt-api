@@ -70,7 +70,6 @@ jobs:
         curl -sSL https://get.rvm.io | bash -s stable --ruby
         source /home/runner/.rvm/scripts/rvm
         rvm install ruby-2.6.5
-        rvm --default use ruby-2.6.5
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
         mkdir ~/.ssh
@@ -83,4 +82,6 @@ jobs:
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b add-public
 
     - name: Run Dredd Tests
-      run: ./run-dreddtests.sh
+      run: |
+        rvm --default use ruby-2.6.5
+        ./run-dreddtests.sh
