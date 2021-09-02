@@ -44,6 +44,7 @@ jobs:
       ASOC_KEY_SECRET: ${{ secrets.ASOC_KEY_SECRET }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
+      ELASTIC_CRN: ${{ secrets.ELASTIC_CRN }}
 
     steps:
     - name: Set Branch Name
