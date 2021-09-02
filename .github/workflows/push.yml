@@ -63,11 +63,13 @@ jobs:
 
     - name: Run Smoke Tests
       run: ./run-smoketests.sh
-        
-    - name: Install Ruby and Gems, Run Dredd Tests
+
+    - name: Install Ruby 2.6.5
       uses: actions/setup-ruby@v1
       with:
         ruby-version: 2.6.5
+        
+    - name: Install Ruby and Gems, Run Dredd Tests
       run: |
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
