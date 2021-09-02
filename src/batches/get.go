@@ -10,11 +10,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/path"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/elastic/go-elasticsearch/v6"
+	"github.com/elastic/go-elasticsearch/v7"
 	"log"
 	"net/http"
 	"os"
@@ -83,13 +84,13 @@ func appendRange(params map[string]interface{}, paramName string, gteParam strin
 	return nil
 }
 
-func Get(params map[string]interface{}, client *elasticsearch.Client) map[string]interface{} {
+func Get(params map[string]interface{}, claims auth.HriClaims, client *elasticsearch.Client) map[string]interface{} {
 	logger := log.New(os.Stdout, "batches/get: ", log.Llongfile)
 
-	for key, value := range params {
-		if key != "__bx_creds" {
-			logger.Printf("%s: %v\n", key, value)
-		}
+	if !claims.HasScope(auth.HriConsumer) && !claims.HasScope(auth.HriIntegrator) {
+		errMsg := auth.MsgAccessTokenMissingScopes
+		logger.Println(errMsg)
+		return response.Error(http.StatusUnauthorized, errMsg)
 	}
 
 	tenantId, err := path.ExtractParam(params, param.TenantIndex)
@@ -98,7 +99,7 @@ func Get(params map[string]interface{}, client *elasticsearch.Client) map[string
 		return response.Error(http.StatusBadRequest, err.Error())
 	}
 
-	mustClauses := make([]map[string]interface{}, 0, 3) //at most 3 query restrictions
+	mustClauses := make([]map[string]interface{}, 0, 4) //at most 4 query restrictions
 	if err := appendTerm(params, param.Name, &mustClauses); err != nil {
 		return response.Error(http.StatusBadRequest, err.Error())
 	}
@@ -107,6 +108,15 @@ func Get(params map[string]interface{}, client *elasticsearch.Client) map[string
 	}
 	if err := appendRange(params, param.StartDate, paramGteDate, paramLteDate, &mustClauses); err != nil {
 		return response.Error(http.StatusBadRequest, err.Error())
+	}
+	// If only the HriIntegrator role is present, filter results to batches it owns
+	if !claims.HasScope(auth.HriConsumer) && claims.HasScope(auth.HriIntegrator) {
+		clause := map[string]interface{}{
+			"term": map[string]interface{}{
+				param.IntegratorId: claims.Subject,
+			},
+		}
+		mustClauses = append(mustClauses, clause)
 	}
 
 	var buf *bytes.Buffer
@@ -189,7 +199,7 @@ func Get(params map[string]interface{}, client *elasticsearch.Client) map[string
 	}
 
 	return response.Success(http.StatusOK, map[string]interface{}{
-		"total":   body["hits"].(map[string]interface{})["total"].(float64),
+		"total":   body["hits"].(map[string]interface{})["total"].(map[string]interface{})["value"].(float64),
 		"results": hits,
 	})
 }

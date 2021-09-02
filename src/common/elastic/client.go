@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	service "github.com/IBM/resource-controller-go-sdk-generator/build/generated"
-	"github.com/elastic/go-elasticsearch/v6"
+	"github.com/elastic/go-elasticsearch/v7"
 	"net/http"
 	"strings"
 )

@@ -12,7 +12,7 @@ import (
 	"errors"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
 	"github.com/IBM/resource-controller-go-sdk-generator/build/generated"
-	"github.com/elastic/go-elasticsearch/v6"
+	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"

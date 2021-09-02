@@ -11,18 +11,23 @@ const (
 	BatchIndex  = 5
 	StreamIndex = 5
 
-	BoundCreds string = "__bx_creds"
-	OwHeaders  string = "__ow_headers"
+	BoundCreds       string = "__bx_creds"
+	OpenWhiskHeaders string = "__ow_headers"
+	OidcIssuer       string = "issuer"
+	JwtAudienceId    string = "jwtAudienceId"
 
-	BatchId           string = "id"
-	DataType          string = "dataType"
-	Metadata          string = "metadata"
-	Name              string = "name"
-	Status            string = "status"
-	StartDate         string = "startDate"
-	Topic             string = "topic"
-	TenantId          string = "tenantId"
-	RecordCount       string = "recordCount"
+	BatchId      string = "id"
+	DataType     string = "dataType"
+	Metadata     string = "metadata"
+	Name         string = "name"
+	Status       string = "status"
+	StartDate    string = "startDate"
+	Topic        string = "topic"
+	RecordCount  string = "recordCount"
+	IntegratorId string = "integratorId"
+
+	TenantId string = "tenantId"
+
 	StreamId          string = "id"
 	NumPartitions     string = "numPartitions"
 	RetentionMs       string = "retentionMs"

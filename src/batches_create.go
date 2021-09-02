@@ -11,10 +11,12 @@ package main
 import (
 	"github.com/Alvearie/hri-mgmt-api/batches"
 	"github.com/Alvearie/hri-mgmt-api/common/actionloopmin"
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
+	"github.com/coreos/go-oidc"
 	"log"
 	"net/http"
 	"os"
@@ -30,6 +32,11 @@ func createMain(params map[string]interface{}) map[string]interface{} {
 	start := time.Now()
 	logger.Printf("start createMain, %s \n", start)
 
+	claims, errResp := auth.GetValidatedClaims(params, auth.AuthValidator{}, oidc.NewProvider)
+	if errResp != nil {
+		return errResp
+	}
+
 	esClient, err := elastic.ClientFromParams(params)
 	if err != nil {
 		return response.Error(http.StatusInternalServerError, err.Error())
@@ -39,7 +46,9 @@ func createMain(params map[string]interface{}) map[string]interface{} {
 	if err != nil {
 		return response.Error(http.StatusInternalServerError, err.Error())
 	}
-	resp := batches.Create(params, param.ParamValidator{}, esClient, kafkaWriter)
+
+	resp := batches.Create(params, param.ParamValidator{}, claims, esClient, kafkaWriter)
+
 	logger.Printf("processing time createMain, %d milliseconds \n", time.Since(start).Milliseconds())
 	return resp
 }

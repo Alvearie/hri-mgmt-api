@@ -4,83 +4,83 @@
 
 packages:
     hri_mgmt_api:
-        version: 1.0
+        version: 1.2.5
         actions:
             create_batch:
                 function: build/batches_create-bin.zip
-                runtime: go:1.11
+                runtime: go:1.15
                 web-export: true
                 annotations:
                   require-whisk-auth: $FN_WEB_SECURE_KEY
             get_batches:
                 function: build/batches_get-bin.zip
-                runtime: go:1.11
+                runtime: go:1.15
                 web-export: true
                 annotations:
                   require-whisk-auth: $FN_WEB_SECURE_KEY
             get_batch_by_id:
                 function: build/batches_get_by_id-bin.zip
-                runtime: go:1.11
+                runtime: go:1.15
                 web-export: true
                 annotations:
                   require-whisk-auth: $FN_WEB_SECURE_KEY
             healthcheck:
                 function: build/healthcheck_get-bin.zip
-                runtime: go:1.11
+                runtime: go:1.15
                 web-export: true
                 annotations:
                     require-whisk-auth: $FN_WEB_SECURE_KEY
             send_complete:
                 function: build/batches_sendcomplete-bin.zip
-                runtime: go:1.11
+                runtime: go:1.15
                 web-export: true
                 annotations:
                     require-whisk-auth: $FN_WEB_SECURE_KEY
             terminate_batch:
                 function: build/batches_terminate-bin.zip
-                runtime: go:1.11
+                runtime: go:1.15
                 web-export: true
                 annotations:
                     require-whisk-auth: $FN_WEB_SECURE_KEY
             create_tenant:
                 function: build/tenants_create-bin.zip
-                runtime: go:1.11
+                runtime: go:1.15
                 web-export: true
                 annotations:
                     require-whisk-auth: $FN_WEB_SECURE_KEY
             get_tenants:
                 function: build/tenants_get-bin.zip
-                runtime: go:1.11
+                runtime: go:1.15
                 web-export: true
                 annotations:
                     require-whisk-auth: $FN_WEB_SECURE_KEY
             get_tenant_by_id:
                 function: build/tenants_get_by_id-bin.zip
-                runtime: go:1.11
+                runtime: go:1.15
                 web-export: true
                 annotations:
                     require-whisk-auth: $FN_WEB_SECURE_KEY
             delete_tenant:
                 function: build/tenants_delete-bin.zip
-                runtime: go:1.11
+                runtime: go:1.15
                 web-export: true
                 annotations:
                     require-whisk-auth: $FN_WEB_SECURE_KEY
             get_streams:
               function: build/streams_get-bin.zip
-              runtime: go:1.11
+              runtime: go:1.15
               web-export: true
               annotations:
                 require-whisk-auth: $FN_WEB_SECURE_KEY
             create_stream:
               function: build/streams_create-bin.zip
-              runtime: go:1.11
+              runtime: go:1.15
               web-export: true
               annotations:
                 require-whisk-auth: $FN_WEB_SECURE_KEY
             delete_stream:
               function: build/streams_delete-bin.zip
-              runtime: go:1.11
+              runtime: go:1.15
               web-export: true
               annotations:
                 require-whisk-auth: $FN_WEB_SECURE_KEY

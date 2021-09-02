@@ -11,7 +11,7 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	esp "github.com/Alvearie/hri-mgmt-api/common/param/esparam"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/elastic/go-elasticsearch/v6"
+	"github.com/elastic/go-elasticsearch/v7"
 	"log"
 	"net/http"
 	"os"

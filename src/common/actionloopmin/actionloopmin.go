@@ -32,6 +32,11 @@ func startLoop(fn func(params map[string]interface{}) map[string]interface{}, ou
 
 	reader := bufio.NewReader(os.Stdin)
 
+	// send ack
+	// note that it depends on the runtime,
+	// go 1.13+ requires an ack, past versions does not
+	fmt.Fprintf(out, `{ "ok": true}%s`, "\n")
+
 	// read-eval-print loop
 	for {
 		// read one line

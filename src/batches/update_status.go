@@ -9,12 +9,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/path"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/elastic/go-elasticsearch/v6"
+	"github.com/elastic/go-elasticsearch/v7"
 	"log"
 	"net/http"
 	"os"
@@ -29,8 +30,22 @@ const (
 	msgUpdateResultNotReturned string = "Update result not returned in Elastic response"
 )
 
-func UpdateStatus(params map[string]interface{}, validator param.Validator, targetStatus status.BatchStatus, client *elasticsearch.Client, kafkaWriter kafka.Writer) map[string]interface{} {
+func UpdateStatus(
+	params map[string]interface{},
+	validator param.Validator,
+	claims auth.HriClaims,
+	targetStatus status.BatchStatus,
+	client *elasticsearch.Client,
+	kafkaWriter kafka.Writer) map[string]interface{} {
+
 	logger := log.New(os.Stdout, fmt.Sprintf("batches/%s: ", targetStatus), log.Llongfile)
+
+	// validate that caller has sufficient permissions
+	if !claims.HasScope(auth.HriIntegrator) {
+		msg := fmt.Sprintf(fmt.Sprintf(auth.MsgIntegratorRoleRequired, "update"))
+		logger.Printf(msg)
+		return response.Error(http.StatusUnauthorized, msg)
+	}
 
 	// validate that required input params are present
 	tenantId, err := path.ExtractParam(params, param.TenantIndex)
@@ -43,8 +58,17 @@ func UpdateStatus(params map[string]interface{}, validator param.Validator, targ
 		logger.Println(err.Error())
 		return response.Error(http.StatusBadRequest, err.Error())
 	}
-	// recordCount is required for StatusProcessComplete, unused for StatusTerminated
-	var recordCount int
+
+	errResp := validator.ValidateOptional(
+		params,
+		param.Info{param.Metadata, reflect.Map},
+	)
+	if errResp != nil {
+		logger.Printf("Bad input optional params: %s", errResp)
+		return errResp
+	}
+	metadata := params[param.Metadata]
+
 	index := elastic.IndexFromTenantId(tenantId)
 
 	// Elastic conditional update query
@@ -61,22 +85,50 @@ func UpdateStatus(params map[string]interface{}, validator param.Validator, targ
 			logger.Printf("Bad input params: %s", errResp)
 			return errResp
 		}
-		recordCount = int(params[param.RecordCount].(float64))
+		recordCount := int(params[param.RecordCount].(float64))
+
 		// NOTE: whenever the Elastic document is NOT updated, set the ctx.op = 'none'
 		// flag. Elastic will use this flag in the response so we can check if the update took place.
-		updateScript = fmt.Sprintf("if (ctx._source.status == '%s') {ctx._source.status = '%s'; ctx._source.recordCount = %d; ctx._source.endDate = '%s';} else {ctx.op = 'none'}", status.Started, targetStatus, recordCount, currentTime.Format(elastic.DateTimeFormat))
+		if metadata == nil {
+			updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.recordCount = %d; ctx._source.endDate = '%s';} else {ctx.op = 'none'}",
+				status.Started, claims.Subject, targetStatus, recordCount, currentTime.Format(elastic.DateTimeFormat))
+		} else {
+			updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.recordCount = %d; ctx._source.endDate = '%s'; ctx._source.metadata = params.metadata;} else {ctx.op = 'none'}",
+				status.Started, claims.Subject, targetStatus, recordCount, currentTime.Format(elastic.DateTimeFormat))
+		}
+
 	} else if targetStatus == status.Terminated {
-		updateScript = fmt.Sprintf("if (ctx._source.status == '%s') {ctx._source.status = '%s'; ctx._source.endDate = '%s';} else {ctx.op = 'none'}", status.Started, targetStatus, currentTime.Format(elastic.DateTimeFormat))
+
+		if metadata == nil {
+			updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.endDate = '%s';} else {ctx.op = 'none'}",
+				status.Started, claims.Subject, targetStatus, currentTime.Format(elastic.DateTimeFormat))
+		} else {
+			updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.endDate = '%s'; ctx._source.metadata = params.metadata;} else {ctx.op = 'none'}",
+				status.Started, claims.Subject, targetStatus, currentTime.Format(elastic.DateTimeFormat))
+		}
+
 	} else {
 		// this method was somehow invoked with an invalid batch status
 		errMsg := fmt.Sprintf("Cannot update batch to status '%s', only '%s' and '%s' are acceptable", targetStatus, status.Completed, status.Terminated)
 		logger.Println(errMsg)
 		return response.Error(http.StatusUnprocessableEntity, errMsg)
 	}
-	updateRequest := map[string]interface{}{
-		"script": map[string]string{
-			"source": updateScript,
-		},
+
+	var updateRequest map[string]interface{}
+	if metadata == nil {
+		updateRequest = map[string]interface{}{
+			"script": map[string]interface{}{
+				"source": updateScript,
+			},
+		}
+	} else {
+		updateRequest = map[string]interface{}{
+			"script": map[string]interface{}{
+				"source": updateScript,
+				"lang":   "painless",
+				"params": map[string]interface{}{"metadata": metadata},
+			},
+		}
 	}
 
 	encodedQuery, err := elastic.EncodeQueryBody(updateRequest)
@@ -88,7 +140,7 @@ func UpdateStatus(params map[string]interface{}, validator param.Validator, targ
 
 	updateResponse, updateErr := client.Update(
 		index,
-		BatchIdToEsDocId(batchId),
+		batchId,
 		encodedQuery, // request body
 		client.Update.WithContext(context.Background()),
 		client.Update.WithSource("true"), // return updated batch in response
@@ -122,13 +174,31 @@ func UpdateStatus(params map[string]interface{}, validator param.Validator, targ
 		}
 		return response.Success(http.StatusOK, map[string]interface{}{})
 	} else if updateResult == elasticResultNoop {
-		// update resulted in no-op, due to previous batch status
-		errMsg := fmt.Sprintf("Batch status was not updated to '%s', batch is already in '%s' state", targetStatus, updatedBatch[param.Status].(string))
+		statusCode, errMsg := determineCause(targetStatus, claims.Subject, updatedBatch)
 		logger.Println(errMsg)
-		return response.Error(http.StatusConflict, errMsg)
+		return response.Error(statusCode, errMsg)
 	} else {
 		errMsg := fmt.Sprintf("An unexpected error occurred updating the batch, Elastic update returned result '%s'", updateResult)
 		logger.Println(errMsg)
 		return response.Error(http.StatusInternalServerError, errMsg)
+	}
+}
+
+func determineCause(targetStatus status.BatchStatus, subject string, batch map[string]interface{}) (int, string) {
+	if subject != batch[param.IntegratorId] {
+		// update resulted in no-op, due to insuffient permissions
+		return http.StatusUnauthorized, fmt.Sprintf(
+			"Batch status was not updated to '%s'. Requested by '%s' but owned by '%s'",
+			targetStatus,
+			subject,
+			batch[param.IntegratorId],
+		)
+	} else {
+		// update resulted in no-op, due to previous batch status
+		return http.StatusConflict, fmt.Sprintf(
+			"Batch status was not updated to '%s', batch is already in '%s' state",
+			targetStatus,
+			batch[param.Status],
+		)
 	}
 }

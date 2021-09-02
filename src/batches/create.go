@@ -8,14 +8,16 @@ package batches
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/param/esparam"
 	"github.com/Alvearie/hri-mgmt-api/common/path"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/elastic/go-elasticsearch/v6"
+	"github.com/elastic/go-elasticsearch/v7"
 	"log"
 	"net/http"
 	"os"
@@ -26,11 +28,24 @@ import (
 func Create(
 	args map[string]interface{},
 	validator param.Validator,
+	claims auth.HriClaims,
 	esClient *elasticsearch.Client,
 	kafkaWriter kafka.Writer) map[string]interface{} {
 
 	logger := log.New(os.Stdout, "batches/create: ", log.Llongfile)
-	//TODO validate caller?
+
+	// validate that caller has sufficient permissions
+	if !claims.HasScope(auth.HriIntegrator) {
+		msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "create")
+		logger.Printf(msg)
+		return response.Error(http.StatusUnauthorized, msg)
+	}
+
+	// validate that the Subject claim (integrator ID) is not missing
+	if claims.Subject == "" {
+		logger.Printf(auth.MsgSubClaimRequiredInJwt)
+		return response.Error(http.StatusUnauthorized, auth.MsgSubClaimRequiredInJwt)
+	}
 
 	// validate that required input params are present
 	errResp := validator.Validate(
@@ -44,14 +59,14 @@ func Create(
 		return errResp
 	}
 
-	// extract tenantId path param from URL (we know it's there because we validated the params)
+	// extract tenantId path param from URL
 	tenantId, err := path.ExtractParam(args, param.TenantIndex)
 	if err != nil {
 		logger.Println(err.Error())
 		return response.Error(http.StatusBadRequest, err.Error())
 	}
 
-	batchInfo := buildBatchInfo(args)
+	batchInfo := buildBatchInfo(args, claims.Subject)
 	jsonBatchInfo, err := json.Marshal(batchInfo)
 	if err != nil {
 		return response.Error(http.StatusInternalServerError, err.Error())
@@ -68,7 +83,7 @@ func Create(
 	if errRes != nil {
 		return errRes
 	}
-	batchId := EsDocIdToBatchId(body[esparam.EsDocId].(string))
+	batchId := body[esparam.EsDocId].(string)
 
 	// add batchId to info and publish to the notification topic
 	batchInfo[param.BatchId] = batchId
@@ -78,7 +93,7 @@ func Create(
 		logger.Printf("Unable to publish to topic [%s] about new batch [%s]. %s", notificationTopic, batchId, err.Error())
 
 		// cleanup the elastic document
-		esClient.Delete(elastic.IndexFromTenantId(tenantId), BatchIdToEsDocId(batchId))
+		esClient.Delete(elastic.IndexFromTenantId(tenantId), batchId)
 		return response.Error(http.StatusInternalServerError, err.Error())
 	}
 
@@ -87,15 +102,16 @@ func Create(
 	return response.Success(http.StatusCreated, respBody)
 }
 
-func buildBatchInfo(args map[string]interface{}) map[string]interface{} {
+func buildBatchInfo(args map[string]interface{}, integrator string) map[string]interface{} {
 	currentTime := time.Now().UTC()
 
 	info := map[string]interface{}{
-		param.Name:      args[param.Name].(string),
-		param.Topic:     args[param.Topic].(string),
-		param.DataType:  args[param.DataType].(string),
-		param.Status:    status.Started.String(),
-		param.StartDate: currentTime.Format(elastic.DateTimeFormat),
+		param.Name:         args[param.Name].(string),
+		param.IntegratorId: integrator,
+		param.Topic:        args[param.Topic].(string),
+		param.DataType:     args[param.DataType].(string),
+		param.Status:       status.Started.String(),
+		param.StartDate:    currentTime.Format(elastic.DateTimeFormat),
 	}
 
 	if val, ok := args[param.Metadata]; ok {

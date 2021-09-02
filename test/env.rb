@@ -1,3 +1,7 @@
+# (C) Copyright IBM Corp. 2020
+#
+# SPDX-License-Identifier: Apache-2.0
+
 require 'rubygems'
 require 'rspec'
 require 'json'
@@ -16,9 +20,12 @@ require 'csv'
 require 'logger'
 require 'securerandom'
 require 'kafka'
+require 'base64'
 
 require_relative './spec/helper'
 require_relative './spec/elastic_helper'
 require_relative './spec/hri_helper'
 require_relative './spec/cos_helper'
 require_relative './spec/iam_helper'
+require_relative './spec/app_id_helper'
+require_relative './spec/event_streams_helper'

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/path"
@@ -22,64 +23,51 @@ import (
 )
 
 const (
-	docId            string  = "docId"
+	batchId          string  = "test-batch"
 	batchName        string  = "batchName"
 	batchTopic       string  = "test.batch.in"
 	batchDataType    string  = "batchDataType"
 	batchStartDate   string  = "ignored"
 	batchRecordCount float64 = float64(1)
+	integratorId     string  = "integratorId"
 	// Note that the following chars must be escaped because RequestBody is used as a regex pattern: ., ), (
-	scriptProcessComplete string = `{"script":{"source":"if \(ctx\._source\.status == 'started'\) {ctx\._source\.status = 'completed'; ctx\._source\.recordCount = 1; ctx\._source\.endDate = '` + test.DatePattern + `';} else {ctx\.op = 'none'}"}}` + "\n"
+	scriptSendComplete         string = `{"script":{"source":"if \(ctx\._source\.status == 'started' \\u0026\\u0026 ctx._source.integratorId == '` + integratorId + `'\) {ctx\._source\.status = 'completed'; ctx\._source\.recordCount = 1; ctx\._source\.endDate = '` + test.DatePattern + `';} else {ctx\.op = 'none'}"}}` + "\n"
+	scriptSendCompleteMetadata string = `{"script":{"lang":"painless","params":{"metadata":{"compression":"gzip","userMetaField1":"metadata"}},"source":"if \(ctx._source.status == 'started' \\u0026\\u0026 ctx._source.integratorId == '` + integratorId + `'\) {ctx._source.status = 'completed'; ctx._source.recordCount = 1; ctx._source.endDate = '` + test.DatePattern + `'; ctx\._source\.metadata = params\.metadata;} else {ctx.op = 'none'}"}}` + "\n"
 	// Note that the following chars must be escaped because RequestBody is used as a regex pattern: ., ), (
-	scriptTerminated     string = `{"script":{"source":"if \(ctx\._source\.status == 'started'\) {ctx\._source\.status = 'terminated'; ctx\._source\.endDate = '` + test.DatePattern + `';} else {ctx\.op = 'none'}"}}` + "\n"
-	transportQueryParams string = "_source=true"
+	scriptTerminated         string = `{"script":{"source":"if \(ctx._source.status == 'started' \\u0026\\u0026 ctx._source.integratorId == '` + integratorId + `'\) {ctx._source.status = 'terminated'; ctx._source.endDate = '` + test.DatePattern + `';} else {ctx.op = 'none'}"}}` + "\n"
+	scriptTerminatedMetadata string = `{"script":{"lang":"painless","params":{"metadata":{"compression":"gzip","userMetaField1":"metadata"}},"source":"if \(ctx\._source\.status == 'started' \\u0026\\u0026 ctx._source.integratorId == '` + integratorId + `'\) {ctx\._source\.status = 'terminated'; ctx\._source\.endDate = '` + test.DatePattern + `'; ctx\._source\.metadata = params\.metadata;} else {ctx\.op = 'none'}"}}` + "\n"
+	transportQueryParams     string = "_source=true"
 )
 
-var batchId = EsDocIdToBatchId(docId)
+var batchMetadata = map[string]interface{}{"compression": "gzip", "userMetaField1": "metadata"}
 
 func TestUpdateStatus(t *testing.T) {
 	activationId := "activationId"
 	_ = os.Setenv(response.EnvOwActivationId, activationId)
 
+	validClaims := auth.HriClaims{Scope: auth.HriIntegrator, Subject: integratorId}
+
 	// create some example batches in different states
-	sendCompleteBatch := map[string]interface{}{
-		param.BatchId:     batchId,
-		param.Name:        batchName,
-		param.Topic:       batchTopic,
-		param.DataType:    batchDataType,
-		param.Status:      status.Completed.String(),
-		param.StartDate:   batchStartDate,
-		param.RecordCount: batchRecordCount,
-	}
+	sendCompleteBatch := createBatch(status.Completed)
 	sendCompleteJSON, err := json.Marshal(sendCompleteBatch)
 	if err != nil {
 		t.Errorf("Unable to create batch JSON string: %s", err.Error())
 	}
 
-	terminatedBatch := map[string]interface{}{
-		param.BatchId:     batchId,
-		param.Name:        batchName,
-		param.Topic:       batchTopic,
-		param.DataType:    batchDataType,
-		param.Status:      status.Terminated.String(),
-		param.StartDate:   batchStartDate,
-		param.RecordCount: batchRecordCount,
-	}
+	terminatedBatch := createBatch(status.Terminated)
 	terminatedJSON, err := json.Marshal(terminatedBatch)
 	if err != nil {
 		t.Errorf("Unable to create batch JSON string: %s", err.Error())
 	}
 
-	failedBatch := map[string]interface{}{
-		param.BatchId:     batchId,
-		param.Name:        batchName,
-		param.Topic:       batchTopic,
-		param.DataType:    batchDataType,
-		param.Status:      status.Failed.String(),
-		param.StartDate:   batchStartDate,
-		param.RecordCount: batchRecordCount,
-	}
+	failedBatch := createBatch(status.Failed)
 	failedJSON, err := json.Marshal(failedBatch)
+	if err != nil {
+		t.Errorf("Unable to create batch JSON string: %s", err.Error())
+	}
+
+	startedBatch := createBatch(status.Started)
+	startedJSON, err := json.Marshal(startedBatch)
 	if err != nil {
 		t.Errorf("Unable to create batch JSON string: %s", err.Error())
 	}
@@ -88,6 +76,7 @@ func TestUpdateStatus(t *testing.T) {
 		name                 string
 		targetStatus         status.BatchStatus
 		params               map[string]interface{}
+		claims               auth.HriClaims
 		ft                   *test.FakeTransport
 		writerError          error
 		expectedNotification map[string]interface{}
@@ -100,6 +89,7 @@ func TestUpdateStatus(t *testing.T) {
 				path.ParamOwPath:  "/hri/tenants/1234",
 				param.RecordCount: batchRecordCount,
 			},
+			claims:           validClaims,
 			ft:               test.NewFakeTransport(t),
 			expectedResponse: response.Error(http.StatusBadRequest, "The path is shorter than the requested path parameter; path: [ hri tenants 1234], requested index: 5"),
 		},
@@ -110,6 +100,7 @@ func TestUpdateStatus(t *testing.T) {
 				path.ParamOwPath:  "/hri/tenants",
 				param.RecordCount: batchRecordCount,
 			},
+			claims:           validClaims,
 			ft:               test.NewFakeTransport(t),
 			expectedResponse: response.Error(http.StatusBadRequest, "The path is shorter than the requested path parameter; path: [ hri tenants], requested index: 3"),
 		},
@@ -117,24 +108,54 @@ func TestUpdateStatus(t *testing.T) {
 			name:         "simple sendComplete",
 			targetStatus: status.Completed,
 			params: map[string]interface{}{
-				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/sendComplete",
 				param.RecordCount: batchRecordCount,
 			},
+			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
-					RequestBody:  scriptProcessComplete,
+					RequestBody:  scriptSendComplete,
 					ResponseBody: fmt.Sprintf(`
 						{
 							"_index": "1234-batches",
 							"_type": "_doc",
-							"_id": "%s",
+							"_id": "test-batch",
 							"result": "updated",
 							"get": {
 								"_source": %s
 							}
-						}`, docId, sendCompleteJSON),
+						}`, sendCompleteJSON),
+				},
+			),
+			expectedNotification: sendCompleteBatch,
+			expectedResponse:     response.Success(http.StatusOK, map[string]interface{}{}),
+		},
+		{
+			name:         "sendComplete with metadata",
+			targetStatus: status.Completed,
+			params: map[string]interface{}{
+				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				param.RecordCount: batchRecordCount,
+				param.Metadata:    batchMetadata,
+			},
+			claims: validClaims,
+			ft: test.NewFakeTransport(t).AddCall(
+				"/1234-batches/_doc/test-batch/_update",
+				test.ElasticCall{
+					RequestQuery: transportQueryParams,
+					RequestBody:  scriptSendCompleteMetadata,
+					ResponseBody: fmt.Sprintf(`
+						{
+							"_index": "1234-batches",
+							"_type": "_doc",
+							"_id": "test-batch",
+							"result": "updated",
+							"get": {
+								"_source": %s
+							}
+						}`, sendCompleteJSON),
 				},
 			),
 			expectedNotification: sendCompleteBatch,
@@ -144,24 +165,25 @@ func TestUpdateStatus(t *testing.T) {
 			name:         "sendComplete fails on terminated batch",
 			targetStatus: status.Completed,
 			params: map[string]interface{}{
-				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/sendComplete",
 				param.RecordCount: batchRecordCount,
 			},
+			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
-					RequestBody:  scriptProcessComplete,
+					RequestBody:  scriptSendComplete,
 					ResponseBody: fmt.Sprintf(`
 						{
 							"_index": "1234-batches",
 							"_type": "_doc",
-							"_id": "%s",
+							"_id": "test-batch",
 							"result": "noop",
 							"get": {
 								"_source": %s
 							}
-						}`, docId, terminatedJSON),
+						}`, terminatedJSON),
 				},
 			),
 			expectedResponse: response.Error(http.StatusConflict, "Batch status was not updated to 'completed', batch is already in 'terminated' state"),
@@ -170,33 +192,47 @@ func TestUpdateStatus(t *testing.T) {
 			name:         "sendComplete fails on missing record count parameter",
 			targetStatus: status.Completed,
 			params: map[string]interface{}{
-				path.ParamOwPath: "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				path.ParamOwPath: "/hri/tenants/1234/batches/test-batch/action/sendComplete",
 			},
+			claims:           validClaims,
 			ft:               test.NewFakeTransport(t),
 			expectedResponse: response.Error(http.StatusBadRequest, "Missing required parameter(s): [recordCount]"),
+		},
+		{
+			name:         "sendComplete fails on bad metadata parameter",
+			targetStatus: status.Completed,
+			params: map[string]interface{}{
+				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				param.RecordCount: batchRecordCount,
+				param.Metadata:    "not json object",
+			},
+			claims:           validClaims,
+			ft:               test.NewFakeTransport(t),
+			expectedResponse: response.Error(http.StatusBadRequest, "Invalid parameter type(s): [metadata must be a map, got string instead.]"),
 		},
 		{
 			name:         "sendComplete fails when batch already in completed state",
 			targetStatus: status.Completed,
 			params: map[string]interface{}{
-				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/sendComplete",
 				param.RecordCount: batchRecordCount,
 			},
+			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
-					RequestBody:  scriptProcessComplete,
+					RequestBody:  scriptSendComplete,
 					ResponseBody: fmt.Sprintf(`
 						{
 							"_index": "1234-batches",
 							"_type": "_doc",
-							"_id": "%s",
+							"_id": "test-batch",
 							"result": "noop",
 							"get": {
 								"_source": %s
 							}
-						}`, docId, sendCompleteJSON),
+						}`, sendCompleteJSON),
 				},
 			),
 			expectedResponse: response.Error(http.StatusConflict, "Batch status was not updated to 'completed', batch is already in 'completed' state"),
@@ -205,23 +241,24 @@ func TestUpdateStatus(t *testing.T) {
 			name:         "fail when update result not returned by elastic",
 			targetStatus: status.Completed,
 			params: map[string]interface{}{
-				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/sendComplete",
 				param.RecordCount: batchRecordCount,
 			},
+			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
-					RequestBody:  scriptProcessComplete,
+					RequestBody:  scriptSendComplete,
 					ResponseBody: fmt.Sprintf(`
 						{
 							"_index": "1234-batches",
 							"_type": "_doc",
-							"_id": "%s",
+							"_id": "test-batch",
 							"get": {
 								"_source": %s
 							}
-						}`, docId, sendCompleteJSON),
+						}`, sendCompleteJSON),
 				},
 			),
 			expectedResponse: response.Error(http.StatusInternalServerError, "Update result not returned in Elastic response"),
@@ -230,21 +267,22 @@ func TestUpdateStatus(t *testing.T) {
 			name:         "fail when updated document not returned by elastic",
 			targetStatus: status.Completed,
 			params: map[string]interface{}{
-				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/sendComplete",
 				param.RecordCount: batchRecordCount,
 			},
+			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
-					RequestBody:  scriptProcessComplete,
-					ResponseBody: fmt.Sprintf(`
+					RequestBody:  scriptSendComplete,
+					ResponseBody: `
 						{
 							"_index": "1234-batches",
 							"_type": "_doc",
-							"_id": "%s",
+							"_id": "test-batch",
 							"result": "updated"
-						}`, docId),
+						}`,
 				},
 			),
 			expectedResponse: response.Error(http.StatusInternalServerError, "Updated document not returned in Elastic response: error extracting the get section of the JSON"),
@@ -253,24 +291,25 @@ func TestUpdateStatus(t *testing.T) {
 			name:         "fail when elastic result is unrecognized or invalid",
 			targetStatus: status.Completed,
 			params: map[string]interface{}{
-				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/sendComplete",
 				param.RecordCount: batchRecordCount,
 			},
+			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
-					RequestBody:  scriptProcessComplete,
+					RequestBody:  scriptSendComplete,
 					ResponseBody: fmt.Sprintf(`
 						{
 							"_index": "1234-batches",
 							"_type": "_doc",
-							"_id": "%s",
+							"_id": "test-batch",
 							"result": "MOnkeez-bad-result",
 							"get": {
 								"_source": %s
 							}
-						}`, docId, sendCompleteJSON),
+						}`, sendCompleteJSON),
 				},
 			),
 			expectedResponse: response.Error(http.StatusInternalServerError, "An unexpected error occurred updating the batch, Elastic update returned result 'MOnkeez-bad-result'"),
@@ -279,14 +318,15 @@ func TestUpdateStatus(t *testing.T) {
 			name:         "invalid elastic response",
 			targetStatus: status.Completed,
 			params: map[string]interface{}{
-				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/sendComplete",
 				param.RecordCount: batchRecordCount,
 			},
+			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
-					RequestBody:  scriptProcessComplete,
+					RequestBody:  scriptSendComplete,
 					ResponseBody: `{"_index": "1234-batches",`,
 				},
 			),
@@ -296,14 +336,15 @@ func TestUpdateStatus(t *testing.T) {
 			name:         "fail on nonexistent tenant",
 			targetStatus: status.Completed,
 			params: map[string]interface{}{
-				path.ParamOwPath:  "/hri/tenants/tenant-that-doesnt-exist/batches/" + batchId + "/action/sendComplete",
+				path.ParamOwPath:  "/hri/tenants/tenant-that-doesnt-exist/batches/test-batch/action/sendComplete",
 				param.RecordCount: batchRecordCount,
 			},
+			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/tenant-that-doesnt-exist-batches/_doc/"+docId+"/_update",
+				"/tenant-that-doesnt-exist-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery:       transportQueryParams,
-					RequestBody:        scriptProcessComplete,
+					RequestBody:        scriptSendComplete,
 					ResponseStatusCode: http.StatusNotFound,
 					ResponseBody: `
 						{
@@ -325,11 +366,12 @@ func TestUpdateStatus(t *testing.T) {
 				path.ParamOwPath:  "/hri/tenants/1234/batches/batch-that-doesnt-exist/action/sendComplete",
 				param.RecordCount: batchRecordCount,
 			},
+			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
 				"/1234-batches/_doc/batch-that-doesnt-exist/_update",
 				test.ElasticCall{
 					RequestQuery:       transportQueryParams,
-					RequestBody:        scriptProcessComplete,
+					RequestBody:        scriptSendComplete,
 					ResponseStatusCode: http.StatusNotFound,
 					ResponseBody: `
 						{
@@ -348,24 +390,25 @@ func TestUpdateStatus(t *testing.T) {
 			name:         "fail when unable to send notification",
 			targetStatus: status.Completed,
 			params: map[string]interface{}{
-				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/sendComplete",
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/sendComplete",
 				param.RecordCount: batchRecordCount,
 			},
+			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
-					RequestBody:  scriptProcessComplete,
+					RequestBody:  scriptSendComplete,
 					ResponseBody: fmt.Sprintf(`
 						{
 							"_index": "1234-batches",
 							"_type": "_doc",
-							"_id": "%s",
+							"_id": "test-batch",
 							"result": "updated",
 							"get": {
 								"_source": %s
 							}
-						}`, docId, sendCompleteJSON),
+						}`, sendCompleteJSON),
 				},
 			),
 			expectedNotification: sendCompleteBatch,
@@ -375,9 +418,10 @@ func TestUpdateStatus(t *testing.T) {
 		{
 			name:         "simple terminate",
 			targetStatus: status.Terminated,
-			params:       map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches/" + batchId + "/action/terminate"},
+			params:       map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches/test-batch/action/terminate"},
+			claims:       validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
 					RequestBody:  scriptTerminated,
@@ -385,12 +429,40 @@ func TestUpdateStatus(t *testing.T) {
 						{
 							"_index": "1234-batches",
 							"_type": "_doc",
-							"_id": "%s",
+							"_id": "test-batch",
 							"result": "updated",
 							"get": {
 								"_source": %s
 							}
-						}`, docId, terminatedJSON),
+						}`, terminatedJSON),
+				},
+			),
+			expectedNotification: terminatedBatch,
+			expectedResponse:     response.Success(http.StatusOK, map[string]interface{}{}),
+		},
+		{
+			name:         "terminate with metadata",
+			targetStatus: status.Terminated,
+			params: map[string]interface{}{
+				path.ParamOwPath: "/hri/tenants/1234/batches/test-batch/action/terminate",
+				param.Metadata:   batchMetadata,
+			},
+			claims: validClaims,
+			ft: test.NewFakeTransport(t).AddCall(
+				"/1234-batches/_doc/test-batch/_update",
+				test.ElasticCall{
+					RequestQuery: transportQueryParams,
+					RequestBody:  scriptTerminatedMetadata,
+					ResponseBody: fmt.Sprintf(`
+						{
+							"_index": "1234-batches",
+							"_type": "_doc",
+							"_id": "test-batch",
+							"result": "updated",
+							"get": {
+								"_source": %s
+							}
+						}`, terminatedJSON),
 				},
 			),
 			expectedNotification: terminatedBatch,
@@ -399,9 +471,10 @@ func TestUpdateStatus(t *testing.T) {
 		{
 			name:         "terminate fails on failed batch",
 			targetStatus: status.Terminated,
-			params:       map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches/" + batchId + "/action/terminate"},
+			params:       map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches/test-batch/action/terminate"},
+			claims:       validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
 					RequestBody:  scriptTerminated,
@@ -409,12 +482,12 @@ func TestUpdateStatus(t *testing.T) {
 						{
 							"_index": "1234-batches",
 							"_type": "_doc",
-							"_id": "%s",
+							"_id": "test-batch",
 							"result": "noop",
 							"get": {
 								"_source": %s
 							}
-						}`, docId, failedJSON),
+						}`, failedJSON),
 				},
 			),
 			expectedResponse: response.Error(http.StatusConflict, "Batch status was not updated to 'terminated', batch is already in 'failed' state"),
@@ -422,9 +495,10 @@ func TestUpdateStatus(t *testing.T) {
 		{
 			name:         "terminate fails on previously terminated batch",
 			targetStatus: status.Terminated,
-			params:       map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches/" + batchId + "/action/terminate"},
+			params:       map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches/test-batch/action/terminate"},
+			claims:       validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/"+docId+"/_update",
+				"/1234-batches/_doc/test-batch/_update",
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
 					RequestBody:  scriptTerminated,
@@ -432,12 +506,12 @@ func TestUpdateStatus(t *testing.T) {
 						{
 							"_index": "1234-batches",
 							"_type": "_doc",
-							"_id": "%s",
+							"_id": "test-batch",
 							"result": "noop",
 							"get": {
 								"_source": %s
 							}
-						}`, docId, terminatedJSON),
+						}`, terminatedJSON),
 				},
 			),
 			expectedResponse: response.Error(http.StatusConflict, "Batch status was not updated to 'terminated', batch is already in 'terminated' state"),
@@ -446,11 +520,74 @@ func TestUpdateStatus(t *testing.T) {
 			name:         "return error response for Unknown status",
 			targetStatus: status.Unknown,
 			params: map[string]interface{}{
-				path.ParamOwPath:  "/hri/tenants/1234/batches/" + batchId + "/action/blargBlarg",
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/blargBlarg",
 				param.RecordCount: batchRecordCount,
 			},
+			claims:           validClaims,
 			ft:               test.NewFakeTransport(t),
 			expectedResponse: response.Error(http.StatusUnprocessableEntity, "Cannot update batch to status 'unknown', only 'completed' and 'terminated' are acceptable"),
+		},
+		{
+			name:         "invalid role",
+			targetStatus: status.Completed,
+			params: map[string]interface{}{
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/sendComplete",
+				param.RecordCount: batchRecordCount,
+			},
+			claims:           auth.HriClaims{Scope: auth.HriConsumer, Subject: integratorId},
+			ft:               test.NewFakeTransport(t),
+			expectedResponse: response.Error(http.StatusUnauthorized, fmt.Sprintf(auth.MsgIntegratorRoleRequired, "update")),
+		},
+		{
+			name:         "complete fails on bad integrator id",
+			targetStatus: status.Completed,
+			params: map[string]interface{}{
+				path.ParamOwPath:  "/hri/tenants/1234/batches/test-batch/action/sendComplete",
+				param.RecordCount: batchRecordCount,
+			},
+			claims: auth.HriClaims{Scope: auth.HriIntegrator, Subject: "bad integrator"},
+			ft: test.NewFakeTransport(t).AddCall(
+				"/1234-batches/_doc/test-batch/_update",
+				test.ElasticCall{
+					RequestQuery: transportQueryParams,
+					ResponseBody: fmt.Sprintf(`
+						{
+							"_index": "1234-batches",
+							"_type": "_doc",
+							"_id": "test-batch",
+							"result": "noop",
+							"get": {
+								"_source": %s
+							}
+						}`, startedJSON),
+				},
+			),
+			expectedResponse: response.Error(http.StatusUnauthorized, fmt.Sprintf("Batch status was not updated to 'completed'. Requested by 'bad integrator' but owned by '%s'", integratorId)),
+		},
+		{
+			name:         "terminate fails on bad integrator id",
+			targetStatus: status.Terminated,
+			params: map[string]interface{}{
+				path.ParamOwPath: "/hri/tenants/1234/batches/test-batch/action/sendComplete",
+			},
+			claims: auth.HriClaims{Scope: auth.HriIntegrator, Subject: "bad integrator"},
+			ft: test.NewFakeTransport(t).AddCall(
+				"/1234-batches/_doc/test-batch/_update",
+				test.ElasticCall{
+					RequestQuery: transportQueryParams,
+					ResponseBody: fmt.Sprintf(`
+						{
+							"_index": "1234-batches",
+							"_type": "_doc",
+							"_id": "test-batch",
+							"result": "noop",
+							"get": {
+								"_source": %s
+							}
+						}`, startedJSON),
+				},
+			),
+			expectedResponse: response.Error(http.StatusUnauthorized, fmt.Sprintf("Batch status was not updated to 'terminated'. Requested by 'bad integrator' but owned by '%s'", integratorId)),
 		},
 	}
 
@@ -468,9 +605,23 @@ func TestUpdateStatus(t *testing.T) {
 				Error:         tt.writerError,
 			}
 
-			if result := UpdateStatus(tt.params, param.ParamValidator{}, tt.targetStatus, esClient, writer); !reflect.DeepEqual(result, tt.expectedResponse) {
+			if result := UpdateStatus(tt.params, param.ParamValidator{}, tt.claims, tt.targetStatus, esClient, writer); !reflect.DeepEqual(result, tt.expectedResponse) {
 				t.Errorf("UpdateStatus() = %v, expected %v", result, tt.expectedResponse)
 			}
 		})
+	}
+}
+
+func createBatch(status status.BatchStatus) map[string]interface{} {
+	return map[string]interface{}{
+		param.BatchId:      batchId,
+		param.Name:         batchName,
+		param.Topic:        batchTopic,
+		param.DataType:     batchDataType,
+		param.Status:       status.String(),
+		param.StartDate:    batchStartDate,
+		param.RecordCount:  batchRecordCount,
+		param.Metadata:     batchMetadata,
+		param.IntegratorId: integratorId,
 	}
 }

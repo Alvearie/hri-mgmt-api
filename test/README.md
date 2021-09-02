@@ -36,12 +36,27 @@
     
     NOTE: Ensure that your Ruby versions match across terminal default, Gemfile, and Gemfile.lock. If using IntelliJ, Ruby version in your module should match as well.
 
-8. (Optional) To run tests locally, first export the ELASTIC_URL and ELASTIC_AUTH values from .travis.yml to your terminal. Then, from within the top directory of this project, run all tests with:
-     
-    ```rspec test/spec --tag ~@broken```
+8. (Optional) To run tests locally
+    - Export these environment variables. You can get most of the values from GitHub actions. Check IBM cloud service credentials or 1password for secure ones.
+      * HRI_API_KEY
+      * ELASTIC_URL
+      * ELASTIC_USER
+      * ELASTIC_PASSWORD
+      * SASL_PLAIN_PASSWORD
+      * COS_URL
+      * IAM_CLOUD_URL
+      * CLOUD_API_KEY
+      * APPID_URL
+      * APPID_TENANT
+      * TRAVIS_BRANCH
+    - Get an unencrypted copy of `jwt_assertion_tokens.json`
+    - Login with the IBM Cloud CLI and set the Functions namespace to match the branch being tested:   
+    ```ibmcloud fn property set --namespace <branch>```
+    - Run the tests:   
+    ```rspec spec --tag ~@broken```
     
 # Dredd Tests
-Dredd is used to verify the implemented API meets our published [specification](https://github.com/Alvearie/hri-api-spec/blob/master/management-api/management.yml).
+Dredd is used to verify the implemented API meets our published [specification](https://github.com/Alvearie/hri-api-spec/blob/main/management-api/management.yml).
 By default it generates a test for every endpoint, uses the example values for input, and verifies the response matches the 200 response schema. All other responses are skipped. Ruby 'hooks' are used to modify the default behavior and do setup/teardown. 
 Here are some helpful documentation links:
 * https://dredd.org/en/latest/hooks/ruby.html
@@ -63,14 +78,14 @@ gem install dredd_hooks
 ```
 
 ### Running Dredd Tests
-First you need to convert the API spec to Swagger 2.0, so checkout the api-spec [repo](https://github.com/Alvearie/hri-api-spec).
-Then use api-spec-converter to convert it. You should make a branch with the same name if changes are needed. The Travis build will checkout the same branch if it exists. 
+First you need to convert the API spec to Swagger 2.0, so checkout the hri-api-spec [repo](https://github.com/Alvearie/hri-api-spec).
+Then use api-spec-converter to convert it. You should make a branch with the same name if changes are needed. The build will checkout the same branch if it exists. 
 ```bash
-api-spec-converter -f openapi_3 -t swagger_2 -s yaml api-spec/management-api/management.yml > api-spec/management-api/management.swagger.yml
+api-spec-converter -f openapi_3 -t swagger_2 -s yaml hri-api-spec/management-api/management.yml > hri-api-spec/management-api/management.swagger.yml
 ```
 Then run Dredd.  Make sure you replace the base url with the one for your current branch. 
 ```bash
-dredd ../api-spec/management-api/management.swagger.yml https://fc40a048.us-south.apigw.appdomain.cloud/hri --sorted --language=ruby --hookfiles=test/spec/*_helper.rb --hookfiles=test/spec/dredd_hooks.rb --hooks-worker-connect-timeout=5000
+dredd ../hri-api-spec/management-api/management.swagger.yml https://fc40a048.us-south.apigw.appdomain.cloud/hri --sorted --language=ruby --hookfiles=test/spec/*_helper.rb --hookfiles=test/spec/dredd_hooks.rb --hooks-worker-connect-timeout=5000
 ```
 
 ### Debugging

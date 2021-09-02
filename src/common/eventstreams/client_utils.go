@@ -13,7 +13,7 @@ const (
 	NotificationSuffix string = ".notification"
 )
 
-//See documentation on HRI topic naming conventions: https://ibm.github.io/hri/admin.html#onboarding-new-data-integrators
+//See documentation on HRI topic naming conventions: https://alvearie.io/HRI/admin.html#onboarding-new-data-integrators
 func CreateTopicNames(tenantId string, streamId string) (string, string) {
 	baseTopicName := strings.Join([]string{tenantId, streamId}, ".")
 	inTopicName := TopicPrefix + baseTopicName + InSuffix

@@ -35,6 +35,14 @@ class Helper
     end
   end
 
+  def exec_command(cmd)
+    shell_escape = cmd.split(" ").join("\\ ")
+    Open3.popen3("bash -c #{shell_escape}") do |stdin, stdout, stderr, wait_thr|
+      stdin.close
+      wait_thr.value.success? ? stdout.read : stderr.read
+    end
+  end
+
   private
 
   def rest_client_resource_for
@@ -45,7 +53,7 @@ class Helper
     end
   end
 
-  def logger_message(info, response)
+  def logger_message(info, error)
     printed_info = if info[:headers].nil?
                      info
                    else
@@ -53,14 +61,14 @@ class Helper
                      headers['Authorization'] = headers['Authorization'].split(' ')[0] + ' [REDACTED]' if headers['Authorization']
                      info.merge(headers: headers)
                    end
-    Logger.new(STDOUT).info("Received exception hitting endpoint: #{printed_info}. Exception response: #{response}")
+    Logger.new(STDOUT).info("Received exception hitting endpoint: #{printed_info}. Exception: #{error}, response: #{error.response}")
   end
 
   def response_rescue_wrapper
     yield
   rescue Exception => e
     raise e unless defined?(e.response)
-    logger_message(@hri_api_info, e.response)
+    logger_message(@hri_api_info, e)
     e.response
   end
 

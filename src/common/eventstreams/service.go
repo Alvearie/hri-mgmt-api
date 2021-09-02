@@ -52,7 +52,7 @@ func CreateService(params map[string]interface{}) (Service, map[string]interface
 	}
 	conf.BasePath = adminUrl
 
-	headerMap, err := param.ExtractValues(params, param.OwHeaders)
+	headerMap, err := param.ExtractValues(params, param.OpenWhiskHeaders)
 	if err != nil {
 		return nil, response.Error(http.StatusInternalServerError, err.Error())
 	}

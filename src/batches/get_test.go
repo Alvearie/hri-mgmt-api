@@ -7,6 +7,7 @@ package batches
 
 import (
 	"errors"
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/path"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
@@ -19,16 +20,19 @@ import (
 
 func TestGet(t *testing.T) {
 	activationId := "activationId"
+	subject := "clientId"
 	_ = os.Setenv(response.EnvOwActivationId, activationId)
 
 	tests := []struct {
 		name     string
 		params   map[string]interface{}
+		claims   auth.HriClaims
 		ft       *test.FakeTransport
 		expected map[string]interface{}
 	}{
 		{"simple",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t).AddCall(
 				"/1234-batches/_search",
 				test.ElasticCall{
@@ -36,13 +40,24 @@ func TestGet(t *testing.T) {
 					ResponseBody: `
 						{
 							"hits":{
-								"total":1,
+								"total" : {
+								  "value" : 1,
+								  "relation" : "eq"
+ 								},
 								"hits":[
 									{
 										"_id":"uuid",
 										"_source":{
-											"name":"mybatch",
-											"status":"started"
+											"dataType" : "rspec-batch",
+											"invalidThreshold" : -1,
+											"metadata" : {
+												"rspec1" : "test1"
+											},
+											"name" : "mybatch",
+											"startDate" : "2021-02-24T18:08:36Z",
+											"status" : "started",
+											"topic" : "ingest.test.claims.in",
+											"integratorId" : "modified-integrator-id"
 										}
 									}
 								]
@@ -50,10 +65,10 @@ func TestGet(t *testing.T) {
 						}`,
 				},
 			),
-			response.Success(http.StatusOK, map[string]interface{}{"total": float64(1), "results": []interface{}{map[string]interface{}{"id": EsDocIdToBatchId("uuid"), "name": "mybatch", "status": "started"}}}),
-		},
+			response.Success(http.StatusOK, map[string]interface{}{"total": float64(1), "results": []interface{}{map[string]interface{}{"id": "uuid", "dataType": "rspec-batch", "invalidThreshold": float64(-1), "name": "mybatch", "startDate": "2021-02-24T18:08:36Z", "status": "started", "topic": "ingest.test.claims.in", "integratorId": "modified-integrator-id", "metadata": map[string]interface{}{"rspec1": "test1"}}}})},
 		{"allparams",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches", "size": "20", "from": "10", "name": "mybatch", "status": "started", "gteDate": "01/01/2019", "lteDate": "01/01/2020"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t).AddCall(
 				"/1234-batches/_search",
 				test.ElasticCall{
@@ -63,14 +78,24 @@ func TestGet(t *testing.T) {
 					ResponseBody: `
 						{
 							"hits":{
-								"total":1,
+								"total" : {
+								  "value" : 1,
+								  "relation" : "eq"
+								},
 								"hits":[
 									{
 										"_id":"uuid",
 										"_source":{
-											"name":"mybatch",
-											"status":"started",
-											"startDate":"01/02/2019"
+ 											"dataType" : "rspec-batch",
+											"invalidThreshold" : -1,
+											"metadata" : {
+												"rspec1" : "test1"
+											},
+											"name" : "mybatch",
+											"startDate" : "01/02/2019",
+											"status" : "started",
+											"topic" : "ingest.test.claims.in",
+											"integratorId" : "modified-integrator-id"
 										}
 									}
 								]
@@ -78,30 +103,34 @@ func TestGet(t *testing.T) {
 						}`,
 				},
 			),
-			response.Success(http.StatusOK, map[string]interface{}{"total": float64(1), "results": []interface{}{map[string]interface{}{"id": EsDocIdToBatchId("uuid"), "name": "mybatch", "status": "started", "startDate": "01/02/2019"}}}),
-		},
+			response.Success(http.StatusOK, map[string]interface{}{"total": float64(1), "results": []interface{}{map[string]interface{}{"id": "uuid", "dataType": "rspec-batch", "invalidThreshold": float64(-1), "name": "mybatch", "startDate": "01/02/2019", "status": "started", "topic": "ingest.test.claims.in", "integratorId": "modified-integrator-id", "metadata": map[string]interface{}{"rspec1": "test1"}}}})},
 		{"missing open whisk path param",
 			map[string]interface{}{},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t),
 			response.Error(http.StatusBadRequest, "Required parameter '__ow_path' is missing"),
 		},
 		{"bad open whisk path param",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t),
 			response.Error(http.StatusBadRequest, "The path is shorter than the requested path parameter; path: [ hri tenants], requested index: 3"),
 		},
 		{"bad size param",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches", "size": "a1"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t),
 			response.Error(http.StatusBadRequest, "Error parsing 'size' parameter: strconv.Atoi: parsing \"a1\": invalid syntax"),
 		},
 		{"bad from param",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches", "from": "b2"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t),
 			response.Error(http.StatusBadRequest, "Error parsing 'from' parameter: strconv.Atoi: parsing \"b2\": invalid syntax"),
 		},
 		{"bad gteDate value",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches", "gteDate": "2019-aaaef-01"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t).AddCall(
 				"/1234-batches/_search",
 				test.ElasticCall{
@@ -146,6 +175,7 @@ func TestGet(t *testing.T) {
 		}, {
 			"invalid error Json in Response body",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t).AddCall(
 				"/1234-batches/_search",
 				test.ElasticCall{
@@ -182,22 +212,26 @@ func TestGet(t *testing.T) {
 		},
 		{"bad name param_prohibited character",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches", "name": "{[]//zzx[]}"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t),
 			response.Error(http.StatusBadRequest, "query parameters may not contain these characters: \"[]{}"),
 		},
 		{"bad status param_prohibited character",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches", "status": "z{[z]//j[]}"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t),
 			response.Error(http.StatusBadRequest, "query parameters may not contain these characters: \"[]{}"),
 		},
 		{"bad startDate param_prohibited character",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches", "gteDate": "01/01/2019", "lteDate": "{}[][xxx]\"}"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t),
 			response.Error(http.StatusBadRequest, "query parameters may not contain these characters: \"[]{}"),
 		},
 
 		{"client error",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t).AddCall(
 				"/1234-batches/_search",
 				test.ElasticCall{
@@ -209,6 +243,7 @@ func TestGet(t *testing.T) {
 		},
 		{"response error",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t).AddCall(
 				"/1234-batches/_search",
 				test.ElasticCall{
@@ -227,6 +262,7 @@ func TestGet(t *testing.T) {
 		},
 		{"body decode error on OK",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t).AddCall(
 				"/1234-batches/_search",
 				test.ElasticCall{
@@ -238,6 +274,7 @@ func TestGet(t *testing.T) {
 		},
 		{"body decode error on 400",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t).AddCall(
 				"/1234-batches/_search",
 				test.ElasticCall{
@@ -250,6 +287,7 @@ func TestGet(t *testing.T) {
 		},
 		{"bad tenantId",
 			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
+			auth.HriClaims{Scope: auth.HriConsumer},
 			test.NewFakeTransport(t).AddCall(
 				"/1234-batches/_search",
 				test.ElasticCall{
@@ -281,6 +319,85 @@ func TestGet(t *testing.T) {
 			),
 			response.Error(http.StatusNotFound, "index_not_found_exception: no such index"),
 		},
+		{"Missing scopes",
+			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
+			auth.HriClaims{},
+			test.NewFakeTransport(t),
+			response.Error(http.StatusUnauthorized, auth.MsgAccessTokenMissingScopes),
+		},
+		{"Integrator filter",
+			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
+			auth.HriClaims{Scope: auth.HriIntegrator, Subject: subject},
+			test.NewFakeTransport(t).AddCall(
+				"/1234-batches/_search",
+				test.ElasticCall{
+					RequestQuery: "from=0&size=10&track_total_hits=true",
+					RequestBody:  `{"query":{"bool":{"must":\[{"term":{"integratorId":"clientId"}}\]}}}` + "\n",
+					ResponseBody: `
+						{
+							"hits":{
+								"total" : {
+								  "value" : 1,
+								  "relation" : "eq"
+								},
+								"hits":[
+									{
+										"_id":"uuid",
+										"_source":{
+											"dataType" : "rspec-batch",
+											"invalidThreshold" : -1,
+											"metadata" : {
+												"rspec1" : "test1"
+											},
+											"name" : "mybatch",
+											"startDate" : "2021-02-24T18:08:36Z",
+											"status" : "started",
+											"topic" : "ingest.test.claims.in",
+											"integratorId" : "modified-integrator-id"
+										}
+									}
+								]
+							}
+						}`,
+				},
+			),
+			response.Success(http.StatusOK, map[string]interface{}{"total": float64(1), "results": []interface{}{map[string]interface{}{"id": "uuid", "dataType": "rspec-batch", "invalidThreshold": float64(-1), "name": "mybatch", "startDate": "2021-02-24T18:08:36Z", "status": "started", "topic": "ingest.test.claims.in", "integratorId": "modified-integrator-id", "metadata": map[string]interface{}{"rspec1": "test1"}}}})},
+		{"Consumer & Integrator no filter",
+			map[string]interface{}{path.ParamOwPath: "/hri/tenants/1234/batches"},
+			auth.HriClaims{Scope: auth.HriIntegrator + " " + auth.HriConsumer, Subject: subject},
+			test.NewFakeTransport(t).AddCall(
+				"/1234-batches/_search",
+				test.ElasticCall{
+					RequestQuery: "from=0&size=10&track_total_hits=true",
+					ResponseBody: `
+						{
+							"hits":{
+								"total" : {
+								  "value" : 1,
+								  "relation" : "eq"
+								},
+								"hits":[
+									{
+										"_id":"uuid",
+										"_source":{
+											"dataType" : "rspec-batch",
+											"invalidThreshold" : -1,
+											"metadata" : {
+												"rspec1" : "test1"
+											},
+											"name" : "mybatch",
+											"startDate" : "2021-02-24T18:08:36Z",
+											"status" : "started",
+											"topic" : "ingest.test.claims.in",
+											"integratorId" : "modified-integrator-id"
+										}
+									}
+								]
+							}
+						}`,
+				},
+			),
+			response.Success(http.StatusOK, map[string]interface{}{"total": float64(1), "results": []interface{}{map[string]interface{}{"id": "uuid", "dataType": "rspec-batch", "invalidThreshold": float64(-1), "name": "mybatch", "startDate": "2021-02-24T18:08:36Z", "status": "started", "topic": "ingest.test.claims.in", "integratorId": "modified-integrator-id", "metadata": map[string]interface{}{"rspec1": "test1"}}}})},
 	}
 
 	for _, tt := range tests {
@@ -290,7 +407,7 @@ func TestGet(t *testing.T) {
 				t.Error(err)
 			}
 
-			if got := Get(tt.params, esClient); !reflect.DeepEqual(got, tt.expected) {
+			if got := Get(tt.params, tt.claims, esClient); !reflect.DeepEqual(got, tt.expected) {
 				t.Errorf("Get() = %v, expected %v", got, tt.expected)
 			}
 		})
