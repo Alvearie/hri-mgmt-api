@@ -173,6 +173,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Success' do
       #Create Stream
+      puts "TEST_TENANT_ID=#{TEST_TENANT_ID} and TEST_INTEGRATOR_ID=#{TEST_INTEGRATOR_ID}"
       response = @mgmt_api_helper.hri_post_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, @stream_info.to_json)
       expect(response.code).to eq 201
 
