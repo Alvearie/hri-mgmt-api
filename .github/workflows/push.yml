@@ -59,7 +59,7 @@ jobs:
 
     - name: Build Executable and Run Unit Tests
       run: |
-        echo "BRANCH NAME: $BRANCH_NAME
+        echo "BRANCH NAME: $BRANCH_NAME"
         curl -sL https://ibm.biz/idt-installer | bash
         go get -u github.com/jstemmer/go-junit-report
         ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; travis_terminate 1; }
