@@ -65,11 +65,10 @@ jobs:
       run: ./run-smoketests.sh
         
     - name: Install Ruby and Gems, Run Dredd Tests
+      uses: actions/setup-ruby@v1
+      with:
+        ruby-version: 2.6.5
       run: |
-        gpg --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
-        curl -sSL https://get.rvm.io | bash -s stable --ruby
-        source /home/runner/.rvm/scripts/rvm
-        rvm install ruby-2.6.5
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
         mkdir ~/.ssh
@@ -81,5 +80,4 @@ jobs:
         setsid ssh-add ~/.ssh/git_deploy_key </dev/null
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b add-public
         rvm --default use ruby-2.6.5
-        ls usr/lib/ruby
         ./run-dreddtests.sh
