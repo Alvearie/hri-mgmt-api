@@ -64,7 +64,7 @@ jobs:
     - name: Run Smoke Tests
       run: ./run-smoketests.sh
         
-    - name: Install Ruby and Gems
+    - name: Install Ruby and Gems, Run Dredd Tests
       run: |
         gpg --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
         curl -sSL https://get.rvm.io | bash -s stable --ruby
@@ -80,8 +80,5 @@ jobs:
         ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
         setsid ssh-add ~/.ssh/git_deploy_key </dev/null
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b add-public
-
-    - name: Run Dredd Tests
-      run: |
         rvm --default use ruby-2.6.5
         ./run-dreddtests.sh
