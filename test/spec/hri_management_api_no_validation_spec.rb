@@ -7,13 +7,13 @@ require_relative '../env'
 describe 'HRI Management API Without Validation' do
 
   INVALID_ID = 'INVALID'
-  TENANT_ID = ENV['TENANT_ID']
-  INTEGRATOR_ID = 'claims'
+  EXISTING_TENANT_ID = ENV['TENANT_ID']
+  EXISTING_INTEGRATOR_ID = 'claims'
   TEST_TENANT_ID = "rspec-#{ENV['BRANCH_NAME'].delete('.')}-test-tenant".downcase
   TEST_INTEGRATOR_ID = "rspec-#{ENV['BRANCH_NAME'].delete('.')}-test-integrator".downcase
   DATA_TYPE = 'rspec-batch'
   STATUS = 'started'
-  BATCH_INPUT_TOPIC = "ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.in"
+  BATCH_INPUT_TOPIC = "ingest.#{EXISTING_TENANT_ID}.#{EXISTING_INTEGRATOR_ID}.in"
   KAFKA_TIMEOUT = 60
 
   before(:all) do
@@ -40,7 +40,7 @@ describe 'HRI Management API Without Validation' do
     #Initialize Kafka Consumer
     @kafka = Kafka.new(ENV['KAFKA_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['KAFKA_PASSWORD'], ssl_ca_certs_from_system: true)
     @kafka_consumer = @kafka.consumer(group_id: 'rspec-mgmt-api-consumer')
-    @kafka_consumer.subscribe("ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.notification")
+    @kafka_consumer.subscribe("ingest.#{EXISTING_TENANT_ID}.#{EXISTING_INTEGRATOR_ID}.notification")
 
     #Create Batch
     @batch_prefix = "rspec-#{ENV['BRANCH_NAME'].delete('.')}"
@@ -61,7 +61,7 @@ describe 'HRI Management API Without Validation' do
         }
       }
     }.to_json
-    response = @elastic.es_create_batch(TENANT_ID, create_batch)
+    response = @elastic.es_create_batch(EXISTING_TENANT_ID, create_batch)
     expect(response.code).to eq 201
     parsed_response = JSON.parse(response.body)
     @batch_id = parsed_response['_id']
@@ -87,7 +87,7 @@ describe 'HRI Management API Without Validation' do
     end
 
     #Delete Batches
-    response = @elastic.es_delete_by_query(TENANT_ID, "name:rspec-#{ENV['BRANCH_NAME']}*")
+    response = @elastic.es_delete_by_query(EXISTING_TENANT_ID, "name:rspec-#{ENV['BRANCH_NAME']}*")
     response.nil? ? (raise 'Elastic batch delete did not return a response') : (expect(response.code).to eq 200)
     Logger.new(STDOUT).info("Delete test batches by query response #{response.body}")
 
@@ -104,10 +104,10 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Tenant Already Exists' do
-      response = @mgmt_api_helper.hri_post_tenant(TENANT_ID)
+      response = @mgmt_api_helper.hri_post_tenant(EXISTING_TENANT_ID)
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to include "Unable to create new tenant [#{TENANT_ID}]: [400] resource_already_exists_exception"
+      expect(parsed_response['errorDescription']).to include "Unable to create new tenant [#{EXISTING_TENANT_ID}]: [400] resource_already_exists_exception"
     end
 
     it 'Invalid Tenant ID' do
@@ -191,10 +191,10 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Stream Already Exists' do
-      response = @mgmt_api_helper.hri_post_tenant_stream(TENANT_ID, INTEGRATOR_ID, @stream_info.to_json)
+      response = @mgmt_api_helper.hri_post_tenant_stream(EXISTING_TENANT_ID, EXISTING_INTEGRATOR_ID, @stream_info.to_json)
       expect(response.code).to eq 409
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "topic 'ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.in' already exists"
+      expect(parsed_response['errorDescription']).to eql "topic 'ingest.#{EXISTING_TENANT_ID}.#{EXISTING_INTEGRATOR_ID}.in' already exists"
     end
 
     it 'Missing numPartitions' do
@@ -329,7 +329,7 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Missing Tenant ID' do
-      response = @mgmt_api_helper.hri_delete_tenant_stream(nil, INTEGRATOR_ID)
+      response = @mgmt_api_helper.hri_delete_tenant_stream(nil, EXISTING_INTEGRATOR_ID)
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- tenantId (url path parameter) is a required field"
@@ -424,16 +424,16 @@ describe 'HRI Management API Without Validation' do
   context 'GET /tenants/{tenant_id}/streams' do
 
     it 'Success' do
-      response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID)
+      response = @mgmt_api_helper.hri_get_tenant_streams(EXISTING_TENANT_ID)
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['results'][0]['id']).to eql INTEGRATOR_ID
+      expect(parsed_response['results'][0]['id']).to eql EXISTING_INTEGRATOR_ID
     end
 
     it 'Success With Invalid Topic Only' do
-      invalid_topic = "ingest.#{TENANT_ID}.#{TEST_INTEGRATOR_ID}.invalid"
+      invalid_topic = "ingest.#{EXISTING_TENANT_ID}.#{TEST_INTEGRATOR_ID}.invalid"
       @event_streams_helper.create_topic(invalid_topic, 1)
-      response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID)
+      response = @mgmt_api_helper.hri_get_tenant_streams(EXISTING_TENANT_ID)
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       stream_found = false
@@ -461,14 +461,14 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Missing Authorization' do
-      response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID, {'Authorization' => nil})
+      response = @mgmt_api_helper.hri_get_tenant_streams(EXISTING_TENANT_ID, {'Authorization' => nil})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "missing header 'Authorization'"
     end
 
     it 'Invalid Authorization' do
-      response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID, {'Authorization' => 'Bearer Invalid'})
+      response = @mgmt_api_helper.hri_get_tenant_streams(EXISTING_TENANT_ID, {'Authorization' => 'Bearer Invalid'})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Unauthorized to manage resource'
@@ -482,7 +482,7 @@ describe 'HRI Management API Without Validation' do
       response = @mgmt_api_helper.hri_get_tenants
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['results'].to_s).to include TENANT_ID
+      expect(parsed_response['results'].to_s).to include EXISTING_TENANT_ID
     end
 
     it 'Unauthorized' do
@@ -497,10 +497,10 @@ describe 'HRI Management API Without Validation' do
   context 'GET /tenants/{tenant_id}' do
 
     it 'Success' do
-      response = @mgmt_api_helper.hri_get_tenant(TENANT_ID)
+      response = @mgmt_api_helper.hri_get_tenant(EXISTING_TENANT_ID)
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['index']).to eql "#{TENANT_ID}-batches"
+      expect(parsed_response['index']).to eql "#{EXISTING_TENANT_ID}-batches"
       expect(parsed_response['health']).to eql 'green'
       expect(parsed_response['uuid']).to_not be_nil
     end
@@ -551,7 +551,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Successful Batch Creation' do
       #Create Batch
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 201
       expect(response.headers[:'content_security_policy']).to eql "default-src 'none'; script-src 'none'; connect-src 'self'; img-src 'self'; style-src 'self';"
       expect(response.headers[:'x_content_type_options']).to eql 'nosniff'
@@ -561,10 +561,10 @@ describe 'HRI Management API Without Validation' do
       Logger.new(STDOUT).info("New Batch Created With ID: #{@new_batch_id}")
 
       #Verify Batch in Elastic
-      response = @elastic.es_get_batch(TENANT_ID, @new_batch_id)
+      response = @elastic.es_get_batch(EXISTING_TENANT_ID, @new_batch_id)
       response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['_index']).to eql "#{TENANT_ID}-batches"
+      expect(parsed_response['_index']).to eql "#{EXISTING_TENANT_ID}-batches"
       expect(parsed_response['_id']).to eql @new_batch_id
       expect(parsed_response['found']).to be true
       expect(parsed_response['_source']['name']).to eql @batch_name
@@ -600,7 +600,7 @@ describe 'HRI Management API Without Validation' do
       end
 
       #Delete Batch
-      response = @elastic.es_delete_batch(TENANT_ID, @new_batch_id)
+      response = @elastic.es_delete_batch(EXISTING_TENANT_ID, @new_batch_id)
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['_id']).to eq @new_batch_id
@@ -610,7 +610,7 @@ describe 'HRI Management API Without Validation' do
     it 'should auto-delete a batch from Elastic if the batch was created with an invalid Kafka topic' do
       #Gather existing batches
       existing_batches = []
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['total']).to be > 0
@@ -621,7 +621,7 @@ describe 'HRI Management API Without Validation' do
       #Create Batch with Bad Topic
       @batch_template[:topic] = 'INVALID-TEST-TOPIC'
       @batch_template[:dataType] = 'rspec-invalid-batch'
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 500
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'kafka producer error: Broker: Unknown topic or partition'
@@ -630,7 +630,7 @@ describe 'HRI Management API Without Validation' do
       50.times do
         new_batches = []
         @batch_deleted = false
-        response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
+        response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
         expect(response.code).to eq 200
         parsed_response = JSON.parse(response.body)
         expect(parsed_response['total']).to be > 0
@@ -648,7 +648,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Invalid Name' do
       @batch_template[:name] = 12345
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request param \"name\": expected type string, but received type number"
@@ -656,7 +656,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Invalid Topic' do
       @batch_template[:topic] = 12345
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request param \"topic\": expected type string, but received type number"
@@ -664,7 +664,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Invalid Data Type' do
       @batch_template[:dataType] = 12345
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request param \"dataType\": expected type string, but received type number"
@@ -672,7 +672,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Missing Name' do
       @batch_template.delete(:name)
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- name (json field in request body) is a required field"
@@ -680,7 +680,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Missing Topic' do
       @batch_template.delete(:topic)
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- topic (json field in request body) is a required field"
@@ -688,7 +688,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Missing Data Type' do
       @batch_template.delete(:dataType)
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- dataType (json field in request body) is a required field"
@@ -698,7 +698,7 @@ describe 'HRI Management API Without Validation' do
       @batch_template.delete(:name)
       @batch_template.delete(:topic)
       @batch_template.delete(:dataType)
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- dataType (json field in request body) is a required field\n- name (json field in request body) is a required field\n- topic (json field in request body) is a required field"
@@ -712,35 +712,35 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Unauthorized - Missing Authorization' do
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json)
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json)
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Authorization token validation failed: oidc: malformed jwt: square/go-jose: compact JWS format must have three parts'
     end
 
     it 'Unauthorized - Invalid Tenant ID' do
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_invalid_tenant}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_invalid_tenant}" })
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized scopes: ."
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{EXISTING_TENANT_ID}' is not included in the authorized scopes: ."
     end
 
     it 'Unauthorized - No Roles' do
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_no_roles}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_no_roles}" })
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Must have hri_data_integrator role to create a batch'
     end
 
     it 'Unauthorized - Incorrect Roles' do
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_consumer_role_only}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_consumer_role_only}" })
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Must have hri_data_integrator role to create a batch'
     end
 
     it 'Unauthorized - Invalid Audience' do
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_invalid_audience}" })
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_invalid_audience}" })
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "Authorization token validation failed: oidc: expected audience \"#{ENV['JWT_AUDIENCE_ID']}\" got [\"#{ENV['APPID_TENANT']}\"]"
@@ -751,7 +751,7 @@ describe 'HRI Management API Without Validation' do
   context 'GET /tenants/{tenant_id}/batches' do
 
     it 'Success Without Status' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, 'size=1000', {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, 'size=1000', {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['total']).to be > 0
@@ -766,7 +766,7 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Success With Status' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, "status=#{STATUS}&size=1000", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, "status=#{STATUS}&size=1000", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['total']).to be > 0
@@ -776,7 +776,7 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Success With Name' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, "name=#{@batch_name}&size=1000", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, "name=#{@batch_name}&size=1000", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['total']).to be > 0
@@ -787,7 +787,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Success With Greater Than Date' do
       greater_than_date = Date.today - 365
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, "gteDate=#{greater_than_date}&size=1000", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, "gteDate=#{greater_than_date}&size=1000", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['total']).to be > 0
@@ -798,7 +798,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Success With Less Than Date' do
       less_than_date = Date.today + 1
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, "lteDate=#{less_than_date}&size=1000", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, "lteDate=#{less_than_date}&size=1000", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['total']).to be > 0
@@ -808,14 +808,14 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Name Not Found' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, "name=#{INVALID_ID}", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, "name=#{INVALID_ID}", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['results'].empty?).to be true
     end
 
     it 'Status Not Found' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, "status=#{INVALID_ID}", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, "status=#{INVALID_ID}", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['results'].empty?).to be true
@@ -823,7 +823,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Greater Than Date With No Results' do
       greater_than_date = Date.today + 10000
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, "gteDate=#{greater_than_date}", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, "gteDate=#{greater_than_date}", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['results'].empty?).to be true
@@ -831,28 +831,28 @@ describe 'HRI Management API Without Validation' do
 
     it 'Less Than Date With No Results' do
       less_than_date = Date.today - 5000
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, "lteDate=#{less_than_date}", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, "lteDate=#{less_than_date}", {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['results'].empty?).to be true
     end
 
     it 'Invalid Greater Than Date' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, "gteDate=#{INVALID_ID}", {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, "gteDate=#{INVALID_ID}", {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "Get batch failed: [400] search_phase_execution_exception: all shards failed: parse_exception: failed to parse date field [#{INVALID_ID}] with format [strict_date_optional_time||epoch_millis]: [failed to parse date field [#{INVALID_ID}] with format [strict_date_optional_time||epoch_millis]]"
     end
 
     it 'Invalid Less Than Date' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, "lteDate=#{INVALID_ID}", {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, "lteDate=#{INVALID_ID}", {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "Get batch failed: [400] search_phase_execution_exception: all shards failed: parse_exception: failed to parse date field [#{INVALID_ID}] with format [strict_date_optional_time||epoch_millis]: [failed to parse date field [#{INVALID_ID}] with format [strict_date_optional_time||epoch_millis]]"
     end
 
     it 'Query Parameter With Restricted Characters' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, 'status="[{started}]"', {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, 'status="[{started}]"', {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- status (request query parameter) must not contain the following characters: \"=<>[]{}"
@@ -882,7 +882,7 @@ describe 'HRI Management API Without Validation' do
         }
       }
 
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @new_batch_id = parsed_response['id']
@@ -898,20 +898,20 @@ describe 'HRI Management API Without Validation' do
           }
         }
       }.to_json
-      response = @elastic.es_batch_update(TENANT_ID, @new_batch_id, update_batch_script)
+      response = @elastic.es_batch_update(EXISTING_TENANT_ID, @new_batch_id, update_batch_script)
       response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['result']).to eql 'updated'
       Logger.new(STDOUT).info('Batch Integrator ID updated to "modified-integrator-id"')
 
       #Verify Integrator ID Modified
-      response = @elastic.es_get_batch(TENANT_ID, @new_batch_id)
+      response = @elastic.es_get_batch(EXISTING_TENANT_ID, @new_batch_id)
       response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['_source']['integratorId']).to eql 'modified-integrator-id'
 
       #Verify Batch Not Visible to Different Integrator ID
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, 'size=1000', {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, 'size=1000', {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       unless parsed_response['results'].empty?
@@ -922,7 +922,7 @@ describe 'HRI Management API Without Validation' do
 
       #Verify Batch Visible To Consumer Role
       @batch_found = false
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, 'size=1000', {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, 'size=1000', {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       parsed_response['results'].each do |batch|
@@ -935,28 +935,28 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Unauthorized - Missing Authorization' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil)
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, nil)
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Authorization token validation failed: oidc: malformed jwt: square/go-jose: compact JWS format must have three parts'
     end
 
     it 'Unauthorized - Invalid Tenant ID' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil, {'Authorization' => "Bearer #{@token_invalid_tenant}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, nil, {'Authorization' => "Bearer #{@token_invalid_tenant}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized scopes: ."
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{EXISTING_TENANT_ID}' is not included in the authorized scopes: ."
     end
 
     it 'Unauthorized - No Roles' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil, {'Authorization' => "Bearer #{@token_no_roles}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, nil, {'Authorization' => "Bearer #{@token_no_roles}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'The access token must have one of these scopes: hri_consumer, hri_data_integrator'
     end
 
     it 'Unauthorized - Invalid Audience' do
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil, {'Authorization' => "Bearer #{@token_invalid_audience}"})
+      response = @mgmt_api_helper.hri_get_batches(EXISTING_TENANT_ID, nil, {'Authorization' => "Bearer #{@token_invalid_audience}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "Authorization token validation failed: oidc: expected audience \"#{ENV['JWT_AUDIENCE_ID']}\" got [\"#{ENV['APPID_TENANT']}\"]"
@@ -999,14 +999,14 @@ describe 'HRI Management API Without Validation' do
           }
         }
       }
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @new_batch_id = parsed_response['id']
       Logger.new(STDOUT).info("New Batch Created With ID: #{@new_batch_id}")
 
       #Get Batch
-      response = @mgmt_api_helper.hri_get_batch(TENANT_ID, @new_batch_id, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_get_batch(EXISTING_TENANT_ID, @new_batch_id, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['id']).to eq @new_batch_id
@@ -1028,10 +1028,10 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Batch ID Not Found' do
-      response = @mgmt_api_helper.hri_get_batch(TENANT_ID, INVALID_ID, {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_get_batch(EXISTING_TENANT_ID, INVALID_ID, {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 404
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "The document for tenantId: #{TENANT_ID} with document (batch) ID: #{INVALID_ID} was not found"
+      expect(parsed_response['errorDescription']).to eql "The document for tenantId: #{EXISTING_TENANT_ID} with document (batch) ID: #{INVALID_ID} was not found"
     end
 
     it 'Integrator ID can not view a batch created with a different Integrator ID' do
@@ -1050,7 +1050,7 @@ describe 'HRI Management API Without Validation' do
           }
         }
       }
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @new_batch_id = parsed_response['id']
@@ -1066,48 +1066,48 @@ describe 'HRI Management API Without Validation' do
           }
         }
       }.to_json
-      response = @elastic.es_batch_update(TENANT_ID, @new_batch_id, update_batch_script)
+      response = @elastic.es_batch_update(EXISTING_TENANT_ID, @new_batch_id, update_batch_script)
       response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['result']).to eql 'updated'
       Logger.new(STDOUT).info('Batch Integrator ID updated to "modified-integrator-id"')
 
       #Verify Integrator ID Modified
-      response = @elastic.es_get_batch(TENANT_ID, @new_batch_id)
+      response = @elastic.es_get_batch(EXISTING_TENANT_ID, @new_batch_id)
       response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['_source']['integratorId']).to eql 'modified-integrator-id'
 
       #Verify Batch Not Visible to Different Integrator ID
-      response = @mgmt_api_helper.hri_get_batch(TENANT_ID, @new_batch_id, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_get_batch(EXISTING_TENANT_ID, @new_batch_id, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to include 'does not match the data integratorId'
     end
 
     it 'Unauthorized - Missing Authorization' do
-      response = @mgmt_api_helper.hri_get_batch(TENANT_ID, @batch_id)
+      response = @mgmt_api_helper.hri_get_batch(EXISTING_TENANT_ID, @batch_id)
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Authorization token validation failed: oidc: malformed jwt: square/go-jose: compact JWS format must have three parts'
     end
 
     it 'Unauthorized - Invalid Tenant ID' do
-      response = @mgmt_api_helper.hri_get_batch(TENANT_ID, @batch_id, {'Authorization' => "Bearer #{@token_invalid_tenant}"})
+      response = @mgmt_api_helper.hri_get_batch(EXISTING_TENANT_ID, @batch_id, {'Authorization' => "Bearer #{@token_invalid_tenant}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized scopes: ."
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{EXISTING_TENANT_ID}' is not included in the authorized scopes: ."
     end
 
     it 'Unauthorized - No Roles' do
-      response = @mgmt_api_helper.hri_get_batch(TENANT_ID, @batch_id, {'Authorization' => "Bearer #{@token_no_roles}"})
+      response = @mgmt_api_helper.hri_get_batch(EXISTING_TENANT_ID, @batch_id, {'Authorization' => "Bearer #{@token_no_roles}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'The access token must have one of these scopes: hri_consumer, hri_data_integrator'
     end
 
     it 'Unauthorized - Invalid Audience' do
-      response = @mgmt_api_helper.hri_get_batch(TENANT_ID, @batch_id, {'Authorization' => "Bearer #{@token_invalid_audience}"})
+      response = @mgmt_api_helper.hri_get_batch(EXISTING_TENANT_ID, @batch_id, {'Authorization' => "Bearer #{@token_invalid_audience}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "Authorization token validation failed: oidc: expected audience \"#{ENV['JWT_AUDIENCE_ID']}\" got [\"#{ENV['APPID_TENANT']}\"]"
@@ -1153,18 +1153,18 @@ describe 'HRI Management API Without Validation' do
 
     it 'Success' do
       #Create Batch
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @send_complete_batch_id = parsed_response['id']
       Logger.new(STDOUT).info("New Send Complete Batch Created With ID: #{@send_complete_batch_id}")
 
       #Set Batch Complete
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 200
 
       #Verify Batch Complete
-      response = @mgmt_api_helper.hri_get_batch(TENANT_ID, @send_complete_batch_id, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batch(EXISTING_TENANT_ID, @send_complete_batch_id, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['status']).to eql 'completed'
@@ -1212,18 +1212,18 @@ describe 'HRI Management API Without Validation' do
       }
 
       #Create Batch
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @send_complete_batch_id = parsed_response['id']
       Logger.new(STDOUT).info("New Send Complete Batch Created With ID: #{@send_complete_batch_id}")
 
       #Set Batch Complete
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @send_complete_batch_id, 'sendComplete', record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @send_complete_batch_id, 'sendComplete', record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 200
 
       #Verify Batch Complete
-      response = @mgmt_api_helper.hri_get_batch(TENANT_ID, @send_complete_batch_id, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batch(EXISTING_TENANT_ID, @send_complete_batch_id, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['status']).to eql 'completed'
@@ -1258,21 +1258,21 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Invalid Batch ID' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, INVALID_ID, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, INVALID_ID, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 404
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "error getting current Batch Status: The document for tenantId: #{TENANT_ID} with document (batch) ID: #{INVALID_ID} was not found"
+      expect(parsed_response['errorDescription']).to eql "error getting current Batch Status: The document for tenantId: #{EXISTING_TENANT_ID} with document (batch) ID: #{INVALID_ID} was not found"
     end
 
     it 'Missing Record Count' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', nil, {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'sendComplete', nil, {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- expectedRecordCount (json field in request body) must be present if recordCount (json field in request body) is not present\n- recordCount (json field in request body) must be present if expectedRecordCount (json field in request body) is not present"
     end
 
     it 'Invalid Record Count' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', {expectedRecordCount: "1"}, {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'sendComplete', {expectedRecordCount: "1"}, {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request param \"expectedRecordCount\": expected type int, but received type string"
@@ -1286,14 +1286,14 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Missing Batch ID' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, nil, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, nil, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- id (url path parameter) is a required field"
     end
 
     it 'Missing Batch ID and Record Count' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, nil, 'sendComplete', nil, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, nil, 'sendComplete', nil, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- expectedRecordCount (json field in request body) must be present if recordCount (json field in request body) is not present\n- id (url path parameter) is a required field\n- recordCount (json field in request body) must be present if expectedRecordCount (json field in request body) is not present"
@@ -1301,7 +1301,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Conflict: Batch with a status other than started' do
       #Create Batch
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @send_complete_batch_id = parsed_response['id']
@@ -1317,32 +1317,32 @@ describe 'HRI Management API Without Validation' do
           }
         }
       }.to_json
-      response = @elastic.es_batch_update(TENANT_ID, @send_complete_batch_id, update_batch_script)
+      response = @elastic.es_batch_update(EXISTING_TENANT_ID, @send_complete_batch_id, update_batch_script)
       response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['result']).to eql 'updated'
       Logger.new(STDOUT).info('Batch status updated to "terminated"')
 
       #Verify Batch Status Updated
-      response = @elastic.es_get_batch(TENANT_ID, @send_complete_batch_id)
+      response = @elastic.es_get_batch(EXISTING_TENANT_ID, @send_complete_batch_id)
       response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['_source']['status']).to eql 'terminated'
 
       #Attempt to complete batch
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 409
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "sendComplete failed, batch is in 'terminated' state"
 
       #Delete batch
-      response = @elastic.es_delete_batch(TENANT_ID, @send_complete_batch_id)
+      response = @elastic.es_delete_batch(EXISTING_TENANT_ID, @send_complete_batch_id)
       expect(response.code).to eq 200
     end
 
     it 'Conflict: Batch that already has a completed status' do
       #Create Batch
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @send_complete_batch_id = parsed_response['id']
@@ -1358,20 +1358,20 @@ describe 'HRI Management API Without Validation' do
           }
         }
       }.to_json
-      response = @elastic.es_batch_update(TENANT_ID, @send_complete_batch_id, update_batch_script)
+      response = @elastic.es_batch_update(EXISTING_TENANT_ID, @send_complete_batch_id, update_batch_script)
       response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['result']).to eql 'updated'
       Logger.new(STDOUT).info('Batch status updated to "completed"')
 
       #Verify Batch Status Updated
-      response = @elastic.es_get_batch(TENANT_ID, @send_complete_batch_id)
+      response = @elastic.es_get_batch(EXISTING_TENANT_ID, @send_complete_batch_id)
       response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['_source']['status']).to eql 'completed'
 
       #Attempt to complete batch
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 409
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "sendComplete failed, batch is in 'completed' state"
@@ -1379,7 +1379,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Integrator ID can not update batches created with a different Integrator ID' do
       #Create Batch
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @send_complete_batch_id = parsed_response['id']
@@ -1395,55 +1395,55 @@ describe 'HRI Management API Without Validation' do
           }
         }
       }.to_json
-      response = @elastic.es_batch_update(TENANT_ID, @send_complete_batch_id, update_batch_script)
+      response = @elastic.es_batch_update(EXISTING_TENANT_ID, @send_complete_batch_id, update_batch_script)
       response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['result']).to eql 'updated'
       Logger.new(STDOUT).info('Batch Integrator ID updated to "modified-integrator-id"')
 
       #Verify Integrator ID Modified
-      response = @elastic.es_get_batch(TENANT_ID, @send_complete_batch_id)
+      response = @elastic.es_get_batch(EXISTING_TENANT_ID, @send_complete_batch_id)
       response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['_source']['integratorId']).to eql 'modified-integrator-id'
 
       #Verify Batch Not Updated With Different Integrator ID
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to include "but owned by 'modified-integrator-id'"
     end
 
     it 'Unauthorized - Missing Authorization' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', @expected_record_count)
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'sendComplete', @expected_record_count)
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Authorization token validation failed: oidc: malformed jwt: square/go-jose: compact JWS format must have three parts'
     end
 
     it 'Unauthorized - Invalid Tenant ID' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_invalid_tenant}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_invalid_tenant}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized scopes: ."
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{EXISTING_TENANT_ID}' is not included in the authorized scopes: ."
     end
 
     it 'Unauthorized - No Roles' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_no_roles}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_no_roles}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Must have hri_data_integrator role to initiate sendComplete on a batch'
     end
 
     it 'Unauthorized - Consumer Role Can Not Update Batch Status' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Must have hri_data_integrator role to initiate sendComplete on a batch'
     end
 
     it 'Unauthorized - Invalid Audience' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_invalid_audience}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_invalid_audience}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "Authorization token validation failed: oidc: expected audience \"#{ENV['JWT_AUDIENCE_ID']}\" got [\"#{ENV['APPID_TENANT']}\"]"
@@ -1482,18 +1482,18 @@ describe 'HRI Management API Without Validation' do
 
     it 'Success' do
       #Create Batch
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @terminate_batch_id = parsed_response['id']
       Logger.new(STDOUT).info("New Terminate Batch Created With ID: #{@terminate_batch_id}")
 
       #Terminate Batch
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @terminate_batch_id, 'terminate', @terminate_metadata, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @terminate_batch_id, 'terminate', @terminate_metadata, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 200
 
       #Verify Batch Terminated
-      response = @mgmt_api_helper.hri_get_batch(TENANT_ID, @terminate_batch_id, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_get_batch(EXISTING_TENANT_ID, @terminate_batch_id, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['status']).to eql 'terminated'
@@ -1526,10 +1526,10 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Invalid Batch ID' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, INVALID_ID, 'terminate', nil, {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, INVALID_ID, 'terminate', nil, {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 404
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "error getting current Batch Status: The document for tenantId: #{TENANT_ID} with document (batch) ID: #{INVALID_ID} was not found"
+      expect(parsed_response['errorDescription']).to eql "error getting current Batch Status: The document for tenantId: #{EXISTING_TENANT_ID} with document (batch) ID: #{INVALID_ID} was not found"
     end
 
     it 'Missing Tenant ID' do
@@ -1540,7 +1540,7 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Missing Batch ID' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, nil, 'terminate', @expected_record_count, {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, nil, 'terminate', @expected_record_count, {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 400
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- id (url path parameter) is a required field"
@@ -1548,7 +1548,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Conflict: Batch with a status other than started' do
       #Create Batch
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @terminate_batch_id = parsed_response['id']
@@ -1564,32 +1564,32 @@ describe 'HRI Management API Without Validation' do
           }
         }
       }.to_json
-      response = @elastic.es_batch_update(TENANT_ID, @terminate_batch_id, update_batch_script)
+      response = @elastic.es_batch_update(EXISTING_TENANT_ID, @terminate_batch_id, update_batch_script)
       response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['result']).to eql 'updated'
       Logger.new(STDOUT).info('Batch status updated to "completed"')
 
       #Verify Batch Status Updated
-      response = @elastic.es_get_batch(TENANT_ID, @terminate_batch_id)
+      response = @elastic.es_get_batch(EXISTING_TENANT_ID, @terminate_batch_id)
       response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['_source']['status']).to eql 'completed'
 
       #Attempt to terminate batch
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @terminate_batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @terminate_batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 409
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "terminate failed, batch is in 'completed' state"
 
       #Delete batch
-      response = @elastic.es_delete_batch(TENANT_ID, @terminate_batch_id)
+      response = @elastic.es_delete_batch(EXISTING_TENANT_ID, @terminate_batch_id)
       expect(response.code).to eq 200
     end
 
     it 'Conflict: Batch that already has a terminated status' do
       #Create Batch
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @terminate_batch_id = parsed_response['id']
@@ -1605,20 +1605,20 @@ describe 'HRI Management API Without Validation' do
           }
         }
       }.to_json
-      response = @elastic.es_batch_update(TENANT_ID, @terminate_batch_id, update_batch_script)
+      response = @elastic.es_batch_update(EXISTING_TENANT_ID, @terminate_batch_id, update_batch_script)
       response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['result']).to eql 'updated'
       Logger.new(STDOUT).info('Batch status updated to "terminated"')
 
       #Verify Batch Status Updated
-      response = @elastic.es_get_batch(TENANT_ID, @terminate_batch_id)
+      response = @elastic.es_get_batch(EXISTING_TENANT_ID, @terminate_batch_id)
       response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['_source']['status']).to eql 'terminated'
 
       #Attempt to terminate batch
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @terminate_batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_all_roles}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @terminate_batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_all_roles}"})
       expect(response.code).to eq 409
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "terminate failed, batch is in 'terminated' state"
@@ -1626,7 +1626,7 @@ describe 'HRI Management API Without Validation' do
 
     it 'Integrator ID can not update batches created with a different Integrator ID' do
       #Create Batch
-      response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_post_batch(EXISTING_TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 201
       parsed_response = JSON.parse(response.body)
       @terminate_batch_id = parsed_response['id']
@@ -1642,55 +1642,55 @@ describe 'HRI Management API Without Validation' do
           }
         }
       }.to_json
-      response = @elastic.es_batch_update(TENANT_ID, @terminate_batch_id, update_batch_script)
+      response = @elastic.es_batch_update(EXISTING_TENANT_ID, @terminate_batch_id, update_batch_script)
       response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['result']).to eql 'updated'
       Logger.new(STDOUT).info('Batch Integrator ID updated to "modified-integrator-id"')
 
       #Verify Integrator ID Modified
-      response = @elastic.es_get_batch(TENANT_ID, @terminate_batch_id)
+      response = @elastic.es_get_batch(EXISTING_TENANT_ID, @terminate_batch_id)
       response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['_source']['integratorId']).to eql 'modified-integrator-id'
 
       #Verify Batch Not Updated With Different Integrator ID
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @terminate_batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @terminate_batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to include "but owned by 'modified-integrator-id'"
     end
 
     it 'Unauthorized - Missing Authorization' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'terminate', nil)
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'terminate', nil)
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Authorization token validation failed: oidc: malformed jwt: square/go-jose: compact JWS format must have three parts'
     end
 
     it 'Unauthorized - Invalid Tenant ID' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_invalid_tenant}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_invalid_tenant}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized scopes: ."
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{EXISTING_TENANT_ID}' is not included in the authorized scopes: ."
     end
 
     it 'Unauthorized - No Roles' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_no_roles}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_no_roles}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Must have hri_data_integrator role to terminate a batch'
     end
 
     it 'Unauthorized - Consumer Role Can Not Update Batch Status' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Must have hri_data_integrator role to terminate a batch'
     end
 
     it 'Unauthorized - Invalid Audience' do
-      response = @mgmt_api_helper.hri_put_batch(TENANT_ID, @batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_invalid_audience}"})
+      response = @mgmt_api_helper.hri_put_batch(EXISTING_TENANT_ID, @batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_invalid_audience}"})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "Authorization token validation failed: oidc: expected audience \"#{ENV['JWT_AUDIENCE_ID']}\" got [\"#{ENV['APPID_TENANT']}\"]"
