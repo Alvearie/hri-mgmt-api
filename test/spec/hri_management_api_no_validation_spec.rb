@@ -8,7 +8,7 @@ describe 'HRI Management API Without Validation' do
 
   before(:all) do
     @invalid_id = 'INVALID'
-    @tenant_id = ENV['@tenant_id']
+    @tenant_id = ENV['TENANT_ID']
     @integrator_id = 'claims'
     @test_tenant_id = "rspec-#{ENV['BRANCH_NAME'].delete('.')}-test-tenant".downcase
     @test_integrator_id = "rspec-#{ENV['BRANCH_NAME'].delete('.')}-test-integrator".downcase
