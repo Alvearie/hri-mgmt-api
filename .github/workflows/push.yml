@@ -76,7 +76,6 @@ jobs:
         
     - name: Install Ruby and Gems, Run Dredd Tests
       run: |
-        ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; travis_terminate 1; }
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
         mkdir ~/.ssh

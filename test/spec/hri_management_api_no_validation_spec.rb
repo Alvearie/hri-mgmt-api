@@ -185,6 +185,7 @@ describe 'HRI Management API Without Validation' do
       Timeout.timeout(30, nil, 'Kafka topics not created after 30 seconds') do
         loop do
           topics = @event_streams_helper.get_topics
+          pp topics
           break if (topics.include?("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in") && topics.include?("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification"))
         end
       end
