@@ -2,7 +2,6 @@
 
 sudo npm install -g api-spec-converter
 sudo npm install -g dredd@12.2.0
-sudo gem install dredd_hooks
 
 echo 'Clone hri-api-spec Repo'
 git clone https://github.com/Alvearie/hri-api-spec.git api-spec

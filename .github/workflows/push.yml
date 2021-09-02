@@ -68,7 +68,7 @@ jobs:
       uses: ruby/setup-ruby@v1
       with:
         ruby-version: 2.6.5
-        bundler-cache: true
+        bundler-cache: false
         
     - name: Install Ruby and Gems, Run Dredd Tests
       run: |
@@ -82,4 +82,5 @@ jobs:
         ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
         setsid ssh-add ~/.ssh/git_deploy_key </dev/null
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b add-public
+        gem install dredd_hooks
         ./run-dreddtests.sh
