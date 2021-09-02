@@ -10,7 +10,7 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
     env:
-      TENANT_ID: test
+      EXISTING_TENANT_ID: test
       TOOLCHAIN_ID: 55446d64-25c7-40a0-9af9-440d1b409f76
       ELASTIC_URL: https://c9acb36a-0feb-4b6e-aac1-6651c71d19e4.2adb0220806343e3ae11df79c89b377f.databases.appdomain.cloud:32085
       ELASTIC_CERT_FILE: elastic-cert64

@@ -7,7 +7,7 @@ require_relative '../env'
 describe 'HRI Management API Without Validation' do
 
   INVALID_ID = 'INVALID'
-  EXISTING_TENANT_ID = ENV['TENANT_ID']
+  EXISTING_TENANT_ID = ENV['EXISTING_TENANT_ID']
   EXISTING_INTEGRATOR_ID = 'claims'
   TEST_TENANT_ID = "rspec-#{ENV['BRANCH_NAME'].delete('.')}-test-tenant".downcase
   TEST_INTEGRATOR_ID = "rspec-#{ENV['BRANCH_NAME'].delete('.')}-test-integrator".downcase
