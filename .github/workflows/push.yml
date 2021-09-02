@@ -88,4 +88,6 @@ jobs:
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b add-public
         gem install dredd_hooks
         ./run-dreddtests.sh
+        ibmcloud plugin install event-streams
+        ibmcloud es init -i ${KAFKA_INSTANCE}
         ./run-ivttests.sh
