@@ -29,13 +29,6 @@ func Error(statusCode int, description string) map[string]interface{} {
 	}
 }
 
-func Success(statusCode int, body map[string]interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"statusCode": statusCode,
-		"body":       body,
-	}
-}
-
 func MissingParams(params ...string) map[string]interface{} {
 	desc := fmt.Sprintf(missingParamsMsg, params)
 	return Error(http.StatusBadRequest, desc)
@@ -44,4 +37,32 @@ func MissingParams(params ...string) map[string]interface{} {
 func InvalidParams(params ...string) map[string]interface{} {
 	desc := fmt.Sprintf(invalidParamsMsg, params)
 	return Error(http.StatusBadRequest, desc)
+}
+
+type ErrorDetail struct {
+	ErrorEventId     string `json:"errorEventId"`
+	ErrorDescription string `json:"errorDescription"`
+}
+
+func NewErrorDetail(requestId string, description string) *ErrorDetail {
+	errorDetail := ErrorDetail{
+		ErrorEventId:     requestId,
+		ErrorDescription: description,
+	}
+	return &errorDetail
+}
+
+type ErrorDetailResponse struct {
+	Code int
+	Body *ErrorDetail
+}
+
+func NewErrorDetailResponse(code int, requestId string, description string) *ErrorDetailResponse {
+	return &ErrorDetailResponse{
+		Code: code,
+		Body: &ErrorDetail{
+			ErrorEventId:     requestId,
+			ErrorDescription: description,
+		},
+	}
 }

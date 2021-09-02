@@ -32,20 +32,23 @@ func TestDecodeBody(t *testing.T) {
 			expectedBody: map[string]interface{}{
 				"good": "json",
 			},
-		}, {
+		},
+		{
 			name:        "Elastic Client Error",
 			clientError: errors.New("client Error"),
 			expectedResponseError: &ResponseError{
 				ErrorObj: fmt.Errorf(msgClientErr, errors.New("client Error")),
 				Code:     http.StatusInternalServerError,
 			},
-		}, {
+		},
+		{
 			name: "Elastic No Response No Client Error",
 			expectedResponseError: &ResponseError{
 				ErrorObj: errors.New(MsgNilResponse),
 				Code:     http.StatusInternalServerError,
 			},
-		}, {
+		},
+		{
 			name: "Bad Json Response",
 			res: &esapi.Response{StatusCode: http.StatusBadRequest, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
 				{"bad": "json"
@@ -54,7 +57,8 @@ func TestDecodeBody(t *testing.T) {
 				ErrorObj: fmt.Errorf(msgParseErr, errors.New("unexpected EOF")),
 				Code:     http.StatusInternalServerError,
 			},
-		}, {
+		},
+		{
 			name: "Elastic Error Response",
 			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
 				{
@@ -73,7 +77,8 @@ func TestDecodeBody(t *testing.T) {
 				ErrorObj:  fmt.Errorf("%s: %s", "index_not_found_exception", "no such index"),
 				Code:      http.StatusNotFound,
 				ErrorType: "index_not_found_exception"},
-		}, {
+		},
+		{
 			name: "Elastic Error Response with Identical Root Cause",
 			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
 				{
@@ -101,7 +106,8 @@ func TestDecodeBody(t *testing.T) {
 			expectedResponseError: &ResponseError{
 				ErrorObj: fmt.Errorf("%s: %s", "index_not_found_exception", "no such index"),
 				Code:     http.StatusNotFound, ErrorType: "index_not_found_exception"},
-		}, {
+		},
+		{
 			name: "Elastic Error Response with Different Root Cause",
 			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
 				{
@@ -138,7 +144,8 @@ func TestDecodeBody(t *testing.T) {
 				ErrorType: "index_not_found_exception",
 				RootCause: "some_other_error",
 			},
-		}, {
+		},
+		{
 			name: "Elastic Error Message",
 			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
 				{
@@ -149,9 +156,9 @@ func TestDecodeBody(t *testing.T) {
 			expectedResponseError: &ResponseError{
 				ErrorObj: fmt.Errorf("alias [test-batches] missing"),
 				Code:     http.StatusNotFound},
-		}, {
+		},
+		{
 			name: "Elastic No Error Context",
-			//
 			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
 				{
 					"_index": "test-batches",
@@ -203,25 +210,28 @@ func TestDecodeBodyFromJsonArray(t *testing.T) {
 				]
 			`)))},
 			expectedBody: []map[string]interface{}{
-				map[string]interface{}{
+				{
 					"valid":  "json-array",
 					"status": "green",
 				},
 			},
-		}, {
+		},
+		{
 			name:        "Elastic Client Error",
 			clientError: errors.New("client Error"),
 			expectedResponseError: &ResponseError{
 				ErrorObj: fmt.Errorf(msgClientErr, errors.New("client Error")),
 				Code:     http.StatusInternalServerError,
 			},
-		}, {
+		},
+		{
 			name: "Elastic No Response No Client Error",
 			expectedResponseError: &ResponseError{
 				ErrorObj: errors.New(MsgNilResponse),
 				Code:     http.StatusInternalServerError,
 			},
-		}, {
+		},
+		{
 			name: "Bad Json Response",
 			res: &esapi.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
 				[{"bad": "json"
@@ -230,7 +240,8 @@ func TestDecodeBodyFromJsonArray(t *testing.T) {
 				ErrorObj: fmt.Errorf(msgParseErr, errors.New("unexpected EOF")),
 				Code:     http.StatusInternalServerError,
 			},
-		}, {
+		},
+		{
 			name: "Elastic Error Response",
 			res: &esapi.Response{StatusCode: http.StatusNotFound, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
 				{
@@ -255,7 +266,8 @@ func TestDecodeBodyFromJsonArray(t *testing.T) {
 				Code:      http.StatusNotFound,
 				ErrorType: "illegal_argument_exception",
 			},
-		}, {
+		},
+		{
 			name: "Unrecognized Elastic Error Response",
 			res: &esapi.Response{StatusCode: http.StatusBadRequest, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
 				[
@@ -302,14 +314,16 @@ func TestDecodeFirstArrayElementUpdateMe(t *testing.T) {
 				"valid":  "json-array",
 				"status": "green",
 			},
-		}, {
+		},
+		{
 			name:        "Elastic Client Error",
 			clientError: errors.New("client Error"),
 			expectedResponseError: &ResponseError{
 				ErrorObj: fmt.Errorf(msgClientErr, errors.New("client Error")),
 				Code:     http.StatusInternalServerError,
 			},
-		}, {
+		},
+		{
 			name: "Empty Result",
 			res: &esapi.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(bytes.NewReader([]byte(`
 				[]

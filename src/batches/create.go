@@ -13,115 +13,131 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/param/esparam"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/elastic/go-elasticsearch/v7"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net/http"
-	"os"
-	"reflect"
 	"time"
 )
 
 func Create(
-	args map[string]interface{},
-	validator param.Validator,
+	requestId string,
+	batch model.CreateBatch,
 	claims auth.HriClaims,
 	esClient *elasticsearch.Client,
-	kafkaWriter kafka.Writer) map[string]interface{} {
+	kafkaWriter kafka.Writer) (int, interface{}) {
 
-	logger := log.New(os.Stdout, "batches/create: ", log.Llongfile)
+	prefix := "batches/create"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("Start Batch Create")
 
 	// validate that caller has sufficient permissions
 	if !claims.HasScope(auth.HriIntegrator) {
 		msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "create")
-		logger.Printf(msg)
-		return response.Error(http.StatusUnauthorized, msg)
+		logger.Errorln(msg)
+		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
 	}
 
 	// validate that the Subject claim (integrator ID) is not missing
 	if claims.Subject == "" {
-		logger.Printf(auth.MsgSubClaimRequiredInJwt)
-		return response.Error(http.StatusUnauthorized, auth.MsgSubClaimRequiredInJwt)
+		msg := fmt.Sprintf(auth.MsgSubClaimRequiredInJwt)
+		logger.Errorln(msg)
+		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
 	}
 
-	// validate that required input params are present
-	errResp := validator.Validate(
-		args,
-		param.Info{param.Name, reflect.String},
-		param.Info{param.Topic, reflect.String},
-		param.Info{param.DataType, reflect.String},
-	)
-	if errResp != nil {
-		logger.Printf("Bad input params: %s", errResp)
-		return errResp
-	}
+	var subject = claims.Subject
+	return create(requestId, batch, subject, esClient, kafkaWriter, logger)
+}
 
-	// extract tenantId path param from URL
-	tenantId, err := path.ExtractParam(args, param.TenantIndex)
-	if err != nil {
-		logger.Println(err.Error())
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
+func CreateNoAuth(
+	requestId string,
+	batch model.CreateBatch,
+	_ auth.HriClaims,
+	esClient *elasticsearch.Client,
+	kafkaWriter kafka.Writer) (int, interface{}) {
 
-	batchInfo := buildBatchInfo(args, claims.Subject)
+	var prefix = "batches/create_no_auth"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("Start Batch Create (Without Auth)")
+
+	var integratorId = auth.NoAuthFakeIntegrator
+	return create(requestId, batch, integratorId, esClient, kafkaWriter, logger)
+}
+
+func create(
+	requestId string,
+	batch model.CreateBatch,
+	integratorId string,
+	esClient *elasticsearch.Client,
+	kafkaWriter kafka.Writer,
+	logger logrus.FieldLogger) (int, interface{}) {
+
+	batchInfo := buildBatchInfo(batch, integratorId)
 	jsonBatchInfo, err := json.Marshal(batchInfo)
 	if err != nil {
-		return response.Error(http.StatusInternalServerError, err.Error())
+		//NOTE: This should Never happen because we are building the batchInfo map from the Statically-typed Batch struct
+		return http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error())
 	}
+	logger.Debugf("Successfully built BatchInfo for batch name: %s", batch.Name)
 
 	// add batch info to Elastic
 	indexRes, err := esClient.Index(
-		elastic.IndexFromTenantId(tenantId),
+		elastic.IndexFromTenantId(batch.TenantId),
 		bytes.NewReader(jsonBatchInfo),
 	)
 
 	// parse the response
 	body, elasticErr := elastic.DecodeBody(indexRes, err)
 	if elasticErr != nil {
-		return elasticErr.LogAndBuildApiResponse(logger, "Batch creation failed")
+		return http.StatusInternalServerError, elasticErr.LogAndBuildErrorDetail(requestId,
+			logger, "Batch creation failed")
 	}
 
 	batchId := body[esparam.EsDocId].(string)
+	batchInfo[param.BatchId] = batchId
 
 	// add batchId to info and publish to the notification topic
-	batchInfo[param.BatchId] = batchId
-	notificationTopic := InputTopicToNotificationTopic(args[param.Topic].(string))
+	logger.Debugf("Sending Batch Info to Notification Topic")
+
+	notificationTopic := InputTopicToNotificationTopic(batch.Topic)
 	err = kafkaWriter.Write(notificationTopic, batchId, batchInfo)
 	if err != nil {
-		logger.Printf("Unable to publish to topic [%s] about new batch [%s]. %s", notificationTopic, batchId, err.Error())
+		logger.Errorf("Unable to publish to topic [%s] about new batch [%s]. %s",
+			notificationTopic, batchId, err.Error())
 
 		// cleanup the elastic document
-		esClient.Delete(elastic.IndexFromTenantId(tenantId), batchId)
-		return response.Error(http.StatusInternalServerError, err.Error())
+		esClient.Delete(elastic.IndexFromTenantId(batch.TenantId), batchId)
+		return http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error())
 	}
 
 	// return the ID of the newly created batch
 	respBody := map[string]interface{}{param.BatchId: batchId}
-	return response.Success(http.StatusCreated, respBody)
+	return http.StatusCreated, respBody
 }
 
-func buildBatchInfo(args map[string]interface{}, integrator string) map[string]interface{} {
+func buildBatchInfo(batch model.CreateBatch, integrator string) map[string]interface{} {
 	currentTime := time.Now().UTC()
 
 	info := map[string]interface{}{
-		param.Name:             args[param.Name].(string),
+		param.Name:             batch.Name,
 		param.IntegratorId:     integrator,
-		param.Topic:            args[param.Topic].(string),
-		param.DataType:         args[param.DataType].(string),
+		param.Topic:            batch.Topic,
+		param.DataType:         batch.DataType,
 		param.Status:           status.Started.String(),
 		param.StartDate:        currentTime.Format(elastic.DateTimeFormat),
-		param.InvalidThreshold: args[param.InvalidThreshold],
+		param.InvalidThreshold: batch.InvalidThreshold,
 	}
 
-	if info[param.InvalidThreshold] == nil {
+	if batch.InvalidThreshold == 0 {
 		info[param.InvalidThreshold] = -1
 	}
 
-	if val, ok := args[param.Metadata]; ok {
-		info[param.Metadata] = val
+	if batch.Metadata != nil {
+		info[param.Metadata] = batch.Metadata
 	}
 
 	return info

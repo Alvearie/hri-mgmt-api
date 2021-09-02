@@ -7,72 +7,42 @@ package batches
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
-	"log"
 	"net/http"
 	"os"
 	"reflect"
 	"testing"
 )
 
-func TestSendComplete_AuthCheck(t *testing.T) {
-	tests := []struct {
-		name        string
-		claims      auth.HriClaims
-		expectedErr string
-	}{
-		{
-			name:   "With DI role, should return nil",
-			claims: auth.HriClaims{Scope: auth.HriIntegrator},
-		},
-		{
-			name:   "With DI & Consumer role, should return nil",
-			claims: auth.HriClaims{Scope: auth.HriIntegrator + " " + auth.HriConsumer},
-		},
-		{
-			name:        "Without DI role, should return error",
-			claims:      auth.HriClaims{},
-			expectedErr: "Must have hri_data_integrator role to update a batch",
-		},
-	}
-
-	sendComplete := SendComplete{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			err := sendComplete.CheckAuth(tt.claims)
-			if (err == nil && tt.expectedErr != "") || (err != nil && err.Error() != tt.expectedErr) {
-				t.Errorf("GetAuth() = '%v', expected '%v'", err, tt.expectedErr)
-			}
-		})
-	}
+func intPtr(val int) *int {
+	return &val
 }
 
-func TestSendComplete_GetUpdateScript(t *testing.T) {
-
-	validClaims := auth.HriClaims{Scope: auth.HriIntegrator, Subject: "integratorId"}
+func Test_getSendCompleteUpdateScript(t *testing.T) {
+	validClaims := auth.HriClaims{Scope: auth.HriIntegrator, Subject: integratorId}
 
 	tests := []struct {
-		name   string
-		params map[string]interface{}
-		claims auth.HriClaims
+		name    string
+		request model.SendCompleteRequest
+		claims  auth.HriClaims
 		// Note that the following chars must be escaped because expectedScript is used as a regex pattern: ., ), (, [, ]
 		expectedRequest map[string]interface{}
-		expectedErr     map[string]interface{}
 		metadata        bool
 	}{
 		{
 			name: "no metadata with validation",
-			params: map[string]interface{}{
-				param.Validation:          true,
-				param.ExpectedRecordCount: float64(200),
+			request: model.SendCompleteRequest{
+				ExpectedRecordCount: intPtr(200),
+				Validation:          true,
 			},
 			claims: validClaims,
 			expectedRequest: map[string]interface{}{
@@ -84,9 +54,9 @@ func TestSendComplete_GetUpdateScript(t *testing.T) {
 		},
 		{
 			name: "no metadata without validation",
-			params: map[string]interface{}{
-				param.Validation:          false,
-				param.ExpectedRecordCount: float64(200),
+			request: model.SendCompleteRequest{
+				ExpectedRecordCount: intPtr(200),
+				Validation:          false,
 			},
 			claims: validClaims,
 			expectedRequest: map[string]interface{}{
@@ -98,10 +68,10 @@ func TestSendComplete_GetUpdateScript(t *testing.T) {
 		},
 		{
 			name: "metadata with validation",
-			params: map[string]interface{}{
-				param.Validation:          true,
-				param.ExpectedRecordCount: float64(200),
-				param.Metadata:            map[string]interface{}{"compression": "gzip", "userMetaField1": "metadata", "userMetaField2": -5},
+			request: model.SendCompleteRequest{
+				ExpectedRecordCount: intPtr(200),
+				Metadata:            map[string]interface{}{"compression": "gzip", "userMetaField1": "metadata", "userMetaField2": -5},
+				Validation:          false,
 			},
 			claims: validClaims,
 			expectedRequest: map[string]interface{}{
@@ -115,10 +85,10 @@ func TestSendComplete_GetUpdateScript(t *testing.T) {
 		},
 		{
 			name: "metadata without validation",
-			params: map[string]interface{}{
-				param.Validation:          false,
-				param.ExpectedRecordCount: float64(200),
-				param.Metadata:            map[string]interface{}{"compression": "gzip", "userMetaField1": "metadata", "userMetaField2": 3},
+			request: model.SendCompleteRequest{
+				ExpectedRecordCount: intPtr(200),
+				Metadata:            map[string]interface{}{"compression": "gzip", "userMetaField1": "metadata", "userMetaField2": 3},
+				Validation:          false,
 			},
 			claims: validClaims,
 			expectedRequest: map[string]interface{}{
@@ -132,9 +102,9 @@ func TestSendComplete_GetUpdateScript(t *testing.T) {
 		},
 		{
 			name: "with deprecated recordCount field",
-			params: map[string]interface{}{
-				param.Validation:  true,
-				param.RecordCount: float64(200),
+			request: model.SendCompleteRequest{
+				RecordCount: intPtr(200),
+				Validation:  true,
 			},
 			claims: validClaims,
 			expectedRequest: map[string]interface{}{
@@ -145,36 +115,10 @@ func TestSendComplete_GetUpdateScript(t *testing.T) {
 			metadata: false,
 		},
 		{
-			name: "Missing Validation param",
-			params: map[string]interface{}{
-				param.ExpectedRecordCount: float64(200),
-			},
-			claims:      validClaims,
-			expectedErr: response.MissingParams(param.Validation),
-		},
-		{
-			name: "Missing Record Count param",
-			params: map[string]interface{}{
-				param.Validation: false,
-			},
-			claims:      validClaims,
-			expectedErr: response.MissingParams(param.ExpectedRecordCount),
-		},
-		{
-			name: "Bad Metadata type",
-			params: map[string]interface{}{
-				param.Validation:          false,
-				param.ExpectedRecordCount: float64(200),
-				param.Metadata:            "nil",
-			},
-			claims:      validClaims,
-			expectedErr: response.InvalidParams("metadata must be a map, got string instead."),
-		},
-		{
 			name: "Missing claim.Subject",
-			params: map[string]interface{}{
-				param.Validation:          true,
-				param.ExpectedRecordCount: float64(200),
+			request: model.SendCompleteRequest{
+				ExpectedRecordCount: intPtr(200),
+				Validation:          true,
 			},
 			claims: auth.HriClaims{},
 			expectedRequest: map[string]interface{}{
@@ -186,42 +130,37 @@ func TestSendComplete_GetUpdateScript(t *testing.T) {
 		},
 	}
 
-	sendComplete := SendComplete{}
-	logger := log.New(os.Stdout, fmt.Sprintf("batches/%s: ", sendComplete.GetAction()), log.Llongfile)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			updateRequest := getSendCompleteUpdateScript(&tt.request, tt.claims.Subject)
 
-			updateRequest, errResp := sendComplete.GetUpdateScript(tt.params, param.ParamValidator{}, tt.claims, logger)
-			if !reflect.DeepEqual(errResp, tt.expectedErr) {
-				t.Errorf("GetUpdateScript().errResp = '%v', expected '%v'", errResp, tt.expectedErr)
-			} else if tt.expectedRequest != nil {
-				if err := RequestCompareScriptTest(tt.expectedRequest, updateRequest); err != nil {
+			if err := RequestCompareScriptTest(tt.expectedRequest, updateRequest); err != nil {
+				t.Errorf("GetUpdateScript().udpateRequest = \n\t'%s' \nDoesn't match expected \n\t'%s'\n%v", updateRequest, tt.expectedRequest, err)
+			} else if tt.metadata {
+				if err := RequestCompareWithMetadataTest(tt.expectedRequest, updateRequest); err != nil {
 					t.Errorf("GetUpdateScript().udpateRequest = \n\t'%s' \nDoesn't match expected \n\t'%s'\n%v", updateRequest, tt.expectedRequest, err)
-				} else if tt.metadata {
-					if err := RequestCompareWithMetadataTest(tt.expectedRequest, updateRequest); err != nil {
-						t.Errorf("GetUpdateScript().udpateRequest = \n\t'%s' \nDoesn't match expected \n\t'%s'\n%v", updateRequest, tt.expectedRequest, err)
-					}
 				}
 			}
-
 		})
 	}
-
 }
 
-func TestUpdateStatus_SendComplete(t *testing.T) {
-	activationId := "activationId"
-	_ = os.Setenv(response.EnvOwActivationId, activationId)
-
+func TestSendComplete(t *testing.T) {
 	const (
-		scriptSendComplete             string = `{"script":{"source":"if \(ctx\._source\.status == 'started' && ctx\._source\.integratorId == 'integratorId'\) {ctx\._source\.status = 'sendCompleted'; ctx\._source\.expectedRecordCount = 10;} else {ctx\.op = 'none'}"}}` + "\n"
-		scriptSendCompleteWithMetadata string = `{"script":{"lang":"painless","params":{"metadata":{"compression":"gzip","userMetaField1":"metadata","userMetaField2":-5}},"source":"if \(ctx\._source\.status == 'started' && ctx\._source\.integratorId == 'integratorId'\) {ctx\._source\.status = 'sendCompleted'; ctx\._source\.expectedRecordCount = 10; ctx\._source\.metadata = params\.metadata;} else {ctx\.op = 'none'}"}}` + "\n"
+		requestId = "requestId"
 	)
 
-	validClaims := auth.HriClaims{Scope: auth.HriIntegrator, Subject: "integratorId"}
+	const (
+		scriptSendComplete             = `{"script":{"source":"if \(ctx\._source\.status == 'started' && ctx\._source\.integratorId == 'integratorId'\) {ctx\._source\.status = 'sendCompleted'; ctx\._source\.expectedRecordCount = 10;} else {ctx\.op = 'none'}"}}` + "\n"
+		scriptSendCompleteWithMetadata = `{"script":{"lang":"painless","params":{"metadata":{"compression":"gzip","userMetaField1":"metadata","userMetaField2":-5}},"source":"if \(ctx\._source\.status == 'started' && ctx\._source\.integratorId == 'integratorId'\) {ctx\._source\.status = 'sendCompleted'; ctx\._source\.expectedRecordCount = 10; ctx\._source\.metadata = params\.metadata;} else {ctx\.op = 'none'}"}}` + "\n"
+		scriptSendCompleteWrongId      = `{"script":{"source":"if \(ctx\._source\.status == 'started' && ctx\._source\.integratorId == 'wrong id'\) {ctx\._source\.status = 'sendCompleted'; ctx\._source\.expectedRecordCount = 10;} else {ctx\.op = 'none'}"}}` + "\n"
+	)
+
+	logwrapper.Initialize("error", os.Stdout)
+	validClaims := auth.HriClaims{Scope: auth.HriIntegrator, Subject: integratorId}
 
 	sendCompletedBatch := map[string]interface{}{
-		param.BatchId:             batchId,
+		param.BatchId:             test.ValidBatchId,
 		param.Name:                batchName,
 		param.IntegratorId:        integratorId,
 		param.Topic:               batchTopic,
@@ -238,7 +177,7 @@ func TestUpdateStatus_SendComplete(t *testing.T) {
 	}
 
 	sendCompletedBatchWithMetadata := map[string]interface{}{
-		param.BatchId:             batchId,
+		param.BatchId:             test.ValidBatchId,
 		param.Name:                batchName,
 		param.IntegratorId:        integratorId,
 		param.Topic:               batchTopic,
@@ -249,14 +188,13 @@ func TestUpdateStatus_SendComplete(t *testing.T) {
 		param.ExpectedRecordCount: batchExpectedRecordCount,
 		param.InvalidThreshold:    batchInvalidThreshold,
 	}
-
 	sendCompletedBatchWithMetadataJSON, err := json.Marshal(sendCompletedBatchWithMetadata)
 	if err != nil {
 		t.Errorf("Unable to create batch JSON string: %s", err.Error())
 	}
 
 	terminatedBatch := map[string]interface{}{
-		param.BatchId:             batchId,
+		param.BatchId:             test.ValidBatchId,
 		param.Name:                batchName,
 		param.IntegratorId:        integratorId,
 		param.Topic:               batchTopic,
@@ -274,96 +212,149 @@ func TestUpdateStatus_SendComplete(t *testing.T) {
 
 	tests := []struct {
 		name                 string
-		params               map[string]interface{}
+		request              *model.SendCompleteRequest
 		claims               auth.HriClaims
 		ft                   *test.FakeTransport
 		writerError          error
 		expectedNotification map[string]interface{}
-		expectedResponse     map[string]interface{}
+		expectedCode         int
+		expectedResponse     interface{}
+		currentStatus        status.BatchStatus
 	}{
 		{
-			name: "simple sendComplete, with validation",
-			params: map[string]interface{}{
-				path.ParamOwPath:          "/hri/tenants/1234/batches/test-batch/action/sendComplete",
-				param.Validation:          true,
-				param.ExpectedRecordCount: batchExpectedRecordCount,
-			},
-			claims: validClaims,
+			name:    "successful sendComplete, with validation",
+			request: getTestSendCompleteRequest(intPtr(int(batchExpectedRecordCount)), nil, nil, true),
+			claims:  validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/test-batch/_update",
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
 					RequestBody:  scriptSendComplete,
 					ResponseBody: fmt.Sprintf(`
 						{
-							"_index": "1234-batches",
+							"_index": "%s-batches",
 							"_type": "_doc",
-							"_id": "test-batch",
+							"_id": "%s",
 							"result": "updated",
 							"get": {
 								"_source": %s
 							}
-						}`, sendCompletedJSON),
+						}`, test.ValidTenantId, test.ValidBatchId, sendCompletedJSON),
 				},
 			),
 			expectedNotification: sendCompletedBatch,
-			expectedResponse:     response.Success(http.StatusOK, map[string]interface{}{}),
+			expectedCode:         http.StatusOK,
+			expectedResponse:     nil,
 		},
 		{
-			name: "simple sendComplete, with validation and metadata",
-			params: map[string]interface{}{
-				path.ParamOwPath:          "/hri/tenants/1234/batches/test-batch/action/sendComplete",
-				param.Validation:          true,
-				param.ExpectedRecordCount: batchExpectedRecordCount,
-				param.Metadata:            map[string]interface{}{"compression": "gzip", "userMetaField1": "metadata", "userMetaField2": -5},
-			},
+			name: "successful sendComplete, with validation and metadata",
+			request: getTestSendCompleteRequest(
+				intPtr(int(batchExpectedRecordCount)),
+				nil,
+				map[string]interface{}{"compression": "gzip", "userMetaField1": "metadata", "userMetaField2": -5},
+				true,
+			),
 			claims: validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/test-batch/_update",
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
 					RequestBody:  scriptSendCompleteWithMetadata,
 					ResponseBody: fmt.Sprintf(`
 						{
-							"_index": "1234-batches",
+							"_index": "%s-batches",
 							"_type": "_doc",
-							"_id": "test-batch",
+							"_id": "%s",
 							"result": "updated",
 							"get": {
 								"_source": %s
 							}
-						}`, sendCompletedBatchWithMetadataJSON),
+						}`, test.ValidTenantId, test.ValidBatchId, sendCompletedBatchWithMetadataJSON),
 				},
 			),
 			expectedNotification: sendCompletedBatchWithMetadata,
-			expectedResponse:     response.Success(http.StatusOK, map[string]interface{}{}),
+			expectedCode:         http.StatusOK,
+			expectedResponse:     nil,
 		},
 		{
-			name: "sendComplete fails on terminated batch",
-			params: map[string]interface{}{
-				path.ParamOwPath:          "/hri/tenants/1234/batches/test-batch/action/sendComplete",
-				param.Validation:          true,
-				param.ExpectedRecordCount: batchExpectedRecordCount,
-			},
-			claims: validClaims,
+			name:             "401 Unauthorized when Data Integrator scope is missing",
+			request:          getTestSendCompleteRequest(intPtr(int(batchExpectedRecordCount)), nil, nil, true),
+			claims:           auth.HriClaims{Scope: auth.HriConsumer, Subject: integratorId},
+			expectedCode:     http.StatusUnauthorized,
+			expectedResponse: response.NewErrorDetail(requestId, `Must have hri_data_integrator role to initiate sendComplete on a batch`),
+		},
+		{
+			name:    "sendComplete fails on Elastic error",
+			request: getTestSendCompleteRequest(intPtr(int(batchExpectedRecordCount)), nil, nil, true),
+			claims:  validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/test-batch/_update",
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
 					RequestBody:  scriptSendComplete,
 					ResponseBody: fmt.Sprintf(`
 						{
-							"_index": "1234-batches",
+							"_index": "%s-batches",
 							"_type": "_doc",
-							"_id": "test-batch",
+							"_id": "%s",
+							"result": "updated",
+							"get": {
+								"_source": %s
+							}
+						}`, test.ValidTenantId, test.ValidBatchId, sendCompletedJSON),
+					ResponseErr: errors.New("timeout"),
+				},
+			),
+			expectedCode:     http.StatusInternalServerError,
+			expectedResponse: response.NewErrorDetail(requestId, "could not update the status of batch test-batch: [500] elasticsearch client error: timeout"),
+		},
+		{
+			name:    "sendComplete fails on terminated batch",
+			request: getTestSendCompleteRequest(intPtr(int(batchExpectedRecordCount)), nil, nil, true),
+			claims:  validClaims,
+			ft: test.NewFakeTransport(t).AddCall(
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
+				test.ElasticCall{
+					RequestQuery: transportQueryParams,
+					RequestBody:  scriptSendComplete,
+					ResponseBody: fmt.Sprintf(`
+						{
+							"_index": "%s-batches",
+							"_type": "_doc",
+							"_id": "%s",
 							"result": "noop",
 							"get": {
 								"_source": %s
 							}
-						}`, terminatedJSON),
+						}`, test.ValidTenantId, test.ValidBatchId, terminatedJSON),
 				},
 			),
-			expectedResponse: response.Error(http.StatusConflict, "The 'sendComplete' endpoint failed, batch is in 'terminated' state"),
+			expectedCode:     http.StatusConflict,
+			expectedResponse: response.NewErrorDetail(requestId, "sendComplete failed, batch is in 'terminated' state"),
+		},
+		{
+			name:    "sendComplete fails on wrong integrator Id",
+			request: getTestSendCompleteRequest(intPtr(int(batchExpectedRecordCount)), nil, nil, true),
+			claims:  auth.HriClaims{Scope: auth.HriIntegrator, Subject: "wrong id"},
+			ft: test.NewFakeTransport(t).AddCall(
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
+				test.ElasticCall{
+					RequestQuery: transportQueryParams,
+					RequestBody:  scriptSendCompleteWrongId,
+					ResponseBody: fmt.Sprintf(`
+						{
+							"_index": "%s-batches",
+							"_type": "_doc",
+							"_id": "%s",
+							"result": "noop",
+							"get": {
+								"_source": %s
+							}
+						}`, test.ValidTenantId, test.ValidBatchId, sendCompletedJSON),
+				},
+			),
+			expectedCode:     http.StatusUnauthorized,
+			expectedResponse: response.NewErrorDetail(requestId, "sendComplete requested by 'wrong id' but owned by 'integratorId'"),
 		},
 	}
 
@@ -376,14 +367,182 @@ func TestUpdateStatus_SendComplete(t *testing.T) {
 			writer := test.FakeWriter{
 				T:             t,
 				ExpectedTopic: InputTopicToNotificationTopic(batchTopic),
-				ExpectedKey:   batchId,
+				ExpectedKey:   test.ValidBatchId,
 				ExpectedValue: tt.expectedNotification,
 				Error:         tt.writerError,
 			}
 
-			if result := UpdateStatus(tt.params, param.ParamValidator{}, tt.claims, SendComplete{}, esClient, writer); !reflect.DeepEqual(result, tt.expectedResponse) {
-				t.Errorf("UpdateStatus() = \n\t%v,\nexpected: \n\t%v", result, tt.expectedResponse)
+			code, result := SendComplete(requestId, tt.request, tt.claims, esClient, writer, tt.currentStatus)
+
+			if tt.ft != nil {
+				tt.ft.VerifyCalls()
+			}
+
+			if code != tt.expectedCode {
+				t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, tt.expectedCode)
+			}
+			if !reflect.DeepEqual(result, tt.expectedResponse) {
+				t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", result, tt.expectedResponse)
 			}
 		})
 	}
+}
+
+func TestSendCompleteNoAuth(t *testing.T) {
+	logwrapper.Initialize("error", os.Stdout)
+
+	const (
+		requestId                string = "req99X5"
+		batchName                string = "porcipino"
+		batchDataType            string = "claims"
+		batchStartDate           string = "IgnoredNoDate"
+		integratorId                    = auth.NoAuthFakeIntegrator
+		batchExpectedRecordCount        = float64(14)
+		batchInvalidThreshold           = float64(5)
+		currentStatus                   = status.Started
+	)
+
+	const (
+		scriptSendComplete             = `{"script":{"source":"if \(ctx\._source\.status == 'started' && ctx\._source\.integratorId == 'NoAuthUnkIntegrator'\) {ctx\._source\.status = 'sendCompleted'; ctx\._source\.expectedRecordCount = 14;} else {ctx\.op = 'none'}"}}` + "\n"
+		scriptSendCompleteWithMetadata = `{"script":{"lang":"painless","params":{"metadata":{"compression":"gzip","userMetaField1":"metadataUno","userMetaField2":-30}},"source":"if \(ctx\._source\.status == 'started' && ctx\._source\.integratorId == 'NoAuthUnkIntegrator'\) {ctx\._source\.status = 'sendCompleted'; ctx\._source\.expectedRecordCount = 14; ctx\._source\.metadata = params\.metadata;} else {ctx\.op = 'none'}"}}` + "\n"
+	)
+
+	sendCompletedBatch := map[string]interface{}{
+		param.BatchId:             test.ValidBatchId,
+		param.Name:                batchName,
+		param.Topic:               batchTopic,
+		param.DataType:            batchDataType,
+		param.IntegratorId:        integratorId,
+		param.Status:              status.SendCompleted.String(),
+		param.StartDate:           batchStartDate,
+		param.RecordCount:         batchExpectedRecordCount,
+		param.ExpectedRecordCount: batchExpectedRecordCount,
+		param.InvalidThreshold:    batchInvalidThreshold,
+	}
+	sendCompletedJSON, err := json.Marshal(sendCompletedBatch)
+	if err != nil {
+		t.Errorf("Unable to create batch JSON string: %s", err.Error())
+	}
+
+	sendCompletedBatchWithMetadata := map[string]interface{}{
+		param.BatchId:             test.ValidBatchId,
+		param.Name:                batchName,
+		param.Topic:               batchTopic,
+		param.DataType:            batchDataType,
+		param.IntegratorId:        integratorId,
+		param.Status:              status.SendCompleted.String(),
+		param.StartDate:           batchStartDate,
+		param.RecordCount:         batchExpectedRecordCount,
+		param.ExpectedRecordCount: batchExpectedRecordCount,
+		param.InvalidThreshold:    batchInvalidThreshold,
+	}
+	sendCompletedBatchWithMetadataJSON, err := json.Marshal(sendCompletedBatchWithMetadata)
+	if err != nil {
+		t.Errorf("Unable to create batch JSON string: %s", err.Error())
+	}
+
+	tests := []struct {
+		name                 string
+		request              *model.SendCompleteRequest
+		claims               auth.HriClaims
+		ft                   *test.FakeTransport
+		writerError          error
+		expectedNotification map[string]interface{}
+		expectedCode         int
+		expectedResponse     interface{}
+	}{
+		{
+			name:    "successful sendCompleteNoAuth, with validation",
+			request: getTestSendCompleteRequest(intPtr(int(batchExpectedRecordCount)), nil, nil, true),
+			ft: test.NewFakeTransport(t).AddCall(
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
+				test.ElasticCall{
+					RequestQuery: transportQueryParams,
+					RequestBody:  scriptSendComplete,
+					ResponseBody: fmt.Sprintf(`
+						{
+							"_index": "%s-batches",
+							"_type": "_doc",
+							"_id": "%s",
+							"result": "updated",
+							"get": {
+								"_source": %s
+							}
+						}`, test.ValidTenantId, test.ValidBatchId, sendCompletedJSON),
+				},
+			),
+			expectedNotification: sendCompletedBatch,
+			expectedCode:         http.StatusOK,
+			expectedResponse:     nil,
+		},
+		{
+			name: "successful sendCompleteNoAuth, with validation and metadata",
+			request: getTestSendCompleteRequest(
+				intPtr(int(batchExpectedRecordCount)),
+				nil,
+				map[string]interface{}{"compression": "gzip", "userMetaField1": "metadataUno", "userMetaField2": -30},
+				true,
+			),
+			ft: test.NewFakeTransport(t).AddCall(
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
+				test.ElasticCall{
+					RequestQuery: transportQueryParams,
+					RequestBody:  scriptSendCompleteWithMetadata,
+					ResponseBody: fmt.Sprintf(`
+						{
+							"_index": "%s-batches",
+							"_type": "_doc",
+							"_id": "%s",
+							"result": "updated",
+							"get": {
+								"_source": %s
+							}
+						}`, test.ValidTenantId, test.ValidBatchId, sendCompletedBatchWithMetadataJSON),
+				},
+			),
+			expectedNotification: sendCompletedBatchWithMetadata,
+			expectedCode:         http.StatusOK,
+			expectedResponse:     nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			esClient, err := elastic.ClientFromTransport(tt.ft)
+			if err != nil {
+				t.Error(err)
+			}
+			writer := test.FakeWriter{
+				T:             t,
+				ExpectedTopic: InputTopicToNotificationTopic(batchTopic),
+				ExpectedKey:   test.ValidBatchId,
+				ExpectedValue: tt.expectedNotification,
+				Error:         tt.writerError,
+			}
+
+			var emptyClaims = auth.HriClaims{}
+			code, result := SendCompleteNoAuth(requestId, tt.request, emptyClaims, esClient, writer, currentStatus)
+
+			tt.ft.VerifyCalls()
+
+			if code != tt.expectedCode {
+				t.Errorf("SendCompleteNoAuth() = \n\t%v,\nexpected: \n\t%v", code, tt.expectedCode)
+			}
+			if !reflect.DeepEqual(result, tt.expectedResponse) {
+				t.Errorf("SendCompleteNoAuth() = \n\t%v,\nexpected: \n\t%v", result, tt.expectedResponse)
+			}
+		})
+	}
+}
+
+func getTestSendCompleteRequest(expectedRecCount *int, recCount *int, metadata map[string]interface{}, validation bool) *model.SendCompleteRequest {
+	request := model.SendCompleteRequest{
+		TenantId:            test.ValidTenantId,
+		BatchId:             test.ValidBatchId,
+		ExpectedRecordCount: expectedRecCount,
+		RecordCount:         recCount,
+		Metadata:            metadata,
+		Validation:          validation,
+	}
+	return &request
 }

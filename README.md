@@ -1,9 +1,9 @@
 # HRI Management API
 The Alvearie Health Record Ingestion service: a common 'Deployment Ready Component' designed to serve as a “front door” for data for cloud-based solutions. See our [documentation](https://alvearie.io/HRI/) for more details.
 
-This repo contains the code for the Management API of the HRI, which uses [IBM Functions](https://cloud.ibm.com/docs/openwhisk?topic=cloud-functions-getting-started) (Serverless built on [OpenWhisk](https://openwhisk.apache.org/)) with [Golang](https://golang.org/doc/). Basically, this repo defines an API and maps endpoints to Golang executables packaged into 'actions'. IBM Functions takes care of standing up an API Gateway, executing & scaling the actions, and transmitting data between them. [mgmt-api-manifest.yml](mgmt-api-manifest.yml) defines the actions, API, and the mapping between them. A separate OpenAPI specification is maintained in [Alvearie/hri-api-spec](https://github.com/Alvearie/hri-api-spec) for external user's reference. Please Note: Any changes to this (RESTful) Management API for the HRI requires changes in both the hri-api-spec repo and this hri-mgmt-api repo.
+This repo contains the code for the Management API of the HRI, which is written in Golang using the [Echo](https://echo.labstack.com/) web framework. A separate OpenAPI specification is maintained in [Alvearie/hri-api-spec](https://github.com/Alvearie/hri-api-spec) for external user's reference. Please Note: Any changes to this (RESTful) Management API for the HRI requires changes in both the hri-api-spec repo and this hri-mgmt-api repo.
 
-This version is compatible with HRI `v2.1`.
+This version is compatible with HRI `v3.0`.
 
 ## Communication
 * Please [join](https://alvearie.io/contributions/requestSlackAccess) our Slack channel for further questions: [#health-record-ingestion](https://alvearie.slack.com/archives/C01GM43LFJ6)
@@ -16,49 +16,45 @@ This version is compatible with HRI `v2.1`.
 * Golang 1.15 - you can use an official [distribution](https://golang.org/dl/) or a package manager like `homebrew` for mac
 * Make - should come pre-installed on MacOS and Linux
 * [GoMock latest](https://github.com/golang/mock) released version. Installation: 
-    run `$ GO111MODULE=on go get github.com/golang/mock/mockgen@latest`. See [GoMock docs](https://github.com/golang/mock). 
+    run `$ go get github.com/golang/mock/mockgen@latest`. See [GoMock docs](https://github.com/golang/mock). 
 * Golang IDE (Optional) - we use IntelliJ, but it requires a licensed version. VSCode is also supposed to be good and free.
 * Ruby (Optional) - required for integration tests. See [testing](test/README.md) for more details.
-* IBM Cloud CLI (Optional) - useful for local testing with IBM Functions. Installation [instructions](https://cloud.ibm.com/docs/cli?topic=cloud-cli-getting-started).
 
 ### Building
 
-From the base directory, run `make`. This will download dependencies using Go Modules, run all the unit tests, and package up the code for IBM Functions in the `build` directory.
+From the base directory, run `make`. This will download dependencies using Go Modules, run all the unit tests, and produce an executable at `src/hri`.
 
 ```
 hri-mgmt-api$ make
-rm -f build/*.zip 2>/dev/null
-cd src; go test ./... -v -tags tests
+rm ./src/hri
+rm ./src/testCoverage.out
+cd src; go fmt ./...
+cd src; go mod tidy
+cd src; go test -coverprofile testCoverage.out ./... -v -tags tests
+?       github.com/Alvearie/hri-mgmt-api    [no test files]
 === RUN   TestEsDocToBatch
 === RUN   TestEsDocToBatch/example1
 --- PASS: TestEsDocToBatch (0.00s)
-    --- PASS: TestEsDocToBatch/example1 (0.00s)
-...
+    --- PASS: TestEsDocToBatch/example1 (0.00s)...
 PASS
-ok  	github.com/Alvearie/hri-mgmt-api/healthcheck	2.802s
-cd src; GOOS=linux GOACH=amd64 go build -o exec batches_create.go
-cd src; zip ../build/batches_create-bin.zip -qr exec
-rm src/exec
-...
-cd src; GOOS=linux GOACH=amd64 go build -o exec healthcheck_get.go
-cd src; zip ../build/healthcheck_get-bin.zip -qr exec
-rm src/exec
+coverage: 100.0% of statements
+ok  	github.com/Alvearie/hri-mgmt-api/tenants	0.316s	coverage: 100.0% of statements
+cd src; GOOS=linux GOACH=amd64 go build
 ```
+
 ## CI/CD
-Since this application must be deployed using IBM Functions in an IBM Cloud account, there isn't a way to launch and test the API & actions locally. So, we have set up GitHub actions to automatically deploy every branch in its own IBM Function's namespace in our IBM cloud account and run integration tests. They all share common Elastic Search and Event Streams instances. Once it's deployed, you can perform manual testing with your namespace. You can also use the IBM Functions UI or IBM Cloud CLI to modify the actions or API in your namespace. When the GitHub branch is deleted, the associated IBM Function's namespace is also automatically deleted. 
+This application can be run locally, but almost all the endpoints require Elasticsearch, Kafka, and an OIDC server. GitHub actions builds and runs integration tests using a common Elastic Search and Event Streams instance. You can perform local manual testing using these resources. See [test/README.md](test/README.md) for more details.
 
 ### Releases
-Releases are created by creating GitHub tags, which triggers a build that packages everything into a Docker image to deploy the Management API. See [docker/README.md](docker/README.md) for more details.
+Releases are created by creating GitHub tags, which trigger a build that packages everything into a Docker image. See [docker/README.md](docker/README.md) for more details.
 
 ### Docker image build
-Images are published on every `develop` branch build with the tag `develop-timestamp`.
+Images are published on every `develop` build with the tag `develop-timestamp`. See [Overall strategy](https://github.com/Alvearie/HRI/wiki/Overall-Project-Branching,-Test,-and-Release-Strategy) for more details.
 
 ## Code Overview
 
-### IBM Function Actions - Golang Mains
-For each API endpoint, there is a Golang executable packaged into an IBM Function's 'action' to service the requests. There are several `.go` files in the base `src/` directory, one for each action and no others, each of which defines `func main()`. If you're familiar with Golang, you might be asking how there can be multiple files with different definitions of `func main()`. The Makefile takes care of compiling each one into a separate executable, and each file includes a [Build Constraint](https://golang.org/pkg/go/build/#hdr-Build_Constraints) to exclude it from unit tests. This also means these files are not unit tested and thus are kept as small as possible. Each one sets up any required clients and then calls an implementation method in a sub package. They also use `common.actionloopmin.Main()` to implement the OpenWhisk [action loop protocol](https://github.com/apache/openwhisk-runtime-go/blob/master/docs/ACTION.md). 
-
-The compiled binaries have to be named `exec` and put in a zip file. Additionally, a `exec.env` file has to be included, which contains the name of the docker container to use when running the action. All the zip files are written to the `build` directory when running `make`. 
+### Serve.go
+`src/serve.go` defines the main method where execution begins. It reads the config, creates the Echo server, creates and registers handlers, and then starts the server.
 
 ### Packages
 
@@ -80,6 +76,8 @@ The goal is to have 90% code coverage with unit tests. The build automatically p
 
 ### API Definition
 The API that this repo implements is defined in [Alvearie/hri-api-spec](https://github.com/Alvearie/hri-api-spec) using OpenAPI 3.0. There are automated Dredd tests to make sure the implemented API meets the spec. If there are changes to the API, make them to the specification repo using a branch with the same name. Then the Dredd tests will run against the modified API specification. 
+
+In addition to the API spec, an `/alive` endpoint was added to support Kubernetes readiness and liveness probes. This endpoint returns `yes` with a 200 response code when the Echo web server is up and running.
 
 ### Authentication & Authorization
 All endpoints (except the health check) require an OAuth 2.0 JWT bearer access token per [RFC8693](https://tools.ietf.org/html/rfc8693) in the `Authorization` header field. The Tenant and Stream endpoints require IAM tokens, but the Batch endpoints require a token with HRI and Tenant scopes for authorization. The Batch token issuer is configurable via a bound parameter, and must be OIDC compliant because the code dynamically uses the OIDC defined well know endpoints to validate tokens. Integration and testing have already been completed with [App ID](https://cloud.ibm.com/docs/appid), the standard IBM Cloud solution.

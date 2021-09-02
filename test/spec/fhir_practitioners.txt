@@ -1,3 +1,0 @@
-{"resourceType":"Bundle","type":"collection","entry":[{"resource":{"resourceType":"Practitioner","identifier":[{"value":"1000278"}],"name":[{"given":["Dr. Gretchen Spears, MD"]}],"address":[{"line":["615 Haddon & Ardmore Ave"],"postalCode":"8033"}]}}]}
-{"resourceType":"Bundle","type":"collection","entry":[{"resource":{"resourceType":"Practitioner","identifier":[{"value":"1000287"}],"name":[{"given":["Dr. Shelia Stokes, MD"]}],"address":[{"line":["1749 Sunset Dr"],"postalCode":"29203"}]}}]}
-{"resourceType":"Bundle","type":"collection","entry":[{"resource":{"resourceType":"Practitioner","identifier":[{"value":"1000298"}],"name":[{"given":["Dr. Albert Mcmillan, MD"]}],"address":[{"line":["4467 Devine St"],"postalCode":"29205"}]}}]}

@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	Broker1            string = "broker-0-porcypine.kafka.eventstreams.monkey.ibm.com:9093"
-	Broker2            string = "broker-1-porcypine.kafka.eventstreams.monkey.ibm.com:9093"
+	Broker1            string = "broker-0-porcupine.kafka.eventstreams.monkey.ibm.com:9093"
+	Broker2            string = "broker-1-porcupine.kafka.eventstreams.monkey.ibm.com:9093"
 	defaultPartitionId int    = 5
 	partition2Id       int    = 12
 )
@@ -60,4 +60,8 @@ func GetFakeTwoPartitionSlice() []kg.Partition {
 			Isr:      isr,
 			ID:       partition2Id},
 	}
+}
+
+func (f FakePartitionReader) Close() error {
+	return nil
 }

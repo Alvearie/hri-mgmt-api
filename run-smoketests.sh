@@ -10,21 +10,20 @@ passing=0
 failing=0
 output=""
 
-# lookup the base API url for the current targeted functions namespace
-# Note: this doesn't work in MacOS due to differences in `sed` flags as compared to Linux.
-serviceUrl=$(ibmcloud fn api list -f | grep 'URL: ' | grep 'hri/healthcheck' -m 1 | sed -rn 's/^.*: (.*)\/hri.*/\1\/hri/p')
-
-echo 'Run Smoke Tests'
-
-HRI_API_STATUS=$(curl --write-out "%{http_code}\n" --silent --output /dev/null "$serviceUrl/healthcheck" )
-if [ $HRI_API_STATUS -eq 200 ]; then
+./src/hri -config-path=test/spec/test_config/valid_config.yml >/dev/null &
+sleep 1
+HRI_WEB_SERVER_STATUS=$(curl -k --write-out "%{http_code}\n" --silent "$HRI_URL/healthcheck" )
+if [ $HRI_WEB_SERVER_STATUS -eq 200 ]; then
   passing=$((passing+1))
   failure='/>'
 else
   failing=$((failing+1))
-  HRI_API_ERROR=$(curl "$serviceUrl/healthcheck")
-  failure="><failure message=\"Expected HRI API healthcheck status to return code 200\" type=\"FAILURE\">$HRI_API_ERROR</failure></testcase>"
+  HRI_API_ERROR=$(curl "$HRI_URL/healthcheck")
+  failure="><failure message=\"Expected HRI Web Server healthcheck status to return code 200\" type=\"FAILURE\">$HRI_API_ERROR</failure></testcase>"
 fi
+PROCESS_ID=$(lsof -iTCP:1323 -sTCP:LISTEN | grep -o '[0-9]\+' | sed 1q)
+kill $PROCESS_ID
+
 output="$output\n<testcase classname=\"HRI-API\" name=\"GET Healthcheck\" time=\"0\"${failure}"
 
 echo

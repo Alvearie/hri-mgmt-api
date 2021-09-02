@@ -8,6 +8,7 @@ package kafka
 import (
 	"context"
 	"encoding/json"
+	"github.com/Alvearie/hri-mgmt-api/common/config"
 	kg "github.com/segmentio/kafka-go"
 )
 
@@ -25,6 +26,10 @@ func (kc KafkaConnect) Write(topic string, key string, val map[string]interface{
 	if err != nil {
 		return err
 	}
+
+	// NOTE: The Kafka Go Library used for this writer is DEPRECATED.  There has been an attempt to update
+	// the version in the past (shoutout to Aram), but while going down that rabbit hole, he discovered
+	// copious issues.  Thus, full implementation of the update was adjourned.
 
 	// Configure batch size so that message is sent immediately, instead of waiting for 1-second timeout.
 	// We also must set the TLS version to match example provided in Event Streams "Getting Started" guide
@@ -45,20 +50,12 @@ func (kc KafkaConnect) Write(topic string, key string, val map[string]interface{
 	)
 }
 
-func NewWriterFromParams(params map[string]interface{}) (Writer, error) {
-	brokers, err := extractBrokers(params)
-	if err != nil {
-		return nil, err
-	}
-
-	dialer, err := CreateDialer(params)
-
-	if err != nil {
-		return nil, err
-	}
+func NewWriterFromConfig(config config.Config) Writer {
+	brokers := config.KafkaBrokers
+	dialer := CreateDialerFromConfig(config)
 
 	return KafkaConnect{
 		Brokers: brokers,
 		Dialer:  dialer,
-	}, nil
+	}
 }

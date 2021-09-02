@@ -6,99 +6,110 @@
 package batches
 
 import (
-	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"log"
-	"reflect"
+	"github.com/elastic/go-elasticsearch/v7"
+	"github.com/sirupsen/logrus"
+	"net/http"
 	"time"
 )
 
-type SendComplete struct{}
+func SendComplete(requestId string,
+	request *model.SendCompleteRequest,
+	claims auth.HriClaims,
+	esClient *elasticsearch.Client,
+	writer kafka.Writer,
+	currentStatus status.BatchStatus) (int, interface{}) {
 
-func (SendComplete) GetAction() string {
-	return "sendComplete"
-}
+	prefix := "batches/sendComplete"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
-func (SendComplete) CheckAuth(claims auth.HriClaims) error {
 	// Only Integrators can call sendComplete
 	if !claims.HasScope(auth.HriIntegrator) {
-		return errors.New(fmt.Sprintf(auth.MsgIntegratorRoleRequired, "update"))
+		msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+		logger.Errorln(msg)
+		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
 	}
-	return nil
+
+	//We know claims Must be Non-nil because the handler checks for that before we reach this point
+	var claimSubj = claims.Subject
+	return sendComplete(requestId, request, claimSubj, esClient, writer, logger, currentStatus)
 }
 
-func (SendComplete) GetUpdateScript(params map[string]interface{}, validator param.Validator, claims auth.HriClaims, logger *log.Logger) (map[string]interface{}, map[string]interface{}) {
-	errResp := validator.Validate(
-		params,
-		// golang receives numeric JSON values as Float64
-		param.Info{param.Validation, reflect.Bool},
-	)
+func SendCompleteNoAuth(
+	requestId string,
+	request *model.SendCompleteRequest,
+	_ auth.HriClaims,
+	esClient *elasticsearch.Client,
+	writer kafka.Writer,
+	currentStatus status.BatchStatus) (int, interface{}) {
+
+	prefix := "batches/sendCompleteNoAuth"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+
+	//claims == nil --> NO Auth (Auth is NOT Enabled)
+	var subject = auth.NoAuthFakeIntegrator
+
+	return sendComplete(requestId, request, subject, esClient, writer, logger, currentStatus)
+}
+
+func sendComplete(
+	requestId string,
+	request *model.SendCompleteRequest,
+	claimSubj string,
+	esClient *elasticsearch.Client,
+	writer kafka.Writer,
+	logger logrus.FieldLogger,
+	currentStatus status.BatchStatus) (int, interface{}) {
+
+	updateRequest := getSendCompleteUpdateScript(request, claimSubj)
+
+	origBatch, errResp := updateStatus(requestId, request.TenantId, request.BatchId,
+		updateRequest, esClient, writer, currentStatus)
 	if errResp != nil {
-		logger.Printf("Bad input params: %s", errResp)
-		return nil, errResp
+		return errResp.Code, errResp.Body
+	}
+	if origBatch != nil {
+		if claimSubj != origBatch[param.IntegratorId] {
+			// update resulted in no-op, due to insufficient permissions
+			errMsg := fmt.Sprintf("sendComplete requested by '%s' but owned by '%s'", claimSubj,
+				origBatch[param.IntegratorId])
+			logger.Errorln(errMsg)
+			return http.StatusUnauthorized, response.NewErrorDetail(requestId, errMsg)
+		} else {
+			// update resulted in no-op, due to previous batch status
+			origBatchStatus := origBatch[param.Status].(string)
+			return logNoUpdateToBatchStatus(origBatchStatus, logger, requestId)
+		}
 	}
 
-	errResp = validator.ValidateOptional(
-		params,
-		param.Info{param.ExpectedRecordCount, reflect.Float64},
-		param.Info{param.RecordCount, reflect.Float64},
-		param.Info{param.Metadata, reflect.Map},
-	)
-	if errResp != nil {
-		logger.Printf("Bad input optional params: %s", errResp)
-		return nil, errResp
-	}
+	return http.StatusOK, nil
+}
 
+func getSendCompleteUpdateScript(request *model.SendCompleteRequest, claimSubj string) map[string]interface{} {
 	var expectedRecordCount int
-	if _, present := params[param.ExpectedRecordCount]; present {
-		expectedRecordCount = int(params[param.ExpectedRecordCount].(float64))
-	} else if _, present := params[param.RecordCount]; present {
-		expectedRecordCount = int(params[param.RecordCount].(float64))
+	if request.ExpectedRecordCount != nil {
+		expectedRecordCount = *request.ExpectedRecordCount
 	} else {
-		return nil, response.MissingParams(param.ExpectedRecordCount)
+		expectedRecordCount = *request.RecordCount
 	}
-	validation := params[param.Validation].(bool)
-
-	metadata := params[param.Metadata]
 
 	var updateScript string
-	if validation {
-		// When validation is enabled
-		// - change the status to 'sendCompleted'
-		// - set the record count
-
-		if metadata == nil {
-			updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.expectedRecordCount = %d;} else {ctx.op = 'none'}",
-				status.Started, claims.Subject, status.SendCompleted, expectedRecordCount)
-		} else {
-			updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.expectedRecordCount = %d; ctx._source.metadata = params.metadata;} else {ctx.op = 'none'}",
-				status.Started, claims.Subject, status.SendCompleted, expectedRecordCount)
-		}
-
+	if request.Validation {
+		updateScript = getUpdateScriptWithValidation(request, claimSubj, expectedRecordCount)
 	} else {
-		// When validation is not enabled
-		// - change the status to 'completed'
-		// - set the record count
-		// - set the end date
-		currentTime := time.Now().UTC()
-
-		if metadata == nil {
-			updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.expectedRecordCount = %d; ctx._source.endDate = '%s';} else {ctx.op = 'none'}",
-				status.Started, claims.Subject, status.Completed, expectedRecordCount, currentTime.Format(elastic.DateTimeFormat))
-		} else {
-			updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.expectedRecordCount = %d; ctx._source.endDate = '%s'; ctx._source.metadata = params.metadata;} else {ctx.op = 'none'}",
-				status.Started, claims.Subject, status.Completed, expectedRecordCount, currentTime.Format(elastic.DateTimeFormat))
-		}
+		updateScript = getUpdateScriptNoValidation(request, claimSubj, expectedRecordCount)
 	}
 
 	var updateRequest = map[string]interface{}{}
-
-	if metadata == nil {
+	if request.Metadata == nil {
 		updateRequest = map[string]interface{}{
 			"script": map[string]interface{}{
 				"source": updateScript,
@@ -109,10 +120,52 @@ func (SendComplete) GetUpdateScript(params map[string]interface{}, validator par
 			"script": map[string]interface{}{
 				"source": updateScript,
 				"lang":   "painless",
-				"params": map[string]interface{}{"metadata": metadata},
+				"params": map[string]interface{}{"metadata": request.Metadata},
 			},
 		}
 	}
 
-	return updateRequest, nil
+	return updateRequest
+}
+
+// When validation is not enabled:
+//   - change the status to 'completed'
+//   - set the record count
+//   - set the end date
+func getUpdateScriptNoValidation(request *model.SendCompleteRequest, subject string, expectedRecordCount int) string {
+	currentTime := time.Now().UTC()
+
+	var updateScript string
+
+	// Can only transition if the batch is in the 'started' state
+	if request.Metadata == nil {
+		updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.expectedRecordCount = %d; ctx._source.endDate = '%s';} else {ctx.op = 'none'}",
+			status.Started, subject, status.Completed, expectedRecordCount, currentTime.Format(elastic.DateTimeFormat))
+	} else {
+		updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.expectedRecordCount = %d; ctx._source.endDate = '%s'; ctx._source.metadata = params.metadata;} else {ctx.op = 'none'}",
+			status.Started, subject, status.Completed, expectedRecordCount, currentTime.Format(elastic.DateTimeFormat))
+	}
+	return updateScript
+}
+
+// When validation is enabled
+//   - change the status to 'sendCompleted'
+//   - set the record count
+func getUpdateScriptWithValidation(request *model.SendCompleteRequest, subject string, expectedRecCount int) string {
+	var updateScript string
+
+	if request.Metadata == nil {
+		updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.expectedRecordCount = %d;} else {ctx.op = 'none'}",
+			status.Started, subject, status.SendCompleted, expectedRecCount)
+	} else {
+		updateScript = fmt.Sprintf("if (ctx._source.status == '%s' && ctx._source.integratorId == '%s') {ctx._source.status = '%s'; ctx._source.expectedRecordCount = %d; ctx._source.metadata = params.metadata;} else {ctx.op = 'none'}",
+			status.Started, subject, status.SendCompleted, expectedRecCount)
+	}
+	return updateScript
+}
+
+func logNoUpdateToBatchStatus(origBatchStatus string, logger logrus.FieldLogger, requestId string) (int, interface{}) {
+	errMsg := fmt.Sprintf("sendComplete failed, batch is in '%s' state", origBatchStatus)
+	logger.Errorln(errMsg)
+	return http.StatusConflict, response.NewErrorDetail(requestId, errMsg)
 }

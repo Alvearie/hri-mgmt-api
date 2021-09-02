@@ -7,26 +7,18 @@ package tenants
 
 import (
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+
 	// "fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/elastic/go-elasticsearch/v7"
-	"log"
 	"net/http"
-	"os"
 )
 
-func Delete(params map[string]interface{}, client *elasticsearch.Client) map[string]interface{} {
-	logger := log.New(os.Stdout, "tenants/Delete: ", log.Llongfile)
-
-	// validate that required input param is present ONLY in the PATH param
-	tenantId, err := path.ExtractParam(params, param.TenantIndex)
-	if err != nil {
-		logger.Println(err.Error())
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
+func Delete(requestId string, tenantId string, client *elasticsearch.Client) (int, interface{}) {
+	prefix := "tenants/Delete"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("Start Tenant Delete")
 
 	index := []string{elastic.IndexFromTenantId(tenantId)}
 
@@ -35,10 +27,9 @@ func Delete(params map[string]interface{}, client *elasticsearch.Client) map[str
 
 	_, elasticErr := elastic.DecodeBody(res, err2)
 	if elasticErr != nil {
-		return elasticErr.LogAndBuildApiResponse(logger, fmt.Sprintf("Could not delete tenant [%s]", tenantId))
+		return elasticErr.Code, elasticErr.LogAndBuildErrorDetail(requestId,
+			logger, fmt.Sprintf("Could not delete tenant [%s]", tenantId))
 	}
 
-	return map[string]interface{}{
-		"statusCode": http.StatusOK,
-	}
+	return http.StatusOK, nil
 }

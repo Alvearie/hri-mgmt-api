@@ -6,18 +6,20 @@
 package batches
 
 import (
+	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"reflect"
 	"testing"
 )
 
 func TestEsDocToBatch(t *testing.T) {
 	tests := []struct {
-		name  string
-		esDoc map[string]interface{}
-		want  map[string]interface{}
+		name     string
+		esDoc    map[string]interface{}
+		expected map[string]interface{}
 	}{
-		{"example1",
-			map[string]interface{}{
+		{
+			name: "example1",
+			esDoc: map[string]interface{}{
 				"_index":        "test-batches",
 				"_type":         "_doc",
 				"_id":           "1",
@@ -35,7 +37,7 @@ func TestEsDocToBatch(t *testing.T) {
 					"startDate":    "2019-10-30T12:34:00Z",
 				},
 			},
-			map[string]interface{}{
+			expected: map[string]interface{}{
 				"id":                  "1",
 				"name":                "batch-2019-10-07",
 				"topic":               "ingest.1.fhir",
@@ -48,10 +50,101 @@ func TestEsDocToBatch(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := EsDocToBatch(tt.esDoc); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("EsDocToBatch() = %v, want %v", got, tt.want)
+			if batch := EsDocToBatch(tt.esDoc); !reflect.DeepEqual(batch, tt.expected) {
+				t.Errorf("EsDocToBatch() = %v, expected %v", batch, tt.expected)
+			}
+		})
+	}
+}
+
+func TestExtractBatchStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		inputBatch     map[string]interface{}
+		expectedStatus status.BatchStatus
+		expectedErr    string
+	}{
+		{
+			name: "success extracting batch status 'started'",
+			inputBatch: map[string]interface{}{
+				"id":                  "1",
+				"name":                "batch-2020-10-23",
+				"topic":               "ingest.1.fhir",
+				"dataType":            "claims",
+				"integratorId":        "dataIntegrator1",
+				"status":              "started",
+				"recordCount":         20,
+				"expectedRecordCount": 20,
+				"startDate":           "2019-10-30T12:34:00Z",
+			},
+			expectedStatus: status.Started,
+		},
+		{
+			name: "success extracting batch status 'failed'",
+			inputBatch: map[string]interface{}{
+				"id":                  "3",
+				"name":                "batch-terminated",
+				"topic":               "ingest.3.fhir",
+				"integratorId":        "dataIntegrator2",
+				"status":              "failed",
+				"recordCount":         20,
+				"expectedRecordCount": 20,
+				"startDate":           "2021-07-12T12:34:00Z",
+			},
+			expectedStatus: status.Failed,
+		},
+		{
+			name: "extract batch status failed missing status field",
+			inputBatch: map[string]interface{}{
+				"id":                  "1",
+				"name":                "batch-2020-10-23",
+				"topic":               "ingest.1.fhir",
+				"dataType":            "claims",
+				"recordCount":         20,
+				"expectedRecordCount": 20,
+				"startDate":           "2019-10-30T12:34:00Z",
+			},
+			expectedStatus: status.Unknown,
+			expectedErr:    "Error extracting Batch Status: 'status' field missing",
+		},
+		{
+			name: "extract batch status failed missing status field",
+			inputBatch: map[string]interface{}{
+				"id":                  "1",
+				"name":                "batch-2020-10-23",
+				"topic":               "ingest.1.fhir",
+				"dataType":            "claims",
+				"integratorId":        "dataIntegrator1",
+				"status":              "BellBivDeVoe",
+				"recordCount":         20,
+				"expectedRecordCount": 20,
+				"startDate":           "2019-10-30T12:34:00Z",
+			},
+			expectedErr: "Error extracting Batch Status: Invalid 'status' value: BellBivDeVoe",
+		},
+		{
+			name:        "error extracting batch status from empty Batch map",
+			inputBatch:  map[string]interface{}{},
+			expectedErr: "Error extracting Batch Status: 'status' field missing",
+		},
+		{
+			name:        "error extracting batch status from nil Batch map",
+			inputBatch:  nil,
+			expectedErr: "Error extracting Batch Status: 'status' field missing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualBatchStatus, err := ExtractBatchStatus(tt.inputBatch)
+			if len(tt.expectedErr) > 0 && (err == nil || err.Error() != tt.expectedErr) {
+				t.Errorf("ExtractBatchStatus() Error does Not Match expected Error = %v, expected %v", err, tt.expectedErr)
+			}
+			if actualBatchStatus != tt.expectedStatus {
+				t.Errorf("ExtractBatchStatus() = %v, expected %v", actualBatchStatus, tt.expectedStatus)
 			}
 		})
 	}
@@ -63,8 +156,9 @@ func TestNormalizeBatchRecordCountValues(t *testing.T) {
 		inputBatch map[string]interface{}
 		expected   map[string]interface{}
 	}{
-		{"set-record-count-from-expected-record-count",
-			map[string]interface{}{
+		{
+			name: "set-record-count-from-expected-record-count",
+			inputBatch: map[string]interface{}{
 				"id":                  "1",
 				"name":                "batch-2019-10-07",
 				"topic":               "ingest.1.fhir",
@@ -74,7 +168,7 @@ func TestNormalizeBatchRecordCountValues(t *testing.T) {
 				"expectedRecordCount": 100,
 				"startDate":           "2019-10-30T12:34:00Z",
 			},
-			map[string]interface{}{
+			expected: map[string]interface{}{
 				"id":                  "1",
 				"name":                "batch-2019-10-07",
 				"topic":               "ingest.1.fhir",
@@ -86,8 +180,9 @@ func TestNormalizeBatchRecordCountValues(t *testing.T) {
 				"startDate":           "2019-10-30T12:34:00Z",
 			},
 		},
-		{"set-expected-record-count-from-record-count",
-			map[string]interface{}{
+		{
+			name: "set-expected-record-count-from-record-count",
+			inputBatch: map[string]interface{}{
 				"id":           "1",
 				"name":         "batch-2019-10-07",
 				"topic":        "ingest.1.fhir",
@@ -97,7 +192,7 @@ func TestNormalizeBatchRecordCountValues(t *testing.T) {
 				"recordCount":  100,
 				"startDate":    "2019-10-30T12:34:00Z",
 			},
-			map[string]interface{}{
+			expected: map[string]interface{}{
 				"id":                  "1",
 				"name":                "batch-2019-10-07",
 				"topic":               "ingest.1.fhir",
@@ -109,8 +204,9 @@ func TestNormalizeBatchRecordCountValues(t *testing.T) {
 				"startDate":           "2019-10-30T12:34:00Z",
 			},
 		},
-		{"no-change-when-neither-set",
-			map[string]interface{}{
+		{
+			name: "no-change-when-neither-set",
+			inputBatch: map[string]interface{}{
 				"id":           "1",
 				"name":         "batch-2019-10-07",
 				"topic":        "ingest.1.fhir",
@@ -119,7 +215,7 @@ func TestNormalizeBatchRecordCountValues(t *testing.T) {
 				"status":       "started",
 				"startDate":    "2019-10-30T12:34:00Z",
 			},
-			map[string]interface{}{
+			expected: map[string]interface{}{
 				"id":           "1",
 				"name":         "batch-2019-10-07",
 				"topic":        "ingest.1.fhir",
@@ -129,8 +225,9 @@ func TestNormalizeBatchRecordCountValues(t *testing.T) {
 				"startDate":    "2019-10-30T12:34:00Z",
 			},
 		},
-		{"set-expected-record-count-from-record-count-0",
-			map[string]interface{}{
+		{
+			name: "set-expected-record-count-from-record-count-0",
+			inputBatch: map[string]interface{}{
 				"id":           "1",
 				"name":         "batch-2019-10-07",
 				"topic":        "ingest.1.fhir",
@@ -140,7 +237,7 @@ func TestNormalizeBatchRecordCountValues(t *testing.T) {
 				"recordCount":  0,
 				"startDate":    "2019-10-30T12:34:00Z",
 			},
-			map[string]interface{}{
+			expected: map[string]interface{}{
 				"id":                  "1",
 				"name":                "batch-2019-10-07",
 				"topic":               "ingest.1.fhir",
@@ -153,10 +250,11 @@ func TestNormalizeBatchRecordCountValues(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NormalizeBatchRecordCountValues(tt.inputBatch); !reflect.DeepEqual(got, tt.expected) {
-				t.Errorf("EsDocToBatch() = %v, want %v", got, tt.expected)
+			if values := NormalizeBatchRecordCountValues(tt.inputBatch); !reflect.DeepEqual(values, tt.expected) {
+				t.Errorf("EsDocToBatch() = %v, expected %v", values, tt.expected)
 			}
 		})
 	}

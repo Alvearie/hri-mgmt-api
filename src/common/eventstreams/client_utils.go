@@ -15,8 +15,8 @@ const (
 	InvalidSuffix      string = ".invalid"
 )
 
-//See documentation on HRI topic naming conventions: https://alvearie.io/HRI/admin.html#onboarding-new-data-integrators
 func CreateTopicNames(tenantId string, streamId string) (string, string, string, string) {
+	// See documentation on HRI topic naming conventions: https://alvearie.io/HRI/admin.html#onboarding-new-data-integrators
 	baseTopicName := strings.Join([]string{tenantId, streamId}, ".")
 	inTopicName := TopicPrefix + baseTopicName + InSuffix
 	notificationTopicName := TopicPrefix + baseTopicName + NotificationSuffix

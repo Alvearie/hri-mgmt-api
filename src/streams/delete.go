@@ -7,91 +7,58 @@ package streams
 
 import (
 	"context"
+	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
-	"log"
 	"net/http"
-	"os"
-	"reflect"
+	"strings"
 )
 
-func Delete(
-	args map[string]interface{},
-	validator param.Validator,
-	service eventstreams.Service) map[string]interface{} {
+const deleteErrMessageTemplate = "Unable to delete topic \"%s\": %s"
 
-	logger := log.New(os.Stdout, "streams/delete: ", log.Llongfile)
+func Delete(requestId string, topics []string, service eventstreams.Service) (int, error) {
+	prefix := "streams/Delete"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("Start Streams Delete")
 
-	// validate that required input params are present
-	errResp := validator.Validate(
-		args,
-		param.Info{param.Validation, reflect.Bool},
-	)
-	if errResp != nil {
-		logger.Printf("Bad input params: %s", errResp)
-		return errResp
-	}
+	returnCode := http.StatusOK
+	var errorMessageBuilder strings.Builder
 
-	// extract tenantId and streamId path params from URL
-	tenantId, err := path.ExtractParam(args, param.TenantIndex)
-	if err != nil {
-		logger.Println(err.Error())
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
-	streamId, err := path.ExtractParam(args, param.StreamIndex)
-	if err != nil {
-		logger.Println(err.Error())
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
-
-	inTopicName, notificationTopicName, outTopicName, invalidTopicName := eventstreams.CreateTopicNames(tenantId, streamId)
-
-	// delete the in and notification topics for the given tenant and data integrator pairing
-	_, inResp, inErr := service.DeleteTopic(context.Background(), inTopicName)
-	if inErr != nil {
-		logger.Printf("Unable to delete topic [%s]. %s", inTopicName, inErr.Error())
-		return getDeleteResponseError(inResp, service.HandleModelError(inErr))
-	}
-
-	_, notificationResp, notificationErr := service.DeleteTopic(context.Background(), notificationTopicName)
-	if notificationErr != nil {
-		logger.Printf("Unable to delete topic [%s]. %s", notificationTopicName, notificationErr.Error())
-		return getDeleteResponseError(notificationResp, service.HandleModelError(notificationErr))
-	}
-
-	validation := args[param.Validation].(bool)
-
-	//if validation is enabled, delete the out and invalid topics that were created
-	if validation {
-		_, outResp, outErr := service.DeleteTopic(context.Background(), outTopicName)
-		if outErr != nil {
-			logger.Printf("Unable to delete topic [%s]. %s", outTopicName, outErr.Error())
-			return getDeleteResponseError(outResp, service.HandleModelError(outErr))
-		}
-
-		_, invalidResp, invalidErr := service.DeleteTopic(context.Background(), invalidTopicName)
-		if invalidErr != nil {
-			logger.Printf("Unable to delete topic [%s]. %s", invalidTopicName, invalidErr.Error())
-			return getDeleteResponseError(invalidResp, service.HandleModelError(invalidErr))
+	for _, topic := range topics {
+		logger.Debugln("Delete Stream: " + topic)
+		_, deleteResp, err := service.DeleteTopic(context.Background(), topic)
+		if err != nil {
+			deleteReturnCode, deleteErrMessage := getDeleteResponseError(deleteResp, service.HandleModelError(err))
+			if returnCode == http.StatusOK {
+				// Save the first error's code to return later. Initialize the error message
+				returnCode = deleteReturnCode
+				fmt.Fprintf(&errorMessageBuilder, deleteErrMessageTemplate, topic, deleteErrMessage)
+			} else {
+				fmt.Fprintf(&errorMessageBuilder, "\n"+deleteErrMessageTemplate, topic, deleteErrMessage)
+			}
 		}
 	}
 
-	return response.Success(http.StatusOK, map[string]interface{}{})
+	if returnCode != http.StatusOK {
+		var err = fmt.Errorf(errorMessageBuilder.String())
+		logger.Errorln(err.Error())
+		return returnCode, err
+	}
+
+	return returnCode, nil
 }
 
-func getDeleteResponseError(resp *http.Response, err *es.ModelError) map[string]interface{} {
-
+func getDeleteResponseError(resp *http.Response, err *es.ModelError) (int, string) {
 	//EventStreams Admin API gives us status 403 when provided bearer token is unauthorized
 	//and status 401 when Authorization isn't provided or is nil
 	if resp.StatusCode == http.StatusForbidden {
-		return response.Error(http.StatusUnauthorized, eventstreams.UnauthorizedMsg)
+		return http.StatusUnauthorized, eventstreams.UnauthorizedMsg
 	} else if resp.StatusCode == http.StatusUnauthorized {
-		return response.Error(http.StatusUnauthorized, eventstreams.MissingHeaderMsg)
+		return http.StatusUnauthorized, eventstreams.MissingHeaderMsg
 	} else if resp.StatusCode == http.StatusNotFound {
-		return response.Error(http.StatusNotFound, err.Message)
+		return http.StatusNotFound, err.Message
 	}
-	return response.Error(http.StatusInternalServerError, err.Message)
+
+	return http.StatusInternalServerError, err.Message
 }

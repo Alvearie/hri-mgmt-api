@@ -10,13 +10,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/coreos/go-oidc"
 	"github.com/golang/mock/gomock"
-	"log"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"os"
 	"reflect"
@@ -26,13 +23,14 @@ import (
 // this is for manual testing with a specific OIDC provider (AppID)
 func /*Test*/ OidcLib(t *testing.T) {
 	const iss = "https://us-south.appid.cloud.ibm.com/oauth/v4/<appId_tenantId>"
+	const audienceId = "hri_application_id"
 	username := os.Getenv("APPID_USERNAME")
 	password := os.Getenv("APPID_PASSWORD")
 
 	// First get a token from AppID
-	request, err := http.NewRequest("POST", iss+"/token", bytes.NewBuffer([]byte("grant_type=client_credentials")))
+	request, err := http.NewRequest("POST", iss+"/token", bytes.NewBuffer([]byte("grant_type=client_credentials&audience="+audienceId)))
 	if err != nil {
-		t.Errorf("Error creating new http request: %v", err)
+		t.Fatalf("Error creating new http request: %v", err)
 	}
 	request.SetBasicAuth(username, password)
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -40,129 +38,141 @@ func /*Test*/ OidcLib(t *testing.T) {
 	client := http.Client{}
 	resp, err := client.Do(request)
 	if err != nil {
-		t.Errorf("Error executing AppID token POST: %v", err)
+		t.Fatalf("Error executing AppID token POST: %v", err)
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		t.Errorf("Non 200 from AppID token POST: %v", resp)
+		t.Fatalf("Non 200 from AppID token POST: %v", resp)
 	}
 
 	var body map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		t.Errorf("Error decoding AppID token response: %v", err)
+		t.Fatalf("Error decoding AppID token response: %v", err)
 	}
 
-	logger := log.New(os.Stdout, "auth/validate: ", log.Llongfile)
-	validator := AuthValidator{}
+	validator := theValidator{
+		issuer:      iss,
+		audienceId:  audienceId,
+		providerNew: newProvider,
+	}
 
-	// now validate the token
-	_, errResp := validator.GetSignedToken(
-		map[string]interface{}{
-			"issuer":               iss,
-			param.OpenWhiskHeaders: map[string]interface{}{"authorization": "Bearer " + body["access_token"].(string)}},
-		oidc.NewProvider,
-		logger)
+	_, errResp := validator.getSignedToken(requestId, body["access_token"].(string))
 
 	if errResp != nil {
 		t.Fatalf("Error: %v", errResp)
 	}
 }
 
-func testProvider(ctx context.Context, issuer string) (*oidc.Provider, error) {
-	return &oidc.Provider{}, nil
+type fakeClaimsHolder struct {
+	claims HriClaims
+	err    error
 }
 
-func TestGetSignedToken(t *testing.T) {
-	tests := []struct {
-		name        string
-		params      map[string]interface{}
-		expErr      map[string]interface{}
-		newProvider NewOidcProvider
-	}{
-		{"Bad Token",
-			map[string]interface{}{
-				"issuer":               "https://issuer",
-				param.OpenWhiskHeaders: map[string]interface{}{"authorization": "Bearer AEFFASEFLIJPIOJ"},
-			},
-			response.Error(http.StatusUnauthorized, "Authorization token validation failed: oidc: malformed jwt: square/go-jose: compact JWS format must have three parts"),
-			testProvider,
-		},
-		{"Missing Params",
-			map[string]interface{}{
-				"issuer":               "https://issuer",
-				param.OpenWhiskHeaders: map[string]interface{}{},
-			},
-			response.Error(http.StatusUnauthorized, "Missing Authorization header"),
-			testProvider,
-		},
-		{"NewProvider Error",
-			map[string]interface{}{
-				"issuer":               "https://issuer",
-				param.OpenWhiskHeaders: map[string]interface{}{"authorization": "Bearer AEFFASEFLIJPIOJ"},
-			},
-			response.Error(http.StatusInternalServerError, "Failed to create OIDC provider: new provider error"),
-			func(ctx context.Context, issuer string) (*oidc.Provider, error) {
-				return nil, errors.New("new provider error")
-			},
+func (f fakeClaimsHolder) Claims(claims interface{}) error {
+	*claims.(*HriClaims) = f.claims
+	return f.err
+}
+
+const (
+	issuer        = "https://issuer"
+	requestId     = "requestId"
+	token         = "ASBESESAFSEF"
+	authorization = "Bearer " + token
+	tenantId      = "tenantId"
+	audienceId    = "audienceId"
+)
+
+var hriClaims = HriClaims{Scope: "tenant_" + tenantId, Subject: "subject", Audience: []string{audienceId}}
+
+func TestGetSignedTokenHappyPath(t *testing.T) {
+	// create the mocks
+	controller := gomock.NewController(t)
+	defer controller.Finish()
+	mockProvider := NewMockoidcProvider(controller)
+	mocktokenVerifier := NewMocktokenVerifier(controller)
+
+	// define expected calls
+	gomock.InOrder(
+		mockProvider.
+			EXPECT().
+			Verifier(&oidc.Config{ClientID: audienceId}).
+			Return(mocktokenVerifier),
+		mocktokenVerifier.
+			EXPECT().
+			Verify(gomock.Any(), token).
+			Return(fakeClaimsHolder{claims: hriClaims, err: nil}, nil),
+	)
+
+	validator := theValidator{
+		issuer:     issuer,
+		audienceId: audienceId,
+		providerNew: func(_ context.Context, s string) (oidcProvider, error) {
+			assert.Equal(t, issuer, s)
+			return mockProvider, nil
 		},
 	}
 
-	logger := log.New(os.Stdout, "auth/validate: ", log.Llongfile)
-	validator := AuthValidator{}
+	actClaimsHolder, errResp := validator.getSignedToken(requestId, authorization)
+	actClaims := HriClaims{}
+	actClaimsHolder.Claims(&actClaims)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := validator.GetSignedToken(tt.params, tt.newProvider, logger)
-			expected := fmt.Sprint(tt.expErr)
-			if err == nil || expected != fmt.Sprint(err) {
-				t.Fatalf("Expected error with bad token, but expected:\n%v\ngot:\n%v", expected, err)
-			}
-		})
+	assert.Nil(t, errResp)
+	assert.Equal(t, hriClaims, actClaims)
+}
+
+func TestGetSignedTokenNewProviderError(t *testing.T) {
+	validator := theValidator{
+		issuer:     issuer,
+		audienceId: audienceId,
+		providerNew: func(_ context.Context, s string) (oidcProvider, error) {
+			return nil, errors.New("Bad issuer url")
+		},
+	}
+
+	expErr := response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, "Failed to create OIDC provider: Bad issuer url")
+
+	_, err := validator.getSignedToken(requestId, authorization)
+
+	if err == nil || !reflect.DeepEqual(*err, *expErr) {
+		t.Fatalf("Unexpected error, expected:\n%v -> %v \nactual:\n%v -> %v", *expErr, *expErr.Body, *err, *err.Body)
 	}
 }
 
-func TestExtractIssuerAndToken(t *testing.T) {
-	const issuer = "https://myissuer"
-	const token = "LIJIJUGBFFDRYCXWRETYUJBCXCVBNKUYTRF"
+func TestGetSignedTokenBadToken(t *testing.T) {
+	// create the mocks
+	controller := gomock.NewController(t)
+	defer controller.Finish()
+	mockProvider := NewMockoidcProvider(controller)
+	mocktokenVerifier := NewMocktokenVerifier(controller)
 
-	tests := []struct {
-		name   string
-		params map[string]interface{}
-		expErr map[string]interface{}
-	}{
-		{"Happy Path",
-			map[string]interface{}{param.OidcIssuer: issuer, param.OpenWhiskHeaders: map[string]interface{}{"authorization": "Bearer " + token}},
-			nil,
-		},
-		{"Missing Issuer",
-			map[string]interface{}{param.OpenWhiskHeaders: map[string]interface{}{"authorization": "Bearer " + token}},
-			response.MissingParams(param.OidcIssuer),
-		},
-		{"Missing OpenWhisk Headers",
-			map[string]interface{}{param.OidcIssuer: issuer},
-			response.Error(http.StatusInternalServerError, "Unable to extract OpenWhisk headers: error extracting the __ow_headers section of the JSON"),
-		},
-		{"Missing Authorization",
-			map[string]interface{}{param.OidcIssuer: issuer, param.OpenWhiskHeaders: map[string]interface{}{}},
-			response.Error(http.StatusUnauthorized, "Missing Authorization header"),
+	// define expected calls
+	gomock.InOrder(
+		mockProvider.
+			EXPECT().
+			Verifier(&oidc.Config{ClientID: audienceId}).
+			Return(mocktokenVerifier),
+		mocktokenVerifier.
+			EXPECT().
+			Verify(gomock.Any(), token).
+			Return(nil, errors.New("oidc: malformed jwt: square/go-jose: compact JWS format must have three parts")),
+	)
+
+	validator := theValidator{
+		issuer:     issuer,
+		audienceId: audienceId,
+		providerNew: func(_ context.Context, s string) (oidcProvider, error) {
+			assert.Equal(t, issuer, s)
+			return mockProvider, nil
 		},
 	}
 
-	logger := log.New(os.Stdout, "auth/validate: ", log.Llongfile)
-	validator := AuthValidator{}
+	expErrResp := response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, "Authorization token validation failed: oidc: malformed jwt: square/go-jose: compact JWS format must have three parts")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			actIssuer, actToken, err := validator.extractIssuerAndToken(tt.params, logger)
-			if (err != nil || tt.expErr != nil) && fmt.Sprint(tt.expErr) != fmt.Sprint(err) {
-				t.Fatalf("Expected error does not match actual\nexpected:\n%v\nactual:\n%v", tt.expErr, err)
-			} else if tt.expErr == nil && (issuer != actIssuer || token != actToken) {
-				t.Fatalf("Expected does not match actual\nexpected:\n%s, %s\nactual:\n%s, %s", issuer, token, actIssuer, actToken)
-			}
-		})
-	}
+	_, errResp := validator.getSignedToken(requestId, authorization)
+
+	assert.Equal(t, *expErrResp, *errResp)
 }
 
 func TestCheckTenant(t *testing.T) {
@@ -170,298 +180,188 @@ func TestCheckTenant(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		params     map[string]interface{}
+		tenant     string
 		claims     HriClaims
 		statusCode int
 	}{
 		{
-			name:       "Invalid Url Path",
-			params:     map[string]interface{}{path.ParamOwPath: "/hri/bad_path"},
-			claims:     HriClaims{Scope: "tenant_" + authorizedTenant},
-			statusCode: http.StatusBadRequest,
+			name:   "Authorized",
+			tenant: authorizedTenant,
+			claims: HriClaims{Scope: "tenant_" + authorizedTenant},
 		},
 		{
 			name:       "Unauthorized Tenant",
-			params:     map[string]interface{}{path.ParamOwPath: fmt.Sprintf("/hri/tenants/%s/batches", authorizedTenant)},
+			tenant:     authorizedTenant,
 			claims:     HriClaims{Scope: "unauthorizedTenant"},
 			statusCode: http.StatusUnauthorized,
 		},
-		{
-			name:   "Happy Path",
-			params: map[string]interface{}{path.ParamOwPath: fmt.Sprintf("/hri/tenants/%s/batches", authorizedTenant)},
-			claims: HriClaims{Scope: "tenant_" + authorizedTenant},
-		},
 	}
 
-	logger := log.New(os.Stdout, "auth/validate: ", log.Llongfile)
-	validator := AuthValidator{}
+	validator := NewValidator("https://issuer", "audienceId").(theValidator)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp := validator.CheckTenant(tt.params, tt.claims, logger)
+			resp := validator.checkTenant(requestId, tt.tenant, tt.claims)
 			if resp != nil {
-				actualStatusCode := resp["error"].(map[string]interface{})["statusCode"]
-				if actualStatusCode != tt.statusCode {
-					// error response doesn't match expected response
-					t.Fatalf("Unexpected err response.\nexpected: %v\nactual  : %v", tt.statusCode, actualStatusCode)
-				}
+				assert.Equal(t, tt.statusCode, resp.Code)
 			} else if resp == nil && tt.statusCode != 0 {
 				// expected error response, but got none
 				t.Fatalf("Expected err response with status code: %v, but got no error response.", tt.statusCode)
 			}
 		})
 	}
-}
-
-func TestCheckAudience(t *testing.T) {
-	jwtAudienceId := "123"
-
-	tests := []struct {
-		name       string
-		params     map[string]interface{}
-		claims     HriClaims
-		statusCode int
-	}{
-		{
-			name:       "No Audience Param",
-			params:     map[string]interface{}{},
-			claims:     HriClaims{Audience: []string{jwtAudienceId}},
-			statusCode: http.StatusBadRequest,
-		},
-		{
-			name:       "Unauthorized Audience",
-			params:     map[string]interface{}{param.JwtAudienceId: "Will not match Audience"},
-			claims:     HriClaims{Audience: []string{jwtAudienceId}},
-			statusCode: http.StatusUnauthorized,
-		},
-		{
-			name:   "Happy Path",
-			params: map[string]interface{}{param.JwtAudienceId: jwtAudienceId},
-			claims: HriClaims{Audience: []string{jwtAudienceId}},
-		},
-	}
-
-	logger := log.New(os.Stdout, "auth/validate: ", log.Llongfile)
-	validator := AuthValidator{}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resp := validator.CheckAudience(tt.params, tt.claims, logger)
-			if resp != nil {
-				actualStatusCode := resp["error"].(map[string]interface{})["statusCode"]
-				if actualStatusCode != tt.statusCode {
-					// error response doesn't match expected response
-					t.Fatalf("Unexpected err response.\nexpected: %v\nactual  : %v", tt.statusCode, actualStatusCode)
-				}
-			} else if resp == nil && tt.statusCode != 0 {
-				// expected error response, but got none
-				t.Fatalf("Expected err response with status code: %v, but got no error response.", tt.statusCode)
-			}
-		})
-	}
-}
-
-// Define a function type with the same signature as the single method in the ClaimsHolder interface
-// Any function with this signature can be cast as ClaimsHolderFunc
-type ClaimsHolderFunc func(claims interface{}) error
-
-// Make ClaimsHolderFunc satisfy the ClaimsHolder interface
-// When ClaimsHolderFunc.Claims is called, the args are simply forwarded on to the underlying ClaimsHolderFunc function
-func (f ClaimsHolderFunc) Claims(claims interface{}) error {
-	return f(claims)
 }
 
 func TestGetValidatedClaimsHappyPath(t *testing.T) {
-	// create a mock validator
+	// create the mocks
 	controller := gomock.NewController(t)
 	defer controller.Finish()
-	mockValidator := NewMockValidator(controller)
-
-	// define inputs/outputs
-	applicationId := "applicationId"
-	params := map[string]interface{}{param.JwtAudienceId: applicationId}
-	hriClaims := HriClaims{Scope: "foo bar", Audience: []string{applicationId}}
-	claimsHolder := func(c interface{}) error {
-		*c.(*HriClaims) = hriClaims
-		return nil
-	}
+	mockProvider := NewMockoidcProvider(controller)
+	mocktokenVerifier := NewMocktokenVerifier(controller)
 
 	// define expected calls
 	gomock.InOrder(
-		mockValidator.
+		mockProvider.
 			EXPECT().
-			GetSignedToken(params, nil, gomock.Any()).
-			Return(ClaimsHolderFunc(claimsHolder), nil),
-		mockValidator.
+			Verifier(&oidc.Config{ClientID: audienceId}).
+			Return(mocktokenVerifier),
+		mocktokenVerifier.
 			EXPECT().
-			CheckTenant(params, hriClaims, gomock.Any()).
-			Return(nil),
-		mockValidator.
-			EXPECT().
-			CheckAudience(params, hriClaims, gomock.Any()).
-			Return(nil),
+			Verify(gomock.Any(), token).
+			Return(fakeClaimsHolder{claims: hriClaims, err: nil}, nil),
 	)
 
-	claims, err := GetValidatedClaims(params, mockValidator, nil)
-
-	// we expect to get back a valid set of claims and no error
-	expClaims := hriClaims
-	var expErr map[string]interface{}
-
-	if !reflect.DeepEqual(err, expErr) {
-		t.Fatalf("Unexpected err response.\nexpected: %v\nactual  : %v", expErr, err)
+	validator := theValidator{
+		issuer:     issuer,
+		audienceId: audienceId,
+		providerNew: func(_ context.Context, s string) (oidcProvider, error) {
+			assert.Equal(t, issuer, s)
+			return mockProvider, nil
+		},
 	}
-	if !reflect.DeepEqual(claims, expClaims) {
-		t.Fatalf("Unexpected claims.\nexpected: %v\nactual  : %v", expClaims, claims)
-	}
+
+	claims, err := validator.GetValidatedClaims(requestId, authorization, tenantId)
+
+	assert.Nil(t, err)
+	assert.Equal(t, hriClaims, claims)
 }
 
 func TestGetValidatedClaimsTokenError(t *testing.T) {
-	// create a mock validator
+	// create the mocks
 	controller := gomock.NewController(t)
 	defer controller.Finish()
-	mockValidator := NewMockValidator(controller)
-
-	// define inputs/outputs
-	params := map[string]interface{}{}
-	badTokenErr := response.Error(999, "bad token")
+	mockProvider := NewMockoidcProvider(controller)
+	mocktokenVerifier := NewMocktokenVerifier(controller)
 
 	// define expected calls
-	mockValidator.
-		EXPECT().
-		GetSignedToken(params, nil, gomock.Any()).
-		Return(nil, badTokenErr)
+	gomock.InOrder(
+		mockProvider.
+			EXPECT().
+			Verifier(&oidc.Config{ClientID: audienceId}).
+			Return(mocktokenVerifier),
+		mocktokenVerifier.
+			EXPECT().
+			Verify(gomock.Any(), token).
+			Return(nil, errors.New("oidc: malformed jwt: square/go-jose: compact JWS format must have three parts")),
+	)
 
-	claims, err := GetValidatedClaims(params, mockValidator, nil)
+	validator := theValidator{
+		issuer:     issuer,
+		audienceId: audienceId,
+		providerNew: func(_ context.Context, s string) (oidcProvider, error) {
+			assert.Equal(t, issuer, s)
+			return mockProvider, nil
+		},
+	}
+
+	claims, err := validator.GetValidatedClaims(requestId, authorization, tenantId)
 
 	// we expect to get back an empty set of claims and a bad token error
 	expClaims := HriClaims{}
-	expErr := badTokenErr
+	expErrResp := response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, "Authorization token validation failed: oidc: malformed jwt: square/go-jose: compact JWS format must have three parts")
 
-	if !reflect.DeepEqual(err, expErr) {
-		t.Fatalf("Unexpected err response.\nexpected: %v\nactual  : %v", expErr, err)
+	if !reflect.DeepEqual(err, expErrResp) {
+		t.Fatalf("Unexpected err response.\nexpected: %v\nactual  : %v", expErrResp, err)
 	}
-	if !reflect.DeepEqual(claims, expClaims) {
-		t.Fatalf("Unexpected claims.\nexpected: %v\nactual  : %v", expClaims, claims)
-	}
+	assert.Equal(t, expClaims, claims)
 }
 
 func TestGetValidatedClaimsExtractionError(t *testing.T) {
-	// create a mock validator
+	// create the mocks
 	controller := gomock.NewController(t)
 	defer controller.Finish()
-	mockValidator := NewMockValidator(controller)
+	mockProvider := NewMockoidcProvider(controller)
+	mocktokenVerifier := NewMocktokenVerifier(controller)
 
-	// define inputs/outputs
-	params := map[string]interface{}{}
 	badClaimsHolderErr := "bad claims holder"
-	claimsHolder := func(c interface{}) error {
-		return errors.New(badClaimsHolderErr)
-	}
 
 	// define expected calls
-	mockValidator.
-		EXPECT().
-		GetSignedToken(params, nil, gomock.Any()).
-		Return(ClaimsHolderFunc(claimsHolder), nil)
+	gomock.InOrder(
+		mockProvider.
+			EXPECT().
+			Verifier(&oidc.Config{ClientID: audienceId}).
+			Return(mocktokenVerifier),
+		mocktokenVerifier.
+			EXPECT().
+			Verify(gomock.Any(), token).
+			Return(fakeClaimsHolder{claims: HriClaims{}, err: errors.New(badClaimsHolderErr)}, nil),
+	)
 
-	claims, err := GetValidatedClaims(params, mockValidator, nil)
+	validator := theValidator{
+		issuer:     issuer,
+		audienceId: audienceId,
+		providerNew: func(_ context.Context, s string) (oidcProvider, error) {
+			assert.Equal(t, issuer, s)
+			return mockProvider, nil
+		},
+	}
+
+	claims, err := validator.GetValidatedClaims(requestId, authorization, tenantId)
 
 	// we expect to get back an empty set of claims and a bad claims error
 	expClaims := HriClaims{}
-	expErr := response.Error(http.StatusUnauthorized, badClaimsHolderErr)
+	expErrResp := response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, "bad claims holder")
 
-	if !reflect.DeepEqual(err, expErr) {
-		t.Fatalf("Unexpected err response.\nexpected: %v\nactual  : %v", expErr, err)
+	if !reflect.DeepEqual(err, expErrResp) {
+		t.Fatalf("Unexpected err response.\nexpected: %v -> %v \nactual  : %v -> %v ", *expErrResp, *expErrResp.Body, *err, *err.Body)
 	}
-	if !reflect.DeepEqual(claims, expClaims) {
-		t.Fatalf("Unexpected claims.\nexpected: %v\nactual  : %v", expClaims, claims)
-	}
+	assert.Equal(t, expClaims, claims)
 }
 
 func TestGetValidatedClaimsTenantError(t *testing.T) {
-	// create a mock validator
+	// create the mocks
 	controller := gomock.NewController(t)
 	defer controller.Finish()
-	mockValidator := NewMockValidator(controller)
-
-	// define inputs/outputs
-	params := map[string]interface{}{}
-	hriClaims := HriClaims{Scope: "foo bar"}
-	claimsHolder := func(c interface{}) error {
-		*c.(*HriClaims) = hriClaims
-		return nil
-	}
-	badTenantErr := response.Error(999, "bad tenant")
+	mockProvider := NewMockoidcProvider(controller)
+	mocktokenVerifier := NewMocktokenVerifier(controller)
 
 	// define expected calls
 	gomock.InOrder(
-		mockValidator.
+		mockProvider.
 			EXPECT().
-			GetSignedToken(params, nil, gomock.Any()).
-			Return(ClaimsHolderFunc(claimsHolder), nil),
-		mockValidator.
+			Verifier(&oidc.Config{ClientID: audienceId}).
+			Return(mocktokenVerifier),
+		mocktokenVerifier.
 			EXPECT().
-			CheckTenant(params, hriClaims, gomock.Any()).
-			Return(badTenantErr),
+			Verify(gomock.Any(), token).
+			Return(fakeClaimsHolder{claims: hriClaims, err: nil}, nil),
 	)
 
-	claims, err := GetValidatedClaims(params, mockValidator, nil)
-
-	// we expect to get back a valid set of claims and a bad tenant error
-	expClaims := hriClaims
-	expErr := badTenantErr
-
-	if !reflect.DeepEqual(err, expErr) {
-		t.Fatalf("Unexpected err response.\nexpected: %v\nactual  : %v", expErr, err)
+	validator := theValidator{
+		issuer:     issuer,
+		audienceId: audienceId,
+		providerNew: func(_ context.Context, s string) (oidcProvider, error) {
+			assert.Equal(t, issuer, s)
+			return mockProvider, nil
+		},
 	}
-	if !reflect.DeepEqual(claims, expClaims) {
-		t.Fatalf("Unexpected claims.\nexpected: %v\nactual  : %v", expClaims, claims)
+
+	claims, err := validator.GetValidatedClaims(requestId, authorization, "wrongTenantId")
+
+	expErrResp := response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, "Unauthorized tenant access. Tenant 'wrongTenantId' is not included in the authorized scopes: tenant_tenantId.")
+
+	if !reflect.DeepEqual(err, expErrResp) {
+		t.Fatalf("Unexpected err response.\nexpected: %v -> %v \nactual  : %v -> %v ", *expErrResp, *expErrResp.Body, *err, *err.Body)
 	}
-}
-
-func TestGetValidatedClaimsApplicationError(t *testing.T) {
-	// create a mock validator
-	controller := gomock.NewController(t)
-	defer controller.Finish()
-	mockValidator := NewMockValidator(controller)
-
-	// define inputs/outputs
-	applicationId := "applicationId"
-	params := map[string]interface{}{param.JwtAudienceId: applicationId}
-	hriClaims := HriClaims{Scope: "foo bar", Audience: []string{applicationId}}
-	claimsHolder := func(c interface{}) error {
-		*c.(*HriClaims) = hriClaims
-		return nil
-	}
-	badApplicationErr := response.Error(999, "bad audience")
-
-	// define expected calls
-	gomock.InOrder(
-		mockValidator.
-			EXPECT().
-			GetSignedToken(params, nil, gomock.Any()).
-			Return(ClaimsHolderFunc(claimsHolder), nil),
-		mockValidator.
-			EXPECT().
-			CheckTenant(params, hriClaims, gomock.Any()).
-			Return(nil),
-		mockValidator.
-			EXPECT().
-			CheckAudience(params, hriClaims, gomock.Any()).
-			Return(badApplicationErr),
-	)
-
-	claims, err := GetValidatedClaims(params, mockValidator, nil)
-
-	// we expect to get back a valid set of claims and a bad tenant error
-	expClaims := hriClaims
-	expErr := badApplicationErr
-
-	if !reflect.DeepEqual(err, expErr) {
-		t.Fatalf("Unexpected err response.\nexpected: %v\nactual  : %v", expErr, err)
-	}
-	if !reflect.DeepEqual(claims, expClaims) {
-		t.Fatalf("Unexpected claims.\nexpected: %v\nactual  : %v", expClaims, claims)
-	}
+	assert.Equal(t, hriClaims, claims)
 }

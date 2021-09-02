@@ -10,6 +10,7 @@ import (
 	"errors"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
 	"io/ioutil"
@@ -19,11 +20,9 @@ import (
 	"testing"
 )
 
-const activationId string = "testActivationId"
+const requestId string = "testRequestId"
 
 func TestHealthcheck(t *testing.T) {
-	_ = os.Setenv(response.EnvOwActivationId, activationId)
-
 	//Success Case Kafka Partition Reader
 	defaultKafkaReader := test.FakePartitionReader{
 		T:          t,
@@ -31,12 +30,14 @@ func TestHealthcheck(t *testing.T) {
 		Err:        nil,
 	}
 
+	logwrapper.Initialize("error", os.Stdout)
+
 	testCases := []struct {
-		name        string
-		args        map[string]interface{} //Will always be empty for these tests/healthcheck.get()
-		transport   *test.FakeTransport
-		kafkaReader kafka.PartitionReader
-		expected    map[string]interface{}
+		name         string
+		transport    *test.FakeTransport
+		kafkaReader  kafka.PartitionReader
+		expectedCode int
+		expectedBody *response.ErrorDetail
 	}{
 		{
 			name: "Success-case",
@@ -62,8 +63,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: defaultKafkaReader,
-			expected:    response.Success(http.StatusOK, map[string]interface{}{}),
+			kafkaReader:  defaultKafkaReader,
+			expectedCode: http.StatusOK,
+			expectedBody: nil,
 		},
 		{
 			name: "elastic-search-bad-status",
@@ -89,8 +91,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: defaultKafkaReader,
-			expected:    response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
+			kafkaReader:  defaultKafkaReader,
+			expectedCode: http.StatusServiceUnavailable,
+			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
 		},
 		{
 			name: "invalid-ES-response-missing-status-field",
@@ -105,8 +108,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: defaultKafkaReader,
-			expected:    response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: NONE/NotReported, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
+			kafkaReader:  defaultKafkaReader,
+			expectedCode: http.StatusServiceUnavailable,
+			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: NONE/NotReported, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
 		},
 		{
 			name: "invalid-ES-response-missing-cluster-or-epoch-field",
@@ -129,8 +133,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: defaultKafkaReader,
-			expected:    response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: NotReported, unixTimestamp: NotReported"),
+			kafkaReader:  defaultKafkaReader,
+			expectedCode: http.StatusServiceUnavailable,
+			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: NotReported, unixTimestamp: NotReported"),
 		},
 		{
 			name: "ES-client-error",
@@ -140,9 +145,10 @@ func TestHealthcheck(t *testing.T) {
 					ResponseErr: errors.New("client error"),
 				},
 			),
-			kafkaReader: defaultKafkaReader,
-			expected: response.Error(http.StatusInternalServerError,
-				"Could not perform elasticsearch health check: elasticsearch client error: client error"),
+			kafkaReader:  defaultKafkaReader,
+			expectedCode: http.StatusServiceUnavailable,
+			expectedBody: response.NewErrorDetail(requestId,
+				"Could not perform elasticsearch health check: [500] elasticsearch client error: client error"),
 		},
 		{
 			name: "Kafka-connection-returns-err",
@@ -173,7 +179,8 @@ func TestHealthcheck(t *testing.T) {
 				Partitions: nil,
 				Err:        errors.New("ResponseError contacting Kafka cluster: could not read partitions"),
 			},
-			expected: response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: Kafka status: Kafka Connection/Read Partition failed"),
+			expectedCode: http.StatusServiceUnavailable,
+			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: Kafka status: Kafka Connection/Read Partition failed"),
 		},
 		{
 			name: "Kafka-returns-Err-AND-ES-return-bad-status",
@@ -204,23 +211,23 @@ func TestHealthcheck(t *testing.T) {
 				Partitions: nil,
 				Err:        errors.New("ResponseError contacting Kafka cluster: could not read partitions"),
 			},
-			expected: response.Error(http.StatusServiceUnavailable, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886| Kafka status: Kafka Connection/Read Partition failed"),
+			expectedCode: http.StatusServiceUnavailable,
+			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886| Kafka status: Kafka Connection/Read Partition failed"),
 		},
 	}
 
 	for _, tc := range testCases {
-
 		client, err := elastic.ClientFromTransport(tc.transport)
 		if err != nil {
 			t.Error(err)
 		}
 
 		t.Run(tc.name, func(t *testing.T) {
-			if actual := Get(tc.args, client, tc.kafkaReader); !reflect.DeepEqual(tc.expected, actual) {
+			actualCode, actualBody := Get(requestId, client, tc.kafkaReader)
+			if actualCode != tc.expectedCode || !reflect.DeepEqual(tc.expectedBody, actualBody) {
 				//notify/print error event as test result
-				t.Errorf("HealthCheck-Get(): %v, expected: %v", actual, tc.expected)
+				t.Errorf("HealthCheck-Get()\n   actual: %v,%v\n expected: %v,%v", actualCode, actualBody, tc.expectedCode, tc.expectedBody)
 			}
 		})
 	}
-
 }

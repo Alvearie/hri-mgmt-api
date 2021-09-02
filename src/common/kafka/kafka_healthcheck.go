@@ -11,6 +11,7 @@ import (
 
 type PartitionReader interface {
 	ReadPartitions(topics ...string) (partitions []kg.Partition, err error)
+	Close() error
 }
 
 func CheckConnection(pr PartitionReader) (isAvailable bool, err error) {

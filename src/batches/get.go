@@ -8,160 +8,67 @@ package batches
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/elastic/go-elasticsearch/v7"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net/http"
-	"os"
-	"strconv"
-	"strings"
 )
 
-const (
-	paramGteDate string = "gteDate"
-	paramLteDate string = "lteDate"
-	paramSize    string = "size"
-	paramFrom    string = "from"
-)
+const defaultSize = 10
+const defaultFrom = 0
 
-func checkForInjection(str string) error {
-	if strings.ContainsAny(str, `"[]{}`) {
-		return errors.New("query parameters may not contain these characters: \"[]{}")
-	}
-	return nil
-}
-
-func appendTerm(params map[string]interface{}, param string, clauses *[]map[string]interface{}) error {
-	value, ok := params[param].(string)
-	if ok {
-		if err := checkForInjection(value); err != nil {
-			return err
-		}
-		clause := map[string]interface{}{
-			"term": map[string]interface{}{
-				param: value,
-			},
-		}
-		*clauses = append(*clauses, clause)
-	}
-	return nil
-}
-
-func appendRange(params map[string]interface{}, paramName string, gteParam string, lteParam string, clauses *[]map[string]interface{}) error {
-	gteValue, gteOk := params[gteParam].(string)
-	lteValue, lteOk := params[lteParam].(string)
-
-	if !gteOk && !lteOk {
-		return nil
-	}
-
-	rangeClauses := map[string]interface{}{}
-	if gteOk {
-		if err := checkForInjection(gteValue); err != nil {
-			return err
-		}
-		rangeClauses["gte"] = gteValue
-	}
-	if lteOk {
-		if err := checkForInjection(lteValue); err != nil {
-			return err
-		}
-		rangeClauses["lte"] = lteValue
-	}
-
-	clause := map[string]interface{}{
-		"range": map[string]interface{}{
-			paramName: rangeClauses,
-		},
-	}
-	*clauses = append(*clauses, clause)
-	return nil
-}
-
-func Get(params map[string]interface{}, claims auth.HriClaims, client *elasticsearch.Client) map[string]interface{} {
-	logger := log.New(os.Stdout, "batches/get: ", log.Llongfile)
+func Get(requestId string, params model.GetBatch, claims auth.HriClaims, client *elasticsearch.Client) (int, interface{}) {
+	prefix := "batches/get"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("Start Batch Get")
 
 	// Data Integrators and Consumers can use this endpoint, so either scope allows access
 	if !claims.HasScope(auth.HriConsumer) && !claims.HasScope(auth.HriIntegrator) {
 		errMsg := auth.MsgAccessTokenMissingScopes
-		logger.Println(errMsg)
-		return response.Error(http.StatusUnauthorized, errMsg)
+		logger.Errorln(errMsg)
+		return http.StatusUnauthorized, response.NewErrorDetail(requestId, errMsg)
 	}
 
-	tenantId, err := path.ExtractParam(params, param.TenantIndex)
-	if err != nil {
-		logger.Println(err.Error())
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
+	return get(requestId, params, false, &claims, client, logger)
+}
 
-	mustClauses := make([]map[string]interface{}, 0, 4) //at most 4 query restrictions
-	if err := appendTerm(params, param.Name, &mustClauses); err != nil {
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
-	if err := appendTerm(params, param.Status, &mustClauses); err != nil {
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
-	if err := appendRange(params, param.StartDate, paramGteDate, paramLteDate, &mustClauses); err != nil {
-		return response.Error(http.StatusBadRequest, err.Error())
-	}
-	// If only the HriIntegrator role is present, filter results to batches it owns
-	if !claims.HasScope(auth.HriConsumer) && claims.HasScope(auth.HriIntegrator) {
-		clause := map[string]interface{}{
-			"term": map[string]interface{}{
-				param.IntegratorId: claims.Subject,
-			},
-		}
-		mustClauses = append(mustClauses, clause)
-	}
+func GetNoAuth(requestId string, params model.GetBatch, _ auth.HriClaims, client *elasticsearch.Client) (int, interface{}) {
+	prefix := "batches/getNoAuth"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("Start Batch Get (No Auth)")
+
+	var noAuthFlag = true
+	return get(requestId, params, noAuthFlag, nil, client, logger)
+}
+
+func get(requestId string, params model.GetBatch, noAuthFlag bool, claims *auth.HriClaims,
+	client *elasticsearch.Client, logger logrus.FieldLogger) (int, interface{}) {
 
 	var buf *bytes.Buffer
-	if len(mustClauses) > 0 {
-		query := map[string]interface{}{
-			"query": map[string]interface{}{
-				"bool": map[string]interface{}{
-					"must": mustClauses,
-				},
-			},
-		}
+	var err error
+
+	query := buildQuery(params, claims)
+	if query != nil {
 		buf, err = elastic.EncodeQueryBody(query)
 		if err != nil {
 			msg := fmt.Sprintf("Error encoding Elastic query: %s", err.Error())
-			logger.Println(msg)
-			return response.Error(http.StatusInternalServerError, msg)
+			logger.Errorln(msg)
+			return http.StatusInternalServerError, response.NewErrorDetail(requestId, msg)
 		}
-		logger.Printf("query: %v\n", query)
+		logger.Infof("query: %v\n", query)
 	} else {
 		buf = &bytes.Buffer{}
 	}
 
-	var size = 10
-	if params[paramSize] != nil {
-		size, err = strconv.Atoi(params[paramSize].(string))
-		if err != nil {
-			msg := fmt.Sprintf("Error parsing 'size' parameter: %s", err.Error())
-			logger.Println(msg)
-			return response.Error(http.StatusBadRequest, msg)
-		}
-	}
-
-	var from = 0
-	if params[paramFrom] != nil {
-		from, err = strconv.Atoi(params[paramFrom].(string))
-		if err != nil {
-			msg := fmt.Sprintf("Error parsing 'from' parameter: %s", err.Error())
-			logger.Println(msg)
-			return response.Error(http.StatusBadRequest, msg)
-		}
-	}
-
+	tenantId := params.TenantId
 	index := elastic.IndexFromTenantId(tenantId)
-
+	size, from := getClientSearchParams(params)
 	// Perform the search request.
 	res, err := client.Search(
 		client.Search.WithContext(context.Background()),
@@ -174,7 +81,10 @@ func Get(params map[string]interface{}, claims auth.HriClaims, client *elasticse
 
 	body, elasticErr := elastic.DecodeBody(res, err)
 	if elasticErr != nil {
-		return elasticErr.LogAndBuildApiResponse(logger, "Could not retrieve batches")
+		if elasticErr.Code == http.StatusUnauthorized {
+			return http.StatusInternalServerError, elasticErr.LogAndBuildErrorDetail(requestId, logger, "Get batch failed")
+		}
+		return elasticErr.Code, elasticErr.LogAndBuildErrorDetail(requestId, logger, "Get batch failed")
 	}
 
 	hits := body["hits"].(map[string]interface{})["hits"].([]interface{})
@@ -182,8 +92,77 @@ func Get(params map[string]interface{}, claims auth.HriClaims, client *elasticse
 		hits[i] = EsDocToBatch(entry.(map[string]interface{}))
 	}
 
-	return response.Success(http.StatusOK, map[string]interface{}{
+	return http.StatusOK, map[string]interface{}{
 		"total":   body["hits"].(map[string]interface{})["total"].(map[string]interface{})["value"].(float64),
 		"results": hits,
-	})
+	}
+}
+
+func buildQuery(params model.GetBatch, claims *auth.HriClaims) map[string]interface{} {
+	noAuthFlag := false // (default -> Auth Enabled)
+	if claims == nil {
+		noAuthFlag = true
+	}
+
+	clauses := make([]map[string]interface{}, 0, 4) // at most 4 query restrictions
+	if params.Name != nil {
+		appendClause(&clauses, "term", param.Name, *params.Name)
+	}
+	if params.Status != nil {
+		appendClause(&clauses, "term", param.Status, *params.Status)
+	}
+
+	if params.GteDate != nil || params.LteDate != nil {
+		rangeClauses := map[string]interface{}{}
+		if params.GteDate != nil {
+			rangeClauses["gte"] = *params.GteDate
+		}
+		if params.LteDate != nil {
+			rangeClauses["lte"] = *params.LteDate
+		}
+		appendClause(&clauses, "range", param.StartDate, rangeClauses)
+	}
+
+	// If only the HriIntegrator role is present, filter results to batches it owns
+	if !noAuthFlag && !claims.HasScope(auth.HriConsumer) &&
+		claims.HasScope(auth.HriIntegrator) {
+		appendClause(&clauses, "term", param.IntegratorId, claims.Subject)
+	}
+
+	if len(clauses) == 0 {
+		return nil
+	}
+	query := map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": clauses,
+			},
+		},
+	}
+	return query
+}
+
+func appendClause(clauses *[]map[string]interface{}, clauseType string, paramName string, paramVal interface{}) {
+	clause := map[string]interface{}{
+		clauseType: map[string]interface{}{
+			paramName: paramVal,
+		},
+	}
+	*clauses = append(*clauses, clause)
+}
+
+func getClientSearchParams(params model.GetBatch) (int, int) {
+	var size int
+	var from int
+	if params.Size == nil {
+		size = defaultSize
+	} else {
+		size = *params.Size
+	}
+	if params.From == nil {
+		from = defaultFrom
+	} else {
+		from = *params.From
+	}
+	return size, from
 }

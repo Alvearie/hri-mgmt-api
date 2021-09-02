@@ -7,121 +7,60 @@ package batches
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/path"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
-	"log"
 	"net/http"
 	"os"
 	"reflect"
 	"testing"
 )
 
-func TestProcessingComplete_AuthCheck(t *testing.T) {
+func Test_getProcessingCompleteUpdateScript(t *testing.T) {
 	tests := []struct {
-		name        string
-		claims      auth.HriClaims
-		expectedErr string
-	}{
-		{
-			name:   "With internal role, should return nil",
-			claims: auth.HriClaims{Scope: auth.HriInternal},
-		},
-		{
-			name:   "With internal & Consumer role, should return nil",
-			claims: auth.HriClaims{Scope: auth.HriInternal + " " + auth.HriConsumer},
-		},
-		{
-			name:        "Without internal role, should return error",
-			claims:      auth.HriClaims{Scope: auth.HriIntegrator},
-			expectedErr: "Must have hri_internal role to mark a batch as processing complete",
-		},
-	}
-
-	processingComplete := ProcessingComplete{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			err := processingComplete.CheckAuth(tt.claims)
-			if (err == nil && tt.expectedErr != "") || (err != nil && err.Error() != tt.expectedErr) {
-				t.Errorf("GetAuth() = '%v', expected '%v'", err, tt.expectedErr)
-			}
-		})
-	}
-}
-
-func TestProcessingComplete_GetUpdateScript(t *testing.T) {
-	tests := []struct {
-		name   string
-		params map[string]interface{}
-		claims auth.HriClaims
-		// Note that the following chars must be escaped because expectedScript is used as a regex pattern: ., ), (
+		name    string
+		request model.ProcessingCompleteRequest
+		// Note that the following chars must be escaped because expectedScript is used as a regex pattern: ., ), (, [, ]
 		expectedRequest map[string]interface{}
-		expectedErr     map[string]interface{}
 	}{
 		{
-			name: "success",
-			params: map[string]interface{}{
-				param.ActualRecordCount:  float64(10),
-				param.InvalidRecordCount: float64(2),
-			},
+			name:    "success",
+			request: *getValidTestProcessingCompleteRequest(),
 			expectedRequest: map[string]interface{}{
 				"script": map[string]interface{}{
 					"source": `if \(ctx\._source\.status == 'sendCompleted'\) {ctx\._source\.status = 'completed'; ctx\._source\.actualRecordCount = 10; ctx\._source\.invalidRecordCount = 2; ctx\._source\.endDate = '` + test.DatePattern + `';} else {ctx\.op = 'none'}`,
 				},
 			},
 		},
-		{
-			name: "Missing Actual Record Count param",
-			params: map[string]interface{}{
-				param.InvalidRecordCount: float64(2),
-			},
-			expectedErr: response.MissingParams(param.ActualRecordCount),
-		},
-		{
-			name: "Missing Invalid Record Count param",
-			params: map[string]interface{}{
-				param.ActualRecordCount: float64(10),
-			},
-			expectedErr: response.MissingParams(param.InvalidRecordCount),
-		},
 	}
 
-	processingComplete := ProcessingComplete{}
-	logger := log.New(os.Stdout, fmt.Sprintf("batches/%s: ", processingComplete.GetAction()), log.Llongfile)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			request := getProcessingCompleteUpdateScript(&tt.request)
 
-			request, errResp := processingComplete.GetUpdateScript(tt.params, param.ParamValidator{}, tt.claims, logger)
-			if !reflect.DeepEqual(errResp, tt.expectedErr) {
-				t.Errorf("GetUpdateScript().errResp = '%v', expected '%v'", errResp, tt.expectedErr)
-			} else if tt.expectedRequest != nil {
-				if err := RequestCompareScriptTest(tt.expectedRequest, request); err != nil {
-					t.Errorf("GetUpdateScript().udpateRequest = \n\t'%s' \nDoesn't match expected \n\t'%s'\n%v", request, tt.expectedRequest, err)
-				}
+			if err := RequestCompareScriptTest(tt.expectedRequest, request); err != nil {
+				t.Errorf("GetUpdateScript().udpateRequest = \n\t'%s' \nDoesn't match expected \n\t'%s'\n%v", request, tt.expectedRequest, err)
 			}
 		})
 	}
-
 }
 
-func TestUpdateStatus_ProcessingComplete(t *testing.T) {
-	activationId := "activationId"
-	_ = os.Setenv(response.EnvOwActivationId, activationId)
+func Test_ProcessingComplete(t *testing.T) {
+	const scriptProcessingComplete = `{"script":{"source":"if \(ctx\._source\.status == 'sendCompleted'\) {ctx\._source\.status = 'completed'; ctx\._source\.actualRecordCount = 10; ctx\._source\.invalidRecordCount = 2; ctx\._source\.endDate = '` + test.DatePattern + `';} else {ctx\.op = 'none'}"}}` + "\n"
+	const currentStatus = status.SendCompleted
 
-	const (
-		scriptProcessingComplete string = `{"script":{"source":"if \(ctx\._source\.status == 'sendCompleted'\) {ctx\._source\.status = 'completed'; ctx\._source\.actualRecordCount = 10; ctx\._source\.invalidRecordCount = 2; ctx\._source\.endDate = '` + test.DatePattern + `';} else {ctx\.op = 'none'}"}}` + "\n"
-	)
-
-	validClaims := auth.HriClaims{Scope: auth.HriInternal, Subject: "internalId"}
+	logwrapper.Initialize("error", os.Stdout)
+	validClaims := auth.HriClaims{Scope: auth.HriInternal}
 
 	completedBatch := map[string]interface{}{
-		param.BatchId:             batchId,
+		param.BatchId:             test.ValidBatchId,
 		param.Name:                batchName,
 		param.IntegratorId:        integratorId,
 		param.Topic:               batchTopic,
@@ -140,7 +79,7 @@ func TestUpdateStatus_ProcessingComplete(t *testing.T) {
 	}
 
 	failedBatch := map[string]interface{}{
-		param.BatchId:             batchId,
+		param.BatchId:             test.ValidBatchId,
 		param.Name:                batchName,
 		param.IntegratorId:        integratorId,
 		param.Topic:               batchTopic,
@@ -160,67 +99,95 @@ func TestUpdateStatus_ProcessingComplete(t *testing.T) {
 
 	tests := []struct {
 		name                 string
-		params               map[string]interface{}
+		request              *model.ProcessingCompleteRequest
 		claims               auth.HriClaims
 		ft                   *test.FakeTransport
 		writerError          error
 		expectedNotification map[string]interface{}
-		expectedResponse     map[string]interface{}
+		expectedCode         int
+		expectedResponse     interface{}
 	}{
 		{
-			name: "simple processingComplete",
-			params: map[string]interface{}{
-				path.ParamOwPath:         "/hri/tenants/1234/batches/test-batch/action/processingComplete",
-				param.ActualRecordCount:  batchActualRecordCount,
-				param.InvalidRecordCount: batchInvalidRecordCount,
-			},
-			claims: validClaims,
+			name:    "successful processingComplete",
+			request: getValidTestProcessingCompleteRequest(),
+			claims:  validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/test-batch/_update",
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
 					RequestBody:  scriptProcessingComplete,
 					ResponseBody: fmt.Sprintf(`
 						{
-							"_index": "1234-batches",
+							"_index": "%s-batches",
 							"_type": "_doc",
-							"_id": "test-batch",
+							"_id": "%s",
 							"result": "updated",
 							"get": {
 								"_source": %s
 							}
-						}`, completedJSON),
+						}`, test.ValidTenantId, test.ValidBatchId, completedJSON),
 				},
 			),
 			expectedNotification: completedBatch,
-			expectedResponse:     response.Success(http.StatusOK, map[string]interface{}{}),
+			expectedCode:         http.StatusOK,
+			expectedResponse:     nil,
 		},
 		{
-			name: "processingComplete fails on failed batch",
-			params: map[string]interface{}{
-				path.ParamOwPath:         "/hri/tenants/1234/batches/test-batch/action/processingComplete",
-				param.ActualRecordCount:  batchActualRecordCount,
-				param.InvalidRecordCount: batchInvalidRecordCount,
-			},
-			claims: validClaims,
+			name:                 "processingComplete fails when missing internal scope",
+			request:              getValidTestProcessingCompleteRequest(),
+			claims:               auth.HriClaims{},
+			expectedNotification: completedBatch,
+			expectedCode:         http.StatusUnauthorized,
+			expectedResponse:     response.NewErrorDetail(requestId, "Must have hri_internal role to mark a batch as processingComplete"),
+		},
+		{
+			name:    "processingComplete fails on Elastic error",
+			request: getValidTestProcessingCompleteRequest(),
+			claims:  validClaims,
 			ft: test.NewFakeTransport(t).AddCall(
-				"/1234-batches/_doc/test-batch/_update",
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
 				test.ElasticCall{
 					RequestQuery: transportQueryParams,
 					RequestBody:  scriptProcessingComplete,
 					ResponseBody: fmt.Sprintf(`
 						{
-							"_index": "1234-batches",
+							"_index": "%s-batches",
 							"_type": "_doc",
-							"_id": "test-batch",
+							"_id": "%s",
+							"result": "updated",
+							"get": {
+								"_source": %s
+							}
+						}`, test.ValidTenantId, test.ValidBatchId, completedJSON),
+					ResponseErr: errors.New("timeout"),
+				},
+			),
+			expectedCode:     http.StatusInternalServerError,
+			expectedResponse: response.NewErrorDetail(requestId, "could not update the status of batch test-batch: [500] elasticsearch client error: timeout"),
+		},
+		{
+			name:    "processingComplete fails on failed batch",
+			request: getValidTestProcessingCompleteRequest(),
+			claims:  validClaims,
+			ft: test.NewFakeTransport(t).AddCall(
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
+				test.ElasticCall{
+					RequestQuery: transportQueryParams,
+					RequestBody:  scriptProcessingComplete,
+					ResponseBody: fmt.Sprintf(`
+						{
+							"_index": "%s-batches",
+							"_type": "_doc",
+							"_id": "%s",
 							"result": "noop",
 							"get": {
 								"_source": %s
 							}
-						}`, failedJSON),
+						}`, test.ValidTenantId, test.ValidBatchId, failedJSON),
 				},
 			),
-			expectedResponse: response.Error(http.StatusConflict, "The 'processingComplete' endpoint failed, batch is in 'failed' state"),
+			expectedCode:     http.StatusConflict,
+			expectedResponse: response.NewErrorDetail(requestId, "processingComplete failed, batch is in 'failed' state"),
 		},
 	}
 
@@ -233,14 +200,126 @@ func TestUpdateStatus_ProcessingComplete(t *testing.T) {
 			writer := test.FakeWriter{
 				T:             t,
 				ExpectedTopic: InputTopicToNotificationTopic(batchTopic),
-				ExpectedKey:   batchId,
+				ExpectedKey:   test.ValidBatchId,
 				ExpectedValue: tt.expectedNotification,
 				Error:         tt.writerError,
 			}
 
-			if result := UpdateStatus(tt.params, param.ParamValidator{}, tt.claims, ProcessingComplete{}, esClient, writer); !reflect.DeepEqual(result, tt.expectedResponse) {
-				t.Errorf("UpdateStatus() = \n\t%v, expected: \n\t%v", result, tt.expectedResponse)
+			code, result := ProcessingComplete(requestId, tt.request, tt.claims, esClient, writer, currentStatus)
+
+			if tt.ft != nil {
+				tt.ft.VerifyCalls()
+			}
+
+			if code != tt.expectedCode {
+				t.Errorf("ProcessingComplete() = \n\t%v,\nexpected: \n\t%v", code, tt.expectedCode)
+			}
+			if !reflect.DeepEqual(result, tt.expectedResponse) {
+				t.Errorf("ProcessingComplete() = \n\t%v,\nexpected: \n\t%v", result, tt.expectedResponse)
 			}
 		})
 	}
+}
+
+func Test_ProcessingCompleteNoAuth(t *testing.T) {
+	const scriptProcessingComplete = `{"script":{"source":"if \(ctx\._source\.status == 'sendCompleted'\) {ctx\._source\.status = 'completed'; ctx\._source\.actualRecordCount = 10; ctx\._source\.invalidRecordCount = 2; ctx\._source\.endDate = '` + test.DatePattern + `';} else {ctx\.op = 'none'}"}}` + "\n"
+	const currentStatus = status.SendCompleted
+
+	completedBatch := map[string]interface{}{
+		param.BatchId:             test.ValidBatchId,
+		param.Name:                batchName,
+		param.Topic:               batchTopic,
+		param.DataType:            batchDataType,
+		param.Status:              status.Completed.String(),
+		param.StartDate:           batchStartDate,
+		param.RecordCount:         batchExpectedRecordCount,
+		param.ExpectedRecordCount: batchExpectedRecordCount,
+		param.ActualRecordCount:   batchActualRecordCount,
+		param.InvalidThreshold:    batchInvalidThreshold,
+		param.InvalidRecordCount:  batchInvalidRecordCount,
+	}
+
+	completedJSON, err := json.Marshal(completedBatch)
+	if err != nil {
+		t.Errorf("Unable to create batch JSON string: %s", err.Error())
+	}
+
+	logwrapper.Initialize("error", os.Stdout)
+
+	tests := []struct {
+		name                 string
+		request              model.ProcessingCompleteRequest
+		ft                   *test.FakeTransport
+		writerError          error
+		expectedNotification map[string]interface{}
+		expectedCode         int
+		expectedResponse     interface{}
+	}{
+		{
+			name:    "successful processingComplete",
+			request: *getValidTestProcessingCompleteRequest(),
+			ft: test.NewFakeTransport(t).AddCall(
+				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId), //"/tenantZzCat44-batches/_doc/batch789J/_update",
+				test.ElasticCall{
+					RequestQuery: transportQueryParams,
+					RequestBody:  scriptProcessingComplete,
+					ResponseBody: fmt.Sprintf(`
+						{
+							"_index": "tenantZzCat44-batches",
+							"_type": "_doc",
+							"_id": "test-batch",
+							"result": "updated",
+							"get": {
+								"_source": %s
+							}
+						}`, completedJSON),
+				},
+			),
+			expectedNotification: completedBatch,
+			expectedCode:         http.StatusOK,
+			expectedResponse:     nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			esClient, err := elastic.ClientFromTransport(tt.ft)
+			if err != nil {
+				t.Error(err)
+			}
+			writer := test.FakeWriter{
+				T:             t,
+				ExpectedTopic: InputTopicToNotificationTopic(batchTopic),
+				ExpectedKey:   test.ValidBatchId,
+				ExpectedValue: tt.expectedNotification,
+				Error:         tt.writerError,
+			}
+
+			var emptyClaims = auth.HriClaims{}
+			code, result := ProcessingCompleteNoAuth(requestId, &tt.request, emptyClaims, esClient, writer, currentStatus)
+
+			tt.ft.VerifyCalls()
+
+			if code != tt.expectedCode {
+				t.Errorf("ProcessingCompleteNoAuth() = \n\t%v,\nexpected: \n\t%v", code, tt.expectedCode)
+			}
+			if !reflect.DeepEqual(result, tt.expectedResponse) {
+				t.Errorf("ProcessingCompleteNoAuth() = \n\t%v,\nexpected: \n\t%v", result, tt.expectedResponse)
+			}
+		})
+	}
+}
+
+func getTestProcessingCompleteRequest(actualRecCount int, invalidRecCount int) *model.ProcessingCompleteRequest {
+	request := model.ProcessingCompleteRequest{
+		TenantId:           test.ValidTenantId,
+		BatchId:            test.ValidBatchId,
+		ActualRecordCount:  &actualRecCount,
+		InvalidRecordCount: &invalidRecCount,
+	}
+	return &request
+}
+
+func getValidTestProcessingCompleteRequest() *model.ProcessingCompleteRequest {
+	return getTestProcessingCompleteRequest(int(batchActualRecordCount), int(batchInvalidRecordCount))
 }

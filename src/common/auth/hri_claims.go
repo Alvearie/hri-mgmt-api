@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// interface to support testing
+// ClaimsHolder is an interface to support testing
 type ClaimsHolder interface {
 	Claims(claims interface{}) error
 }
@@ -31,10 +31,6 @@ func (c HriClaims) HasScope(claim string) bool {
 			return true
 		}
 	}
-
-	logger := GetLogger()
-	logger.Printf("None of the authorized scopes [%s] matched the required scope: %s",
-		c.Scope, claim)
 
 	return false
 }

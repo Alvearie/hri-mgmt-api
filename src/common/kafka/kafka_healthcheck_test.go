@@ -16,7 +16,6 @@ import (
 )
 
 func TestReadKafkaPartition(t *testing.T) {
-
 	var twoPartitions = test.GetFakeTwoPartitionSlice()
 	zeroPartitions := []kg.Partition{}
 
@@ -55,7 +54,8 @@ func TestReadKafkaPartition(t *testing.T) {
 			},
 			expected:    false,
 			expectedErr: errors.New("Error contacting Kafka cluster: could not read partitions"),
-		}, {
+		},
+		{
 			name: "success-nil-partitions",
 			reader: test.FakePartitionReader{
 				T:          t,
@@ -75,9 +75,6 @@ func TestReadKafkaPartition(t *testing.T) {
 			}
 			assert.Equal(t, tc.expected, actual,
 				"Expected Kafka HealthCheck (Conn) = "+strconv.FormatBool(tc.expected)+" for testCase: "+tc.name)
-
 		})
-
 	}
-
 }
