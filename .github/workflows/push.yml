@@ -16,7 +16,7 @@ jobs:
       ELASTIC_CERT_FILE: elastic-cert64
       COS_URL: https://s3.us-east.cloud-object-storage.appdomain.cloud
       IAM_CLOUD_URL: https://iam.cloud.ibm.com
-      EVENTSTREAMS_BROKERS: broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093
+      KAFKA_BROKERS: broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093
       ASOC_CLI_URL: https://cloud.appscan.com/api/SCX/StaticAnalyzer/SAClientUtil?os=linux
       ASOC_APP_ID: eba1dccd-b68d-4df4-9522-9718e5324b55
       ASOC_KEY_ID: d8bc6fa7-993d-30e4-a735-333c77ccceac
@@ -87,3 +87,4 @@ jobs:
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b add-public
         gem install dredd_hooks
         ./run-dreddtests.sh
+        ./run-ivttests.sh
