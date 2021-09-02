@@ -306,15 +306,19 @@ describe 'HRI Management API Without Validation' do
   context 'DELETE /tenants/{tenant_id}/streams/{integrator_id}' do
 
     it 'Success' do
-      #Delete Stream
-      response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID)
-      expect(response.code).to eq 200
+      #Delete Stream and Verify Deletion
+      Timeout.timeout(20, nil, 'Kafka topics not deleted after 20 seconds') do
+        loop do
+          response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID)
+          break if response.code == 200
 
-      #Verify Stream Deletion
-      response = @mgmt_api_helper.hri_get_tenant_streams(TEST_TENANT_ID)
-      expect(response.code).to eq 200
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['results']).to eql []
+          response = @mgmt_api_helper.hri_get_tenant_streams(TEST_TENANT_ID)
+          expect(response.code).to eq 200
+          parsed_response = JSON.parse(response.body)
+          break if parsed_response['results'] == []
+          sleep 1
+        end
+      end
     end
 
     it 'Invalid Stream' do
@@ -424,6 +428,29 @@ describe 'HRI Management API Without Validation' do
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['results'][0]['id']).to eql INTEGRATOR_ID
+    end
+
+    it 'Success With Invalid Topic Only' do
+      invalid_topic = "ingest.#{TENANT_ID}.#{TEST_INTEGRATOR_ID}.invalid"
+      @event_streams_helper.create_topic(invalid_topic, 1)
+      response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID)
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      stream_found = false
+      parsed_response['results'].each do |integrator|
+        stream_found = true if integrator['id'] == TEST_INTEGRATOR_ID
+      end
+      raise "Tenant Stream Not Found: #{TEST_INTEGRATOR_ID}" unless stream_found
+
+      Timeout.timeout(15, nil, "Timed out waiting for the '#{invalid_topic}' topic to be deleted") do
+        loop do
+          break if @event_streams_helper.get_topics.include?(invalid_topic)
+        end
+        loop do
+          @event_streams_helper.delete_topic(invalid_topic)
+          break unless @event_streams_helper.get_topics.include?(invalid_topic)
+        end
+      end
     end
 
     it 'Missing Tenant ID' do
@@ -597,7 +624,7 @@ describe 'HRI Management API Without Validation' do
       response = @mgmt_api_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
       expect(response.code).to eq 500
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql '[3] Unknown Topic Or Partition: the request is for a topic or partition that does not exist on this broker'
+      expect(parsed_response['errorDescription']).to eql 'kafka producer error: Broker: Unknown topic or partition'
 
       #Verify Batch Delete
       50.times do

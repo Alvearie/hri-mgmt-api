@@ -24,17 +24,13 @@ type Handler interface {
 // This struct is designed to make unit testing easier. It has function references for the calls to backend
 // logic and other methods that reach out to external services like creating the Kafka partition reader.
 type theHandler struct {
-	config                    configPkg.Config
-	partitionReaderFromConfig func(config configPkg.Config) (kafka.PartitionReader, error)
-	healthcheck               func(string, *elasticsearch.Client, kafka.PartitionReader) (int, *response.ErrorDetail)
+	config      configPkg.Config
+	healthcheck func(string, *elasticsearch.Client, kafka.HealthChecker) (int, *response.ErrorDetail)
 }
 
 func NewHandler(config configPkg.Config) Handler {
 	return &theHandler{
-		config: config,
-		partitionReaderFromConfig: func(c configPkg.Config) (kafka.PartitionReader, error) {
-			return kafka.ConnectionFromConfig(c)
-		},
+		config:      config,
 		healthcheck: Get,
 	}
 }
@@ -52,14 +48,14 @@ func (h *theHandler) Healthcheck(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
 	}
 
-	partitionReader, err := h.partitionReaderFromConfig(h.config)
+	healthChecker, err := kafka.NewHealthChecker(h.config)
 	if err != nil {
 		logger.Errorln(err.Error())
 		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
 	}
-	defer partitionReader.Close()
+	defer healthChecker.Close()
 
-	code, errorDetail := h.healthcheck(requestId, esClient, partitionReader)
+	code, errorDetail := h.healthcheck(requestId, esClient, healthChecker)
 	if errorDetail != nil {
 		return c.JSON(code, errorDetail)
 	}

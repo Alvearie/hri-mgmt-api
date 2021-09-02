@@ -243,6 +243,21 @@ func Test_theHandler_SendComplete(t *testing.T) {
 			expectedBody: fmt.Sprintf(`{"errorEventId":"%s","errorDescription":"error getting Elastic client: cannot create client: cannot parse url: parse \"https:// a bad url.com\": invalid character \" \" in host name"}`, requestId) + "\n",
 		},
 		{
+			name:     "500 kafka client failure",
+			tenantId: test.ValidTenantId,
+			batchId:  test.ValidBatchId,
+			handler: theHandler{
+				config: badKafkaConfig,
+				jwtValidator: fakeAuthValidator{
+					claims:  auth.HriClaims{},
+					errResp: nil,
+				},
+			},
+			requestBody:  `{"expectedRecordCount": 100}`,
+			expectedCode: http.StatusInternalServerError,
+			expectedBody: fmt.Sprintf(`{"errorEventId":"%s","errorDescription":"error constructing Kafka producer: Invalid value for configuration property \"message.max.bytes\""}`, requestId) + "\n",
+		},
+		{
 			name:     "500 sendCompete failure",
 			tenantId: test.ValidTenantId,
 			batchId:  test.ValidBatchId,
@@ -491,6 +506,20 @@ func Test_theHandler_Terminate(t *testing.T) {
 			},
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: fmt.Sprintf(`{"errorEventId":"%s","errorDescription":"error getting Elastic client: cannot create client: cannot parse url: parse \"https:// a bad url.com\": invalid character \" \" in host name"}`, requestId) + "\n",
+		},
+		{
+			name:     "500 kafka client failure",
+			tenantId: test.ValidTenantId,
+			batchId:  test.ValidBatchId,
+			handler: theHandler{
+				config: badKafkaConfig,
+				jwtValidator: fakeAuthValidator{
+					claims:  auth.HriClaims{},
+					errResp: nil,
+				},
+			},
+			expectedCode: http.StatusInternalServerError,
+			expectedBody: fmt.Sprintf(`{"errorEventId":"%s","errorDescription":"error constructing Kafka producer: Invalid value for configuration property \"message.max.bytes\""}`, requestId) + "\n",
 		},
 		{
 			name:     "500 terminate failure",
@@ -777,6 +806,21 @@ func Test_theHandler_ProcessingComplete(t *testing.T) {
 			expectedBody: fmt.Sprintf(`{"errorEventId":"%s","errorDescription":"error getting Elastic client: cannot create client: cannot parse url: parse \"https:// a bad url.com\": invalid character \" \" in host name"}`, requestId) + "\n",
 		},
 		{
+			name:     "500 kafka client failure",
+			tenantId: test.ValidTenantId,
+			batchId:  test.ValidBatchId,
+			handler: theHandler{
+				config: badKafkaConfig,
+				jwtValidator: fakeAuthValidator{
+					claims:  auth.HriClaims{},
+					errResp: nil,
+				},
+			},
+			requestBody:  `{"actualRecordCount":100,"invalidRecordCount":10}`,
+			expectedCode: http.StatusInternalServerError,
+			expectedBody: fmt.Sprintf(`{"errorEventId":"%s","errorDescription":"error constructing Kafka producer: Invalid value for configuration property \"message.max.bytes\""}`, requestId) + "\n",
+		},
+		{
 			name:     "500 processingCompete failure",
 			tenantId: test.ValidTenantId,
 			batchId:  test.ValidBatchId,
@@ -1011,6 +1055,21 @@ func Test_theHandler_Fail(t *testing.T) {
 			requestBody:  `{"actualRecordCount":100,"invalidRecordCount":10,"failureMessage":"a bad batch"}`,
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: fmt.Sprintf(`{"errorEventId":"%s","errorDescription":"error getting Elastic client: cannot create client: cannot parse url: parse \"https:// a bad url.com\": invalid character \" \" in host name"}`, requestId) + "\n",
+		},
+		{
+			name:     "500 kafka client failure",
+			tenantId: test.ValidTenantId,
+			batchId:  test.ValidBatchId,
+			handler: theHandler{
+				config: badKafkaConfig,
+				jwtValidator: fakeAuthValidator{
+					claims:  auth.HriClaims{},
+					errResp: nil,
+				},
+			},
+			requestBody:  `{"actualRecordCount":100,"invalidRecordCount":10,"failureMessage":"a bad batch"}`,
+			expectedCode: http.StatusInternalServerError,
+			expectedBody: fmt.Sprintf(`{"errorEventId":"%s","errorDescription":"error constructing Kafka producer: Invalid value for configuration property \"message.max.bytes\""}`, requestId) + "\n",
 		},
 		{
 			name:     "500 fail-action failure",
@@ -1254,7 +1313,16 @@ var badEsConfig = config.Config{
 	Validation:        false,
 	ElasticUrl:        "https:// a bad url.com",
 	ElasticServiceCrn: "elasticUsername",
-	KafkaUsername:     "duranDuran",
-	KafkaPassword:     "Toto",
 	KafkaBrokers:      []string{"broker-1", "broker-2", "broker-DefLeppard", "broker-CoreyHart"},
+}
+
+var badKafkaConfig = config.Config{
+	ConfigPath:        "/some/fake/path",
+	OidcIssuer:        "https://us-south.appid.blorg.forg",
+	JwtAudienceId:     "1234-990-g-catnip-e9ec09a5b2f3",
+	Validation:        false,
+	ElasticUrl:        "https://elastic-JanetJackson.com",
+	ElasticServiceCrn: "elasticUsername",
+	KafkaBrokers:      []string{"broker-1", "broker-2", "broker-DefLeppard", "broker-CoreyHart"},
+	KafkaProperties:   config.StringMap{"message.max.bytes": "bad_value"},
 }

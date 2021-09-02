@@ -165,7 +165,7 @@ func Test_theHandler_Create(t *testing.T) {
 			expectedBody: "{\"batchId\":\"1234-unique-id\"}\n",
 		},
 		{
-			name: "should hanlde UTF8 chars",
+			name: "should handle UTF8 chars",
 			handler: theHandler{
 				config: testConfig,
 				jwtValidator: fakeAuthValidator{
@@ -339,6 +339,36 @@ func Test_theHandler_Create(t *testing.T) {
 			requestBody:  specialCharInTopicReqBody,
 			expectedBody: "{\"errorEventId\":\"\",\"errorDescription\":\"invalid request arguments:\\n- topic (json field in request body) must not contain the following characters: \\\"=\\u003c\\u003e[]{}\"}\n",
 		},
+		{
+			name: "Elastic client error",
+			handler: theHandler{
+				config: badEsConfig,
+				jwtValidator: fakeAuthValidator{
+					claims:  auth.HriClaims{},
+					errResp: nil,
+				},
+				create: nil,
+			},
+			expectedCode: http.StatusInternalServerError,
+			tenant:       validTenantId,
+			requestBody:  validReqBody,
+			expectedBody: "{\"errorEventId\":\"\",\"errorDescription\":\"error getting Elastic client: cannot create client: cannot parse url: parse \\\"https:// a bad url.com\\\": invalid character \\\" \\\" in host name\"}\n",
+		},
+		{
+			name: "Kafka writer error",
+			handler: theHandler{
+				config: badKafkaConfig,
+				jwtValidator: fakeAuthValidator{
+					claims:  auth.HriClaims{},
+					errResp: nil,
+				},
+				create: nil,
+			},
+			expectedCode: http.StatusInternalServerError,
+			tenant:       validTenantId,
+			requestBody:  validReqBody,
+			expectedBody: "{\"errorEventId\":\"\",\"errorDescription\":\"error constructing Kafka producer: Invalid value for configuration property \\\"message.max.bytes\\\"\"}\n",
+		},
 	}
 
 	e := test.GetTestServer()
@@ -495,6 +525,21 @@ func Test_myHandler_GetById(t *testing.T) {
 			tenant:       "unauthorized_tenant",
 			batchId:      validBatchId,
 			expectedBody: "{\"errorEventId\":\"\",\"errorDescription\":\"Unauthorized tenant access. Tenant 'unauthorized_tenant' is not included in the authorized scopes.\"}\n",
+		},
+		{
+			name: "Elastic client error",
+			handler: theHandler{
+				config: badEsConfig,
+				jwtValidator: fakeAuthValidator{
+					claims:  auth.HriClaims{},
+					errResp: nil,
+				},
+				getById: nil,
+			},
+			tenant:       validTenantId,
+			batchId:      validBatchId,
+			expectedCode: http.StatusInternalServerError,
+			expectedBody: "{\"errorEventId\":\"\",\"errorDescription\":\"error getting Elastic client: cannot create client: cannot parse url: parse \\\"https:// a bad url.com\\\": invalid character \\\" \\\" in host name\"}\n",
 		},
 	}
 
@@ -708,6 +753,20 @@ func Test_myHandler_Get(t *testing.T) {
 			responseCode: http.StatusUnauthorized,
 			responseBody: "{\"errorEventId\":\"\",\"errorDescription\":\"Unauthorized tenant access. Tenant '" + unauthorizedTenantId + "' is not included in the authorized scopes.\"}\n",
 		},
+		{
+			name: "Elastic client error",
+			handler: theHandler{
+				config: badEsConfig,
+				jwtValidator: fakeAuthValidator{
+					claims:  auth.HriClaims{},
+					errResp: nil,
+				},
+				get: nil,
+			},
+			tenantId:     validTenantId,
+			responseCode: http.StatusInternalServerError,
+			responseBody: "{\"errorEventId\":\"\",\"errorDescription\":\"error getting Elastic client: cannot create client: cannot parse url: parse \\\"https:// a bad url.com\\\": invalid character \\\" \\\" in host name\"}\n",
+		},
 	}
 
 	e := test.GetTestServer()
@@ -793,8 +852,6 @@ func createDefaultTestConfig() config.Config {
 	config.Validation = false
 	config.ElasticUrl = "https://elastic-JanetJackson.com"
 	config.ElasticServiceCrn = "elasticUsername"
-	config.KafkaUsername = "duranDuran"
-	config.KafkaPassword = "Toto"
 	config.KafkaBrokers = []string{"broker-1", "broker-2", "broker-DefLeppard", "broker-CoreyHart"}
 	return config
 }

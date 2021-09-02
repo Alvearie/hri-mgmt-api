@@ -80,7 +80,7 @@
     ```rspec test/spec --tag ~@broken```
     
 # Dredd Tests
-Dredd is used to verify the implemented API meets our published [specification](https://github.com/Alvearie/hri-api-spec/blob/main/management-api/management.yml).
+Dredd is used to verify the implemented API meets our published [specification](https://github.com/Alvearie/hri-api-spec/blob/develop/management-api/management.yml).
 By default, it generates a test for every endpoint, uses the example values for input, and verifies the response matches the 200 response schema. All other responses are skipped. Ruby 'hooks' are used to modify the default behavior and do setup/teardown.
 Here are some helpful documentation links:
 * https://dredd.org/en/latest/hooks/ruby.html

@@ -36,7 +36,7 @@ describe 'HRI Management API With Validation' do
     @config_path = File.absolute_path(File.join(File.dirname(__FILE__), "test_config"))
     @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "/"))
 
-    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, '-validation true')
+    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, '-validation=true')
     response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
     unless response.code == 200
       raise "Health check failed: #{response.body}"
@@ -142,15 +142,19 @@ describe 'HRI Management API With Validation' do
   context 'DELETE /tenants/{tenant_id}/streams/{integrator_id}' do
 
     it 'Success' do
-      #Delete Stream
-      response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID)
-      expect(response.code).to eq 200
+      #Delete Stream and Verify Deletion
+      Timeout.timeout(20, nil, 'Kafka topics not deleted after 20 seconds') do
+        loop do
+          response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID)
+          break if response.code == 200
 
-      #Verify Stream Deletion
-      response = @mgmt_api_helper.hri_get_tenant_streams(TEST_TENANT_ID)
-      expect(response.code).to eq 200
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['results']).to eql []
+          response = @mgmt_api_helper.hri_get_tenant_streams(TEST_TENANT_ID)
+          expect(response.code).to eq 200
+          parsed_response = JSON.parse(response.body)
+          break if parsed_response['results'] == []
+          sleep 1
+        end
+      end
 
       #Delete Tenant
       response = @mgmt_api_helper.hri_delete_tenant(TEST_TENANT_ID)

@@ -109,7 +109,12 @@ func (h *theHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, msg))
 	}
 
-	kafkaWriter := kafka.NewWriterFromConfig(h.config)
+	kafkaWriter, err := kafka.NewWriterFromConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
+	defer kafkaWriter.Close()
 
 	if h.config.AuthDisabled == false { //Auth Enabled
 		//JWT claims validation
@@ -229,7 +234,12 @@ func (h *theHandler) SendComplete(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, msg))
 	}
 
-	kafkaWriter := kafka.NewWriterFromConfig(h.config)
+	kafkaWriter, err := kafka.NewWriterFromConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
+	defer kafkaWriter.Close()
 
 	getBatchRequest := model.GetByIdBatch{
 		TenantId: request.TenantId,
@@ -288,7 +298,12 @@ func (h *theHandler) Terminate(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, msg))
 	}
 
-	kafkaWriter := kafka.NewWriterFromConfig(h.config)
+	kafkaWriter, err := kafka.NewWriterFromConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
+	defer kafkaWriter.Close()
 
 	getBatchRequest := model.GetByIdBatch{
 		TenantId: request.TenantId,
@@ -347,7 +362,12 @@ func (h *theHandler) ProcessingComplete(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, msg))
 	}
 
-	kafkaWriter := kafka.NewWriterFromConfig(h.config)
+	kafkaWriter, err := kafka.NewWriterFromConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
+	defer kafkaWriter.Close()
 
 	getBatchRequest := model.GetByIdBatch{
 		TenantId: request.TenantId,
@@ -413,7 +433,12 @@ func (h *theHandler) Fail(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, msg))
 	}
 
-	kafkaWriter := kafka.NewWriterFromConfig(h.config)
+	kafkaWriter, err := kafka.NewWriterFromConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
+	defer kafkaWriter.Close()
 
 	var claims = auth.HriClaims{}
 	var errResp *response.ErrorDetailResponse

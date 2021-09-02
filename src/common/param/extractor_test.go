@@ -59,7 +59,7 @@ func TestExtractValuesSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	apisKeys, err := ExtractValues(params, BoundCreds, "messagehub", "apikeys")
+	apisKeys, err := ExtractValues(params, "__bx_creds", "messagehub", "apikeys")
 	assert.NotNil(t, apisKeys)
 	assert.Nil(t, err)
 	assert.Equal(t, apisKeys["apikey"], "FAKE_Api_Key")
@@ -71,7 +71,7 @@ func TestExtractValuesMissingUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	user, err := ExtractValues(params, BoundCreds, "messagehub", "user")
+	user, err := ExtractValues(params, "__bx_creds", "messagehub", "user")
 	assert.Nil(t, user)
 	assert.NotNil(t, err)
 	assert.Equal(t, "error extracting the user section of the JSON", err.Error())

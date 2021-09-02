@@ -26,7 +26,7 @@ api-spec-converter -f openapi_3 -t swagger_2 -s yaml management-api/management.y
 tac ../hri-api-spec/management.swagger.yml | sed "1,8d" | tac > tmp && mv tmp ../hri-api-spec/management.swagger.yml
 
 #Initialize the Management API
-../src/hri -config-path=../test/spec/test_config/valid_config.yml -tls-enabled=false >/dev/null &
+../src/hri -config-path=../test/spec/test_config/valid_config.yml -tls-enabled=false -kafka-properties=security.protocol:sasl_ssl,sasl.mechanism:PLAIN,sasl.username:token,sasl.password:$KAFKA_PASSWORD,ssl.endpoint.identification.algorithm:https >/dev/null &
 sleep 1
 
 dredd -r xunit -o ../dreddtests.xml management.swagger.yml ${HRI_URL/https/http} --sorted --language=ruby --hookfiles=../test/spec/dredd_hooks.rb --hooks-worker-connect-timeout=5000

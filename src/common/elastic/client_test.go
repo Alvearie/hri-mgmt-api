@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
 	"github.com/IBM/resource-controller-go-sdk-generator/build/generated"
 	"github.com/elastic/go-elasticsearch/v7"
@@ -40,22 +39,18 @@ func TestResponseError(t *testing.T) {
 	responseMessage := "response message"
 
 	testCases := []struct {
-		name             string
-		code             int
-		error            error
-		expectedResponse map[string]interface{}
+		name  string
+		code  int
+		error error
 	}{
 		{
-			name:             "Elastic Error Code and Error in Response",
-			code:             http.StatusNotFound,
-			error:            fmt.Errorf("error message"),
-			expectedResponse: response.Error(http.StatusNotFound, "response message: error message"),
+			name:  "Elastic Error Code and Error in Response",
+			code:  http.StatusNotFound,
+			error: fmt.Errorf("error message"),
 		},
 		{
 			name: "Elastic Error Code and No Error in Response",
 			code: http.StatusNotFound,
-			expectedResponse: response.Error(http.StatusNotFound,
-				fmt.Sprintf(responseMessage+": "+msgUnexpectedErr, http.StatusNotFound)),
 		},
 	}
 

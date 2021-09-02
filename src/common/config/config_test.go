@@ -55,10 +55,9 @@ func TestValidateConfig(t *testing.T) {
 				ElasticPassword:    "elasticPassword",
 				ElasticCert:        testCert,
 				ElasticServiceCrn:  "elasticServiceCrn",
-				KafkaUsername:      "kafkaUsername",
-				KafkaPassword:      "kafkaPassword",
 				KafkaAdminUrl:      "https://ibm.kafka.com",
 				KafkaBrokers:       StringSlice{"broker 1", "broker 2"},
+				KafkaProperties:    StringMap{"sasl.mechanism": "PLAIN", "sasl.username": "kafkaUsername", "sasl.password": "kafkaPassword"},
 				LogLevel:           "info",
 				NewRelicEnabled:    true,
 				NewRelicAppName:    "nrAppName",
@@ -82,7 +81,6 @@ func TestValidateConfig(t *testing.T) {
 				"\n\tAn Elasticsearch base URL was not specified\n\tAn Elasticsearch username was not specified" +
 				"\n\tAn Elasticsearch password was not specified\n\tAn Elasticsearch certificate was not specified" +
 				"\n\tAn Elasticsearch service CRN was not specified" +
-				"\n\tA Kafka username was not specified\n\tA Kafka password was not specified" +
 				"\n\tThe Kafka administration url was not specified" + "\n\tNo Kafka brokers were defined" +
 				"\n\tTLS is enabled but a path to a TLS certificate for the server was not specified" +
 				"\n\tTLS is enabled but a path to a TLS key for the server was not specified",
@@ -100,8 +98,6 @@ func TestValidateConfig(t *testing.T) {
 				ElasticPassword:    "elasticPassword",
 				ElasticCert:        testCert,
 				ElasticServiceCrn:  "elasticServiceCrn",
-				KafkaUsername:      "kafkaUsername",
-				KafkaPassword:      "kafkaPassword",
 				KafkaAdminUrl:      "https://ibm.kafka.com",
 				KafkaBrokers:       StringSlice{"broker 1", "broker 2"},
 				LogLevel:           "info",
@@ -124,8 +120,6 @@ func TestValidateConfig(t *testing.T) {
 				ElasticPassword:   "elasticPassword",
 				ElasticCert:       testCert,
 				ElasticServiceCrn: "elasticServiceCrn",
-				KafkaUsername:     "kafkaUsername",
-				KafkaPassword:     "kafkaPassword",
 				KafkaAdminUrl:     "https://ibm.kafka.com",
 				KafkaBrokers:      StringSlice{"broker 1", "broker 2"},
 				LogLevel:          "info",
@@ -145,8 +139,6 @@ func TestValidateConfig(t *testing.T) {
 				ElasticPassword:    "elasticPassword",
 				ElasticCert:        testCert,
 				ElasticServiceCrn:  "elasticServiceCrn",
-				KafkaUsername:      "kafkaUsername",
-				KafkaPassword:      "kafkaPassword",
 				KafkaAdminUrl:      "https://ibm.kafka.com",
 				KafkaBrokers:       StringSlice{"broker 1", "broker 2"},
 				LogLevel:           "info",
@@ -171,8 +163,6 @@ func TestValidateConfig(t *testing.T) {
 				ElasticPassword:    "elasticPassword",
 				ElasticCert:        "Invalid Certificate",
 				ElasticServiceCrn:  "elasticServiceCrn",
-				KafkaUsername:      "kafkaUsername",
-				KafkaPassword:      "kafkaPassword",
 				KafkaAdminUrl:      "https://ibm.kafka.com",
 				KafkaBrokers:       StringSlice{"broker 1", "broker 2"},
 				LogLevel:           "info",
@@ -254,10 +244,9 @@ func TestGetConfig(t *testing.T) {
 				ElasticPassword:    "elasticPassword",
 				ElasticCert:        testCert,
 				ElasticServiceCrn:  "elasticCrn",
-				KafkaUsername:      "kafkaUsername",
-				KafkaPassword:      "kafkaPassword",
 				KafkaAdminUrl:      "https://ibm.kafka.com",
 				KafkaBrokers:       StringSlice{"broker1", "broker2"},
+				KafkaProperties:    StringMap{"sasl.mechanism": "PLAIN", "sasl.username": "kafkaUsername", "sasl.password": "kafkaPassword"},
 				LogLevel:           "info",
 				NewRelicEnabled:    true,
 				NewRelicAppName:    "nrAppName",

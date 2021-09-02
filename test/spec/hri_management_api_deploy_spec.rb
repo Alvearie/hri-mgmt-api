@@ -48,10 +48,10 @@ describe 'HRI Management API Deploy' do
         ENV['KAFKA_PASSWORD'] = 'INVALID'
         @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path)
         response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
-        expect(response.code).to eq 500
+        expect(response.code).to eq 503
         response_body = JSON.parse(response.body)
         expect(response_body['errorEventId']).to_not be_nil
-        expect(response_body['errorDescription']).to eql 'connecting to Kafka failed, error detail: [58] SASL Authentication Failed: SASL Authentication failed'
+        expect(response_body['errorDescription']).to eql 'HRI Service Temporarily Unavailable | error Detail: error getting Kafka topics: Local: Broker transport failure'
       ensure
         ENV['KAFKA_PASSWORD'] = temp
       end
@@ -63,10 +63,10 @@ describe 'HRI Management API Deploy' do
         ENV['KAFKA_BROKERS'] = 'INVALID:9093'
         @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path)
         response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
-        expect(response.code).to eq 500
+        expect(response.code).to eq 503
         response_body = JSON.parse(response.body)
         expect(response_body['errorEventId']).to_not be_nil
-        expect(response_body['errorDescription']).to include('no such host')
+        expect(response_body['errorDescription']).to eql 'HRI Service Temporarily Unavailable | error Detail: error getting Kafka topics: Local: Broker transport failure'
       ensure
         ENV['KAFKA_BROKERS'] = temp
       end
