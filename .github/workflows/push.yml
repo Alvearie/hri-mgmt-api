@@ -74,7 +74,7 @@ jobs:
         ruby-version: 2.6.5
         bundler-cache: false
         
-    - name: Install Ruby and Gems, Run Dredd Tests
+    - name: Install Ruby Gems, Run Dredd Tests, and Run IVT
       run: |
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
@@ -85,7 +85,7 @@ jobs:
         ssh-keyscan -t rsa github.ibm.com
         ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
         setsid ssh-add ~/.ssh/git_deploy_key </dev/null
-        gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b add-public
+        gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b main
         gem install dredd_hooks
         ./run-dreddtests.sh
         ibmcloud plugin install event-streams
