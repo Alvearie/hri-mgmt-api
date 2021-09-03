@@ -64,9 +64,14 @@ jobs:
         go get -u github.com/jstemmer/go-junit-report
         ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; travis_terminate 1; }
         ./run-unittests.sh
+        ./run-insights-publish.sh buildRecord
+        ./run-insights-publish.sh unitTest
+        ./run-insights-publish.sh evaluateCI
 
     - name: Run Smoke Tests
-      run: ./run-smoketests.sh
+      run: |
+        ./run-smoketests.sh
+        ./run-insights-publish.sh smokeTest
 
     - name: Install Ruby 2.6.5
       uses: ruby/setup-ruby@v1
@@ -89,7 +94,6 @@ jobs:
         ibmcloud plugin install event-streams
         ibmcloud es init -i ${KAFKA_INSTANCE}
         ./run-ivttests.sh
-        ./run-insights-publish.sh smokeTest
         ./run-insights-publish.sh dreddTest
         ./run-insights-publish.sh ivtTest
         ./run-insights-publish.sh evaluateCD
