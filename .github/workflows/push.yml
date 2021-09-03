@@ -34,6 +34,7 @@ jobs:
       APPID_URL: https://us-east.appid.cloud.ibm.com
       APPID_TENANT: 0f389ea4-778e-4831-9b29-6156c4c1df1e
       JWT_AUDIENCE_ID: 21e7d376-9cdb-4a9d-a11f-9b76c007244d
+      ELASTIC_CRN: crn:v1:bluemix:public:databases-for-elasticsearch:us-east:a/52366c9ab214402f9e96917b1b2850e9:c9acb36a-0feb-4b6e-aac1-6651c71d19e4::
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
       ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
@@ -43,8 +44,6 @@ jobs:
       KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
       ASOC_KEY_SECRET: ${{ secrets.ASOC_KEY_SECRET }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-      ELASTIC_CRN: ${{ secrets.ELASTIC_CRN }}
 
     steps:
     - name: Set Branch Name
@@ -61,6 +60,7 @@ jobs:
     - name: Build Executable and Run Unit Tests
       run: |
         curl -sL https://ibm.biz/idt-installer | bash
+        ibmcloud plugin install doi
         go get -u github.com/jstemmer/go-junit-report
         ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; travis_terminate 1; }
         ./run-unittests.sh
@@ -82,8 +82,6 @@ jobs:
         echo "$SSH_PRIVATE_KEY" > ~/.ssh/git_deploy_key
         chmod 600 ~/.ssh/git_deploy_key
         eval "$(ssh-agent -s)"
-#        ssh-keyscan -t rsa github.ibm.com
-#        ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
         setsid ssh-add ~/.ssh/git_deploy_key </dev/null
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b main
         gem install dredd_hooks
@@ -91,3 +89,7 @@ jobs:
         ibmcloud plugin install event-streams
         ibmcloud es init -i ${KAFKA_INSTANCE}
         ./run-ivttests.sh
+        ./run-insights-publish.sh smokeTest
+        ./run-insights-publish.sh dreddTest
+        ./run-insights-publish.sh ivtTest
+        ./run-insights-publish.sh evaluateCD
