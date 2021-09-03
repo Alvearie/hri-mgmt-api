@@ -82,8 +82,8 @@ jobs:
         echo "$SSH_PRIVATE_KEY" > ~/.ssh/git_deploy_key
         chmod 600 ~/.ssh/git_deploy_key
         eval "$(ssh-agent -s)"
-        ssh-keyscan -t rsa github.ibm.com
-        ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
+#        ssh-keyscan -t rsa github.ibm.com
+#        ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
         setsid ssh-add ~/.ssh/git_deploy_key </dev/null
         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b main
         gem install dredd_hooks
