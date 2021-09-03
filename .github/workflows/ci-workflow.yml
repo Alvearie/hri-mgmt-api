@@ -8,34 +8,22 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
     env:
-      API_SPEC_DEV_BRANCH: main
-      API_SPEC_TAG: v3.0-2.0.1
+      API_SPEC_DEV_BRANCH: develop
+      API_SPEC_TAG: 
       APPID_TENANT: 0f389ea4-778e-4831-9b29-6156c4c1df1e
       APPID_URL: https://us-east.appid.cloud.ibm.com
-      ASOC_APP_ID: eba1dccd-b68d-4df4-9522-9718e5324b55
-      ASOC_CLI_URL: https://cloud.appscan.com/api/SCX/StaticAnalyzer/SAClientUtil?os=linux
-      ASOC_KEY_ID: d8bc6fa7-993d-30e4-a735-333c77ccceac
       ELASTIC_CRN: "crn:v1:bluemix:public:databases-for-elasticsearch:us-east:a/52366c9ab214402f9e96917b1b2850e9:c9acb36a-0feb-4b6e-aac1-6651c71d19e4::"
-      ELASTIC_INSTANCE: hri-dev1-elasticsearch-v7
-      ELASTIC_SVC_ACCOUNT: elastic-search-credential
       ELASTIC_URL: https://c9acb36a-0feb-4b6e-aac1-6651c71d19e4.2adb0220806343e3ae11df79c89b377f.databases.appdomain.cloud:32085
       HRI_URL: https://localhost:1323/hri
       IAM_CLOUD_URL: https://iam.cloud.ibm.com
       JWT_AUDIENCE_ID: 21e7d376-9cdb-4a9d-a11f-9b76c007244d
       KAFKA_BROKERS: broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093
       KAFKA_INSTANCE: hri-dev1-event-streams
-      KAFKA_SVC_ACCOUNT: event-streams-credential
-      OCTOKIT_API_ENDPOINT: https://github.com/api/v3
-      REGION: us-east
-      RESOURCE_GROUP: hri-dev1-wdc-kube
       TENANT_ID: test
-      TOOLCHAIN_ID: 55446d64-25c7-40a0-9af9-440d1b409f76
 
-      ASOC_KEY_SECRET: ${{ secrets.ASOC_KEY_SECRET }}
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
       ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
-      FN_WEB_SECURE_KEY: ${{ secrets.FN_WEB_SECURE_KEY }}
       KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
 
     steps:
@@ -51,12 +39,10 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Build HRI Executable and Run Unit Tests
-      run: |
-        make
+      run: make
 
     - name: Run Smoke Tests
-      run: |
-        ./run-smoketests.sh
+      run: ./run-smoketests.sh
 
     - name: Install Ruby 2.6.5
       uses: ruby/setup-ruby@v1
