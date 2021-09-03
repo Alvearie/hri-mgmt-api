@@ -1,8 +1,6 @@
 name: Push
 
-on:
-  push:
-    branches: [ ruby-test ]
+on: [push, workflow_dispatch]
 
 jobs:
 
@@ -39,26 +37,22 @@ jobs:
       ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
       FN_WEB_SECURE_KEY: ${{ secrets.FN_WEB_SECURE_KEY }}
       KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
-      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
     steps:
     - name: Set Branch Name
       uses: nelonoel/branch-name@v1.0.1
 
-    - name: Install Go 1.13
+    - name: Install Go 1.15
       uses: actions/setup-go@v2
       with:
-        go-version: ^1.13
+        go-version: ^1.15
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
     - name: Build HRI Executable and Run Unit Tests
       run: |
-        curl -sL https://ibm.biz/idt-installer | bash
-        go get -u github.com/jstemmer/go-junit-report
-        ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; exit 1; }
-        ./run-unittests.sh
+        make
 
     - name: Run Smoke Tests
       run: |
@@ -74,14 +68,11 @@ jobs:
       run: |
         gem install bundler
         BUNDLE_GEMFILE="./test/Gemfile" bundle install
-        mkdir ~/.ssh
-        echo "$SSH_PRIVATE_KEY" > ~/.ssh/git_deploy_key
-        chmod 600 ~/.ssh/git_deploy_key
-        eval "$(ssh-agent -s)"
-        setsid ssh-add ~/.ssh/git_deploy_key </dev/null
-        gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b main
+        gem specific_install -l https://github.com/Alvearie/hri-test-helpers.git main
         gem install dredd_hooks
         ./run-dreddtests.sh
+        curl -sL https://ibm.biz/idt-installer | bash
+        ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; exit 1; }
         ibmcloud plugin install event-streams
         ibmcloud es init -i ${KAFKA_INSTANCE}
         ./run-ivttests.sh

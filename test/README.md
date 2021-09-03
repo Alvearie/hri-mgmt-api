@@ -36,7 +36,7 @@
     
     NOTE: Ensure that your Ruby versions match across terminal default, Gemfile, and Gemfile.lock. If using IntelliJ, Ruby version in your module should match as well.
 
-8. (Optional) To run tests locally, export these environment variables. Most of the values can be found in `.github/workflows/push.yml`, and the remaining values should be found in your password manager.
+8. (Optional) To run tests locally, export these environment variables. Most of the values can be found in `.github/workflows/ci-workflow.yml`, and the remaining values should be found in your password manager.
 
     - APPID_TENANT
     - APPID_URL
@@ -54,7 +54,7 @@
 
    You will also need to set an environment variable called BRANCH_NAME that corresponds to your current working branch.
    
-   Then, install the IBM Cloud CLI and the Event Streams CLI. You can find the RESOURCE_GROUP in `.github/workflows/push.yml` and the CLOUD_API_KEY in your password manager:
+   Then, install the IBM Cloud CLI and the Event Streams CLI. You can find the RESOURCE_GROUP in `.github/workflows/ci-workflow.yml` and the CLOUD_API_KEY in your password manager:
    ```bash
    curl -sL https://ibm.biz/idt-installer | bash
    bx login --apikey {CLOUD_API_KEY}
@@ -63,7 +63,7 @@
    bx es init
    ```
 
-   Select the number corresponding to the KAFKA_INSTANCE in `.github/workflows/push.yml`.
+   Select the number corresponding to the KAFKA_INSTANCE in `.github/workflows/ci-workflow.yml`.
 
    The last step before running the tests is to install the `hri-test-helpers` gem locally. Run the following commands:
       ```bash
