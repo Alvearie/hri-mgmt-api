@@ -29,7 +29,7 @@ const DateTimeFormat string = "2006-01-02T15:04:05Z"
 type ResponseError struct {
 	ErrorObj error
 
-	// error code that should be returned by the mgmt-api endpoint
+	// error code that should be returned by the hri-mgmt-api endpoint
 	Code int
 
 	// Elastic error type

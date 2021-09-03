@@ -1,3 +1,7 @@
+# (C) Copyright IBM Corp. 2021
+#
+# SPDX-License-Identifier: Apache-2.0
+
 require_relative '../env'
 
 describe 'HRI Management API Deploy' do

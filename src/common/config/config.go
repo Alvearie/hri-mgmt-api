@@ -50,7 +50,7 @@ func (ss *StringSlice) Set(s string) error {
 	return nil
 }
 
-// Return an empty string. This method is required for the flag.Value interface, but is not needed for the mgmt-api.
+// Return an empty string. This method is required for the flag.Value interface, but is not needed for the hri-mgmt-api.
 func (ss *StringSlice) String() string {
 	return ""
 }
@@ -76,7 +76,7 @@ func (sm *StringMap) Set(s string) error {
 	return nil
 }
 
-// This method is required for the flag.Value interface, but is not needed for the mgmt-api.
+// This method is required for the flag.Value interface, but is not needed for the hri-mgmt-api.
 func (sm *StringMap) String() string {
 	return fmt.Sprint(*sm)
 }

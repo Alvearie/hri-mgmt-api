@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# (C) Copyright IBM Corp. 2020
+#
+# SPDX-License-Identifier: Apache-2.0
+
 make 2>&1 > unittest
 rtn=$?
 cat unittest

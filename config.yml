@@ -3,6 +3,7 @@ oidc-issuer: "https://us-east.appid.cloud.ibm.com/oauth/v4/0f389ea4-778e-4831-9b
 jwt-audience-id: 21e7d376-9cdb-4a9d-a11f-9b76c007244d
 validation: true
 elastic-url: https://c9acb36a-0feb-4b6e-aac1-6651c71d19e4.2adb0220806343e3ae11df79c89b377f.databases.appdomain.cloud:32085
+elastic-username: a-username
 elastic-password: a-password
 elastic-cert: |
   -----BEGIN CERTIFICATE-----

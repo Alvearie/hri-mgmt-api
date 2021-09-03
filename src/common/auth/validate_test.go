@@ -22,8 +22,8 @@ import (
 
 // this is for manual testing with a specific OIDC provider (AppID)
 func /*Test*/ OidcLib(t *testing.T) {
-	const iss = "https://us-south.appid.cloud.ibm.com/oauth/v4/12345"
-	const audienceId = "b8f85fbe-b00a-4296-b54b-e9ec09a5b2f3"
+	const iss = "https://us-south.appid.cloud.ibm.com/oauth/v4/<appId_tenantId>"
+	const audienceId = "hri_application_id"
 	username := os.Getenv("APPID_USERNAME")
 	password := os.Getenv("APPID_PASSWORD")
 

@@ -1,7 +1,3 @@
-# (C) Copyright IBM Corp. 2021
-#
-# SPDX-License-Identifier: Apache-2.0
-
 oidc-issuer: "https://us-south.appid.cloud.ibm.com/oauth/v4/ec9bcf93-4863-46a7-bf66-19009b4e2ed8"
 jwt-audience-id: "b8f85fbe-b00a-4296-b54b-e9ec09a5b2f3"
 validation: true

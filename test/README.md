@@ -62,7 +62,7 @@
    bx plugin install event-streams
    bx es init
    ```
-           
+
    Select the number corresponding to the KAFKA_INSTANCE in `.github/workflows/push.yml`.
 
    The last step before running the tests is to install the `hri-test-helpers` gem locally. Run the following commands:
@@ -100,14 +100,14 @@ gem install dredd_hooks
 ```
 
 ### Running Dredd Tests
-First you need to convert the API spec to Swagger 2.0, so checkout the api-spec [repo](https://github.com/Alvearie/hri-api-spec).
-Then use api-spec-converter to convert it. You should make a branch with the same name if changes are needed. The Github Actions build will checkout the same branch if it exists. 
+First you need to convert the API spec to Swagger 2.0, so checkout the hri-api-spec [repo](https://github.com/Alvearie/hri-api-spec).
+Then use api-spec-converter to convert it. You should make a branch with the same name if changes are needed. The build will checkout the same branch if it exists.
 ```bash
-api-spec-converter -f openapi_3 -t swagger_2 -s yaml api-spec/management-api/management.yml > api-spec/management-api/management.swagger.yml
+api-spec-converter -f openapi_3 -t swagger_2 -s yaml hri-api-spec/management-api/management.yml > hri-api-spec/management-api/management.swagger.yml
 ```
 Then, from the `hri-mgmt-api` directory, run the Dredd tests:
 ```bash
-dredd -r xunit -o dreddtests.xml ../api-spec/management.swagger.yml ${HRI_URL/https/http} --sorted --language=ruby --hookfiles=test/spec/dredd_hooks.rb --hooks-worker-connect-timeout=5000
+dredd -r xunit -o dreddtests.xml ../hri-api-spec/management.swagger.yml ${HRI_URL/https/http} --sorted --language=ruby --hookfiles=test/spec/dredd_hooks.rb --hooks-worker-connect-timeout=5000
 ```
 
 ### Debugging
