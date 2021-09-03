@@ -2,8 +2,6 @@ name: Push
 
 on:
   push:
-  pull_request:
-    types: [ opened, synchronize, reopened ]
   workflow_dispatch:
 
 jobs:
@@ -21,10 +19,3 @@ jobs:
     - name: Build and unit test
       run: make
 
-    - name: Vulnerability Check
-      if: ${{ github.event_name == 'pull_request' }}
-      run: |
-        wget -q -O nancy https://github.com/sonatype-nexus-community/nancy/releases/download/v1.0.22/nancy-v1.0.22-linux-amd64
-        chmod 555 nancy
-        cd src
-        go list -json -m all | ../nancy sleuth

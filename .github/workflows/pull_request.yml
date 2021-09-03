@@ -1,0 +1,24 @@
+name: Push
+
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  build:
+    name: Vulnerability Checks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.15
+
+    - name: Vulnerability Check
+      run: |
+        wget -q -O nancy https://github.com/sonatype-nexus-community/nancy/releases/download/v1.0.22/nancy-v1.0.22-linux-amd64
+        chmod 555 nancy
+        cd src
+        go list -json -m all | ../nancy sleuth
