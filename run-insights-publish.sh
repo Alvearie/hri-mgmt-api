@@ -51,61 +51,61 @@ function ifFileExists() {
 if [ "$PUBLISH_TYPE" == "buildRecord" ]
 then
   # Upload a build record for this build, It is assumed that the build was successful
-  ibmcloud doi publishbuildrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --branch $TRAVIS_BRANCH --repositoryurl https://github.ibm.com/wffh-hri/mgmt-api --commitid $TRAVIS_COMMIT --status pass
+  ibmcloud doi publishbuildrecord --logicalappname="$MY_APP_NAME" --branch $BRANCH_NAME --repositoryurl $github.event.repository.name --commitid $GITHUB_SHA --status pass
 
 elif [ "$PUBLISH_TYPE" == "deployRecord" ]
 then
   # Upload a deployment record; It is assumed that the deployment was successful
-  ibmcloud doi publishdeployrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --env=dev --status=pass
+  ibmcloud doi publishdeployrecord --logicalappname="$MY_APP_NAME" --env=dev --status=pass
 
 elif [ "$PUBLISH_TYPE" == "unitTest" ]
 then
   # Upload unittest test record for the build
   ifFileExists "unittest.xml"
-  ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --filelocation=unittest.xml --type=unittest
+  ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --filelocation=unittest.xml --type=unittest
 
 elif [ "$PUBLISH_TYPE" == "ivtTest" ]
 then
   # Upload IVT test record for the build
   echo $(combineTestResults 'test/ivt_test_results' 'ivttest.xml')
   ifFileExists "ivttest.xml"
-  ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --filelocation=ivttest.xml --type=ivt
+  ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --filelocation=ivttest.xml --type=ivt
 
 elif [ "$PUBLISH_TYPE" == "dreddTest" ]
 then
   # Upload Dredd test record as IVT for the build
   ifFileExists "dreddtests.xml"
-  ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --filelocation=dreddtests.xml --type=ivt
+  ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --filelocation=dreddtests.xml --type=ivt
 
 elif [ "$PUBLISH_TYPE" == "fvtTest" ]
 then
   # Upload FVT test record for the build
   ifFileExists "fvttest.xml"
-  ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --filelocation=fvttest.xml --type=fvt
+  ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --filelocation=fvttest.xml --type=fvt
 
 elif [ "$PUBLISH_TYPE" == "smokeTest" ]
 then
   # Upload Smoke test record for the build
   echo $(combineTestResults 'build/test-results/smokeTest' 'smoketests.xml')
   ifFileExists "smoketests.xml"
-  ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --filelocation=smoketests.xml --type=smoketests
+  ibmcloud doi publishtestrecord --logicalappname="$MY_APP_NAME" --filelocation=smoketests.xml --type=smoketests
 
 elif [ "$PUBLISH_TYPE" == "sonarQube" ]
 then
   # Upload SonarQube test record for the build
   REPORT_TASK_PATH="build/sonar/report-task.txt"
   ifFileExists "$REPORT_TASK_PATH"
-  ibmcloud doi publishtestrecord --sqtoken="$SONARQUBE_CREDENTIALS" --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --filelocation=$REPORT_TASK_PATH --type=sonarqube
+  ibmcloud doi publishtestrecord --sqtoken="$SONARQUBE_CREDENTIALS" --logicalappname="$MY_APP_NAME" --filelocation=$REPORT_TASK_PATH --type=sonarqube
   find . -name '*.json'
   ifFileExists "SQData_$MY_APP_NAME.json"
 
 elif [ "$PUBLISH_TYPE" == "evaluateCI" ]
 then
   # Invoke a DevOps Insights gate to evaluated a policy based on uploaded data
-  ibmcloud doi evaluategate --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --policy=WFFH-CI
+  ibmcloud doi evaluategate --logicalappname="$MY_APP_NAME" --policy=WFFH-CI
 
 elif [ "$PUBLISH_TYPE" == "evaluateCD" ]
 then
   # Invoke a DevOps Insights gate to evaluated a policy based on uploaded data
-  ibmcloud doi evaluategate --logicalappname="$MY_APP_NAME" --buildnumber="$TRAVIS_BUILD_NUMBER" --policy=WFFH-CD
+  ibmcloud doi evaluategate --logicalappname="$MY_APP_NAME" --policy=WFFH-CD
 fi
