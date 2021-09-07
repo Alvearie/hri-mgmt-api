@@ -2,7 +2,7 @@ name: CI Workflow
 
 on: 
   push:
-    branches:
+    branches: [ .* ]
   workflow_dispatch:
 
 jobs:
