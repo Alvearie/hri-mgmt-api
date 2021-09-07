@@ -1,11 +1,17 @@
 name: CI Workflow
 
-on: [push, workflow_dispatch]
+on:
+  push:
+   branches:
+   tags:
+
+  workflow_dispatch:
 
 jobs:
 
   build:
     name: Build and Test
+    if: ${{ github.event.ref_typ != "tag" }}
     runs-on: ubuntu-latest
     env:
       API_SPEC_DEV_BRANCH: develop
@@ -62,3 +68,53 @@ jobs:
         ibmcloud plugin install event-streams
         ibmcloud es init -i ${KAFKA_INSTANCE}
         ./run-ivttests.sh
+
+  docker-build:
+    name: Docker Build
+    needs: build
+    if: ${{ github.event.ref_typ == "tag" || github.event.ref == "refs/heads/develop" }}
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: mgmt-api
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Determine Image Name & Tag
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          echo IMAGE_ID=$IMAGE_ID:$VERSION
+          echo "IMAGE_ID=$IMAGE_ID:$VERSION" >> $GITHUB_ENV
+
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
+
+      - name: Linter
+        uses: hands-lab/dockle-action@v1
+        with:
+          image: "${{ env.IMAGE_ID }}"
+          exit-code: 1
+          exit-level: 'WARN'
+
+      - name: Vulnerability Scan
+        uses: aquasecurity/trivy-action@0.0.20
+        with:
+          image-ref: "${{ env.IMAGE_ID }}"
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Log in to registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push image
+        run: docker push $IMAGE_ID
+
