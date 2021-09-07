@@ -4,6 +4,8 @@ on:
   pull_request:
     types: [ opened, synchronize, reopened ]
 
+concurrency: pr-${{ github.ref }}
+
 jobs:
   build:
     name: Vulnerability Checks
@@ -22,3 +24,15 @@ jobs:
         chmod 555 nancy
         cd src
         go list -json -m all | ../nancy sleuth
+        echo "VULNERABILITIES=$?" >> $GITHUB_ENV
+
+    - uses: actions/github-script@v4
+      if: ${{ env.VULNERABILITIES != 0 }}
+      with:
+        script: |
+          github.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: "Vulnerabilities found. See the 'PR -> Vulnerability Checks' logs for more details: https://github.com/${{ github.repository }}/runs/${{ github.run_id }}"
+          })
