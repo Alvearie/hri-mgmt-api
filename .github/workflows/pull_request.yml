@@ -18,6 +18,15 @@ jobs:
       with:
         go-version: ^1.15
 
+    - name: Unit Tests and Coverage
+      run: cd src; go test -json -coverprofile testCoverage.out ./... -tags tests > report.json
+
+    - name: SonarCloud Scan
+      uses: sonarsource/sonarcloud-github-action@v1.6
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
     - name: Check Dependencies
       # override default -eo pipefail
       shell: bash --noprofile --norc {0}
@@ -29,7 +38,6 @@ jobs:
         found=$?
         echo "VULNERABILITIES=$found" >> $GITHUB_ENV
         [[ "$found" == 1 ]] && echo "::error ::Vulnerabilities found in dependencies."
-        [[ "$found" == 1 ]] && echo "::error ::$(go list -json -m all | ../nancy sleuth)"
 
     - uses: actions/github-script@v4
       if: ${{ env.VULNERABILITIES != 0 }}
