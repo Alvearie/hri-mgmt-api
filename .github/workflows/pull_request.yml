@@ -18,7 +18,7 @@ jobs:
       with:
         go-version: ^1.15
 
-    - name: Vulnerability Check
+    - name: Check Dependencies
       # override default -eo pipefail
       shell: bash --noprofile --norc {0}
       run: |
@@ -28,7 +28,8 @@ jobs:
         go list -json -m all | ../nancy sleuth
         found=$?
         echo "VULNERABILITIES=$found" >> $GITHUB_ENV
-        [[ "$found" == 1 ]] && echo "::error ::Vulnerabilities found."
+        [[ "$found" == 1 ]] echo "::error ::Vulnerabilities found in dependencies."
+        [[ "$found" == 1 ]] echo "::error ::$(go list -json -m all | ../nancy sleuth)"
 
     - uses: actions/github-script@v4
       if: ${{ env.VULNERABILITIES != 0 }}
@@ -38,5 +39,5 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: "Vulnerabilities found. See the 'PR -> Vulnerability Checks' logs for more details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            body: "## ⚠️ Vulnerabilities found in dependencies.\nSee the 'PR -> Vulnerability Checks' logs for more details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           })
