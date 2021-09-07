@@ -26,7 +26,9 @@ jobs:
         chmod 555 nancy
         cd src
         go list -json -m all | ../nancy sleuth
-        echo "VULNERABILITIES=$?" >> $GITHUB_ENV
+        found=$?
+        echo "VULNERABILITIES=$found" >> $GITHUB_ENV
+        [[ "$found" == 1 ]] && echo "::error ::Vulnerabilities found."
 
     - uses: actions/github-script@v4
       if: ${{ env.VULNERABILITIES != 0 }}
@@ -36,5 +38,5 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: "Vulnerabilities found. See the 'PR -> Vulnerability Checks' logs for more details: https://github.com/${{ github.repository }}/runs/${{ github.run_id }}"
+            body: "Vulnerabilities found. See the 'PR -> Vulnerability Checks' logs for more details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           })
