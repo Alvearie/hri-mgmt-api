@@ -30,41 +30,41 @@ jobs:
       KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
 
     steps:
-    - name: Set Branch Name
-      uses: nelonoel/branch-name@v1.0.1
-
-    - name: Install Go 1.15
-      uses: actions/setup-go@v2
-      with:
-        go-version: ^1.15
-
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
-
-    - name: Build HRI Executable and Run Unit Tests
-      run: make
-
-    - name: Run Smoke Tests
-      run: ./run-smoketests.sh
-
-    - name: Install Ruby 2.6.5
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: 2.6.5
-        bundler-cache: false
-        
-    - name: Install Ruby Gems, Run Dredd Tests, and Run IVT
-      run: |
-        gem install bundler
-        BUNDLE_GEMFILE="./test/Gemfile" bundle install
-        gem specific_install -l https://github.com/Alvearie/hri-test-helpers.git main
-        gem install dredd_hooks
-        ./run-dreddtests.sh
-        curl -sL https://ibm.biz/idt-installer | bash
-        ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; exit 1; }
-        ibmcloud plugin install event-streams
-        ibmcloud es init -i ${KAFKA_INSTANCE}
-        ./run-ivttests.sh
+      - name: Set Branch Name
+        uses: nelonoel/branch-name@v1.0.1
+  
+      - name: Install Go 1.15
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+  
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+  
+      - name: Build HRI Executable and Run Unit Tests
+        run: make
+  
+      - name: Run Smoke Tests
+        run: ./run-smoketests.sh
+  
+      - name: Install Ruby 2.6.5
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.6.5
+          bundler-cache: false
+          
+      - name: Install Ruby Gems, Run Dredd Tests, and Run IVT
+        run: |
+          gem install bundler
+          BUNDLE_GEMFILE="./test/Gemfile" bundle install
+          gem specific_install -l https://github.com/Alvearie/hri-test-helpers.git main
+          gem install dredd_hooks
+          ./run-dreddtests.sh
+          curl -sL https://ibm.biz/idt-installer | bash
+          ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; exit 1; }
+          ibmcloud plugin install event-streams
+          ibmcloud es init -i ${KAFKA_INSTANCE}
+          ./run-ivttests.sh
 
   docker-build:
     name: Docker Build
@@ -87,6 +87,17 @@ jobs:
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
           echo IMAGE_ID=$IMAGE_ID:$VERSION
           echo "IMAGE_ID=$IMAGE_ID:$VERSION" >> $GITHUB_ENV
+
+      - name: Install Go 1.15
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+  
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+  
+      - name: Build HRI Executable and Run Unit Tests
+        run: make
 
       - name: Build image
         run: docker build . --file docker/Dockerfile --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
