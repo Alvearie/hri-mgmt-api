@@ -28,9 +28,8 @@ jobs:
         go list -json -m all | ../nancy sleuth
         found=$?
         echo "VULNERABILITIES=$found" >> $GITHUB_ENV
-        [[ "$found" == 1 ]] echo "::error ::Vulnerabilities found in dependencies."
-        [[ "$found" == 1 ]] echo "::error ::$(go list -json -m all | ../nancy sleuth)"
-        echo $found
+        [[ "$found" == 1 ]] && echo "::error ::Vulnerabilities found in dependencies."
+        [[ "$found" == 1 ]] && echo "::error ::$(go list -json -m all | ../nancy sleuth)"
 
     - uses: actions/github-script@v4
       if: ${{ env.VULNERABILITIES != 0 }}
