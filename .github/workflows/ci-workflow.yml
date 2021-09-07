@@ -6,7 +6,7 @@ jobs:
 
   build:
     name: Build and Test
-    if: ${{ github.event.ref_typ != "tag" }}
+    if: ${{ github.event.ref_typ != 'tag' }}
     runs-on: ubuntu-latest
     env:
       API_SPEC_DEV_BRANCH: develop
@@ -67,13 +67,12 @@ jobs:
   docker-build:
     name: Docker Build
     needs: build
-    if: ${{ github.event.ref_typ == "tag" || github.event.ref == "refs/heads/develop" }}
+    if: ${{ github.event.ref_typ == 'tag' || github.ref == 'refs/heads/develop' }}
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: mgmt-api
 
     steps:
-
       - uses: actions/checkout@v2
 
       - name: Determine Image Name & Tag
