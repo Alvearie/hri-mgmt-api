@@ -5,6 +5,8 @@ on:
     branches: [ '**' ]
   workflow_dispatch:
 
+concurrency: ci-${{ github.ref }}
+
 jobs:
 
   build:
@@ -69,7 +71,7 @@ jobs:
   docker-build:
     name: Docker Build
     needs: build
-    #if: ${{ github.ref == 'refs/heads/develop' }}
+    if: ${{ github.ref == 'refs/heads/develop' }}
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: mgmt-api
@@ -92,9 +94,6 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ^1.15
-  
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
   
       - name: Build HRI Executable and Run Unit Tests
         run: make

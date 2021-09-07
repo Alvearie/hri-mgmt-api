@@ -5,6 +5,8 @@ on:
     tags: [ '**' ]
   workflow_dispatch:
 
+concurrency: ci-${{ github.ref }}
+
 env:
   IMAGE_NAME: mgmt-api
 
