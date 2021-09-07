@@ -73,6 +73,7 @@ jobs:
       IMAGE_NAME: mgmt-api
 
     steps:
+
       - uses: actions/checkout@v2
 
       - name: Determine Image Name & Tag
