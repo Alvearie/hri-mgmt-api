@@ -48,14 +48,12 @@ jobs:
           })
 
     - name: Unit Tests and Coverage
-      run: |
-        make
-        # SonarCloud doesn't like the source code being in a sub directory,
-        # so this moves all the source code into the base working directory 
-        mv src/* ./
+      run: make
 
     - name: SonarCloud Scan
       uses: sonarsource/sonarcloud-github-action@v1.6
+      with:
+        projectBaseDir: ./src
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
