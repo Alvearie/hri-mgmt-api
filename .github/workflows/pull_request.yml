@@ -18,19 +18,6 @@ jobs:
       with:
         go-version: ^1.15
 
-    - name: Unit Tests and Coverage
-      run: |
-        cd src
-        go test -json -coverprofile testCoverage.out ./... -tags tests > report.json
-        cd ../
-        mv src/* ./
-
-    - name: SonarCloud Scan
-      uses: sonarsource/sonarcloud-github-action@v1.6
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
     - name: Check Dependencies
       # override default -eo pipefail
       shell: bash --noprofile --norc {0}
@@ -53,3 +40,19 @@ jobs:
             repo: context.repo.repo,
             body: "## ⚠️ Vulnerabilities found in dependencies.\nSee the 'PR -> Vulnerability Checks' logs for more details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           })
+
+    - name: Unit Tests and Coverage
+      run: |
+        cd src
+        go test -json -coverprofile testCoverage.out ./... -tags tests > report.json
+        # SonarCloud doesn't like the source code being in a sub directory,
+        # so this moves all the source code into the base working directory 
+        cd ../
+        mv src/* ./
+
+    - name: SonarCloud Scan
+      uses: sonarsource/sonarcloud-github-action@v1.6
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
