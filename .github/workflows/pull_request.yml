@@ -16,8 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-      # full checkout for SonarCloud analysis
-      fetch-depth: 0
+      with:
+        # full checkout for SonarCloud analysis
+        fetch-depth: 0
 
     - name: Setup Go
       uses: actions/setup-go@v2
