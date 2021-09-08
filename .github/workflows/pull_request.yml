@@ -2,7 +2,7 @@ name: PR
 
 on:
   pull_request:
-    types: [ opened, synchronize ]
+    types: [ opened ]
   pull_request_review_comment:
     types: [ created, edited ]
 
@@ -11,8 +11,8 @@ concurrency: pr-${{ github.ref }}
 jobs:
   vulnerability-checks:
     name: Vulnerability Checks
-    # run if the PR was opened or there was a commit or comment containing '/pr_checks'
-    if: ${{ (github.event_name == 'pull_request' && (github.event.action == 'opened' || contains(github.event.pull_request.body, '/pr_checks'))) || (github.event_name == 'pull_request_review_comment' && contains(github.event.comment, '/pr_checks'))  }}
+    # run if the PR was opened or there was a comment containing '/pr_checks'
+    if: (github.event_name == 'pull_request')  || (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '/pr_checks'))
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
