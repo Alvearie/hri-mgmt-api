@@ -2,13 +2,16 @@ name: PR
 
 on:
   pull_request:
-    types: [ opened, synchronize, reopened ]
+    types: [ opened, synchronize ]
+  issue_comment: [ '**' ]
 
 concurrency: pr-${{ github.ref }}
 
 jobs:
   build:
     name: Vulnerability Checks
+    # run if the PR was opened or there was a commit or comment containing '/pr_checks'
+    if: ${{ (github.event_name == 'pull_request' && (github.event.action == 'opened' || contains(github.event.pull_request.body, '/pr_checks'))) || (github.event_name == 'issue_comment' && contains(github.event.comment, '/pr_checks'))  }}
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -43,11 +46,9 @@ jobs:
 
     - name: Unit Tests and Coverage
       run: |
-        cd src
-        go test -json -coverprofile testCoverage.out ./... -tags tests > report.json
+        make
         # SonarCloud doesn't like the source code being in a sub directory,
         # so this moves all the source code into the base working directory 
-        cd ../
         mv src/* ./
 
     - name: SonarCloud Scan
