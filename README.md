@@ -45,6 +45,12 @@ cd src; GOOS=linux GOACH=amd64 go build
 ## CI/CD
 This application can be run locally, but almost all the endpoints require Elasticsearch, Kafka, and an OIDC server. GitHub actions builds and runs integration tests using a common Elastic Search and Event Streams instance. You can perform local manual testing using these resources. See [test/README.md](test/README.md) for more details.
 
+### Static Code Analysis
+In addition, SonarCloud [analysis](https://sonarcloud.io/dashboard?id=Alvearie_hri-mgmt-api) is performed on all pull requests and on long-lived branches: `main`, `develop`, and `support-*`. Several IDE's, including IntelliJ, have SonarLint plugins for dynamic analysis as you code.
+
+### Dependency Vulnerabilities
+Dependencies are also checked for vulnerabilities when a pull request is created. If any are found, a comment will be added to the pull request with a link to the GitHub action, where you can view the logs for the details. If the vulnerabilities are caused by your changes or easy to fix, implement the changes on your branch. If not, create a ticket. To run the check again, submit a review for the pull request with `/pr_checks` in the message. 
+
 ### Releases
 Releases are created by creating GitHub tags, which trigger a build that packages everything into a Docker image. See [docker/README.md](docker/README.md) for more details.
 
