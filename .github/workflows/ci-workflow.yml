@@ -1,0 +1,138 @@
+name: CI Workflow
+
+on: 
+  push:
+    branches: [ '**' ]
+  workflow_dispatch:
+
+concurrency: ci-${{ github.ref }}
+
+jobs:
+
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    env:
+      API_SPEC_DEV_BRANCH: support-2.x
+      API_SPEC_TAG: 
+      APPID_TENANT: 0f389ea4-778e-4831-9b29-6156c4c1df1e
+      APPID_URL: https://us-east.appid.cloud.ibm.com
+      JWT_AUDIENCE_ID: 21e7d376-9cdb-4a9d-a11f-9b76c007244d
+      IAM_CLOUD_URL: https://iam.cloud.ibm.com
+      ELASTIC_URL: https://c9acb36a-0feb-4b6e-aac1-6651c71d19e4.2adb0220806343e3ae11df79c89b377f.databases.appdomain.cloud:32085
+      KAFKA_BROKERS: broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093
+      TENANT_ID: test
+      REGION: "us-east"
+      RESOURCE_GROUP: hri-dev1-wdc-cloudsvc
+      NAMESPACE: $TRAVIS_BRANCH
+      ELASTIC_INSTANCE: hri-dev1-elasticsearch-v7
+      ELASTIC_SVC_ACCOUNT: elastic-search-credential
+      KAFKA_INSTANCE: hri-dev1-event-streams
+      KAFKA_SVC_ACCOUNT: event-streams-credential
+      OIDC_ISSUER: $APPID_URL/oauth/v4/$APPID_TENANT
+
+      CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
+      FN_WEB_SECURE_KEY: ${{ secrets.FN_WEB_SECURE_KEY }}
+      ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
+      ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
+      KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
+
+
+    steps:
+      - name: Set Branch Name
+        uses: nelonoel/branch-name@v1.0.1
+  
+      - name: Install Go 1.15
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+  
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+  
+      - name: Build HRI Executable and Run Unit Tests
+        run: make bins
+  
+      - name: Deploy to IBM Functions
+        run: |
+          curl -sL https://ibm.biz/idt-installer | bash
+          NAMESPACE=$BRANCH_NAME ./deploy.sh
+  
+      - name: Install Ruby 2.6.5
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.6.5
+          bundler-cache: false
+          
+      - name: Install Ruby Gems, Run Dredd Tests, and Run IVT
+        run: |
+          gem install bundler
+          BUNDLE_GEMFILE="./test/Gemfile" bundle install
+          gem specific_install -l https://github.com/Alvearie/hri-test-helpers.git main
+          gem install dredd_hooks
+          ./run-dreddtests.sh
+          ibmcloud login --apikey $CLOUD_API_KEY -r us-east
+          ibmcloud plugin install event-streams
+          ibmcloud es init -i ${KAFKA_INSTANCE}
+          ./run-ivttests.sh
+
+      ## Is this still correct?
+      - name: Update Flink Integration IBM Functions Namespace
+        if: ${{ github.ref == 'refs/heads/develop' }}
+        run: NAMESPACE=flink-integration VALIDATION=true ./deploy.sh
+  
+  docker-build:
+    name: Docker Build
+    needs: build
+    if: ${{ github.ref == 'refs/heads/develop' }}
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: mgmt-api-deploy
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Determine Image Name & Tag
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          echo IMAGE_ID=$IMAGE_ID:$VERSION
+          echo "IMAGE_ID=$IMAGE_ID:$VERSION" >> $GITHUB_ENV
+
+      - name: Install Go 1.15
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+  
+      - name: Build HRI Executable and Run Unit Tests
+        run: make bins
+
+      - name: Build image
+        run: docker build . --file docker/Dockerfile --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
+
+      - name: Linter
+        uses: hands-lab/dockle-action@v1
+        with:
+          image: "${{ env.IMAGE_ID }}"
+          exit-code: 1
+          exit-level: 'WARN'
+
+      - name: Vulnerability Scan
+        uses: aquasecurity/trivy-action@0.0.20
+        with:
+          image-ref: "${{ env.IMAGE_ID }}"
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Log in to registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push image
+        run: docker push $IMAGE_ID
+
