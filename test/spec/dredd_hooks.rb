@@ -7,7 +7,7 @@ require_relative '../env'
 include DreddHooks::Methods
 
 DREDD_TENANT_ID = 'provider1234'
-TENANT_ID_TENANTS_STREAMS = "#{ENV['TRAVIS_BRANCH'].tr('.-', '')}".downcase
+TENANT_ID_TENANTS_STREAMS = "#{ENV['BRANCH_NAME'].tr('.-', '')}".downcase
 TENANT_ID_BATCHES = 'test'
 
 elastic = ElasticHelper.new

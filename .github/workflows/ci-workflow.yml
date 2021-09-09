@@ -24,12 +24,10 @@ jobs:
       TENANT_ID: test
       REGION: "us-east"
       RESOURCE_GROUP: hri-dev1-wdc-cloudsvc
-      NAMESPACE: $TRAVIS_BRANCH
       ELASTIC_INSTANCE: hri-dev1-elasticsearch-v7
       ELASTIC_SVC_ACCOUNT: elastic-search-credential
       KAFKA_INSTANCE: hri-dev1-event-streams
       KAFKA_SVC_ACCOUNT: event-streams-credential
-      OIDC_ISSUER: $APPID_URL/oauth/v4/$APPID_TENANT
 
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       FN_WEB_SECURE_KEY: ${{ secrets.FN_WEB_SECURE_KEY }}
@@ -56,6 +54,8 @@ jobs:
       - name: Deploy to IBM Functions
         run: |
           curl -sL https://ibm.biz/idt-installer | bash
+          export OIDC_ISSUER=$APPID_URL/oauth/v4/$APPID_TENANT
+          echo "OIDC_ISSUER=$OIDC_ISSUER" >> $GITHUB_ENV
           NAMESPACE=$BRANCH_NAME ./deploy.sh
   
       - name: Install Ruby 2.6.5
@@ -68,10 +68,8 @@ jobs:
         run: |
           gem install bundler
           BUNDLE_GEMFILE="./test/Gemfile" bundle install
-          gem specific_install -l https://github.com/Alvearie/hri-test-helpers.git main
           gem install dredd_hooks
           ./run-dreddtests.sh
-          ibmcloud login --apikey $CLOUD_API_KEY -r us-east
           ibmcloud plugin install event-streams
           ibmcloud es init -i ${KAFKA_INSTANCE}
           ./run-ivttests.sh

@@ -39,18 +39,18 @@
 8. (Optional) To run tests locally, export these environment variables. You can get most of the values from GitHub actions. Check IBM cloud service credentials or our password manager for secure ones.
 
     - ELASTIC_URL - Found in GitHub actions
-    - ELASTIC_USER - Found in GitHub actions
+    - ELASTIC_USERNAME - Found in GitHub actions
     - ELASTIC_PASSWORD - IBM Cloud -> Elasticsearch service -> Service credentials -> elastic-search-credential -> "password" field
-    - SASL_PLAIN_PASSWORD
+    - KAFKA_PASSWORD - Password Manager
     - COS_URL - Found in GitHub actions
     - IAM_CLOUD_URL - Found in GitHub actions
     - CLOUD_API_KEY - Password Manager
-    - EVENTSTREAMS_BROKERS - Found in GitHub actions
+    - KAFKA_BROKERS - Found in GitHub actions
     - APPID_URL - Found in GitHub actions
     - APPID_TENANT - Found in GitHub actions
     - JWT_AUDIENCE_ID - Found in GitHub actions
 
-   You will also need to set an environment variable called TRAVIS_BRANCH that corresponds to your current working branch.
+   You will also need to set an environment variable called BRANCH_NAME that corresponds to your current working branch.
    
    Then, install the IBM Cloud CLI, the Functions CLI, and the Event Streams CLI. You can find the RESOURCE_GROUP in GitHub actions and the CLOUD_API_KEY in our password manager:
    ```bash
@@ -58,7 +58,7 @@
    bx login --apikey {CLOUD_API_KEY}
    bx target -g {RESOURCE_GROUP}
    bx plugin install cloud-functions
-   bx fn property set --namespace {TRAVIS_BRANCH}
+   bx fn property set --namespace {BRANCH_NAME}
    bx plugin install event-streams
    bx es init
    ```

@@ -25,12 +25,12 @@ describe 'HRI Management API With Validation' do
     @start_date = DateTime.now
 
     #Initialize Kafka Consumer
-    @kafka = Kafka.new(ENV['EVENTSTREAMS_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['SASL_PLAIN_PASSWORD'], ssl_ca_certs_from_system: true)
+    @kafka = Kafka.new(ENV['KAFKA_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['KAFKA_PASSWORD'], ssl_ca_certs_from_system: true)
     @kafka_consumer = @kafka.consumer(group_id: 'rspec-test-consumer')
     @kafka_consumer.subscribe("ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.notification")
 
     #Create Batch
-    @batch_prefix = "rspec-#{ENV['TRAVIS_BRANCH'].delete('.')}"
+    @batch_prefix = "rspec-#{ENV['BRANCH_NAME'].delete('.')}"
     @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
     create_batch = {
         name: @batch_name,
@@ -66,7 +66,7 @@ describe 'HRI Management API With Validation' do
 
   after(:all) do
     #Delete Batches
-    response = @elastic.es_delete_by_query(TENANT_ID, "name:rspec-#{ENV['TRAVIS_BRANCH']}*")
+    response = @elastic.es_delete_by_query(TENANT_ID, "name:rspec-#{ENV['BRANCH_NAME']}*")
     response.nil? ? (raise 'Elastic batch delete did not return a response') : (expect(response.code).to eq 200)
     Logger.new(STDOUT).info("Delete test batches by query response #{response.body}")
     @kafka_consumer.stop
@@ -1218,134 +1218,6 @@ describe 'HRI Management API With Validation' do
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql("Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized scopes: .")
-    end
-
-  end
-
-  context 'End to End Test Using COS Data' do
-
-    it 'Create Batch, Produce Kafka Message with COS Data, Read Kafka Message, Process Complete, and Send Complete' do
-      @input_data = COSHelper.new.get_object_data('spark-output-2', 'dev_test_of_2/f_drug_clm/schema.json')
-
-      #Create Batch
-      @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
-      @batch_template = {
-          name: "rspec-#{ENV['TRAVIS_BRANCH']}-end-to-end-batch",
-          dataType: DATA_TYPE,
-          topic: BATCH_INPUT_TOPIC,
-          metadata: {
-              rspec1: 'test1',
-              rspec2: 'test2',
-              rspec3: {
-                  rspec3A: 'test3A',
-                  rspec3B: 'test3B'
-              }
-          }
-      }
-      response = @hri_helper.hri_post_batch(TENANT_ID, @batch_template.to_json, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
-      expect(response.code).to eq 201
-      parsed_response = JSON.parse(response.body)
-      @end_to_end_batch_id = parsed_response['id']
-      Logger.new(STDOUT).info("End to End: Batch Created With ID: #{@end_to_end_batch_id}")
-
-      #Verify Kafka Message
-      Timeout.timeout(KAFKA_TIMEOUT) do
-        Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@end_to_end_batch_id} and status: started")
-        @kafka_consumer.each_message do |message|
-          parsed_message = JSON.parse(message.value)
-          if parsed_message['id'] == @end_to_end_batch_id && parsed_message['status'] == 'started'
-            @message_found = true
-            expect(parsed_message['id']).to eql(@end_to_end_batch_id)
-            break
-          end
-        end
-        expect(@message_found).to be true
-      end
-      Logger.new(STDOUT).info("End to End: Kafka message received for the creation of batch with ID: #{@end_to_end_batch_id}")
-
-      #Produce Kafka Message
-      @kafka.deliver_message({name: 'end_to_end_test_message', data: @input_data}.to_json, key: '1', topic: "ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.notification", headers: {'batchId': @end_to_end_batch_id})
-      Logger.new(STDOUT).info('End to End: Kafka message containing COS object data successfully written')
-
-      #Verify Kafka Message
-      Timeout.timeout(KAFKA_TIMEOUT) do
-        Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@end_to_end_batch_id} and status: started")
-        @kafka_consumer.each_message do |message|
-          unless message.headers.empty?
-            if message.headers['batchId'] == @end_to_end_batch_id
-              @message_found = true
-              parsed_message = JSON.parse(message.value)
-              expect(parsed_message['name']).to eql('end_to_end_test_message')
-              expect(parsed_message['data']).to eql @input_data
-              break
-            end
-          end
-        end
-        expect(@message_found).to be true
-      end
-      Logger.new(STDOUT).info("End to End: Kafka message received for the new batch containing COS object data")
-
-      #Set Batch Send Complete
-      @expected_record_count = {
-          expectedRecordCount: EXPECTED_RECORD_COUNT
-      }
-      response = @hri_helper.hri_put_batch(TENANT_ID, @end_to_end_batch_id, 'sendComplete', @expected_record_count, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
-      expect(response.code).to eq 200
-
-      #Verify Batch Send Complete
-      response = @hri_helper.hri_get_batch(TENANT_ID, @end_to_end_batch_id, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
-      expect(response.code).to eq 200
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['status']).to eql 'sendCompleted'
-      Logger.new(STDOUT).info("End to End: Status of batch #{@end_to_end_batch_id} updated to 'sendCompleted'")
-
-      #Verify Kafka Message
-      Timeout.timeout(KAFKA_TIMEOUT) do
-        Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@end_to_end_batch_id} and status: sendCompleted")
-        @kafka_consumer.each_message do |message|
-          parsed_message = JSON.parse(message.value)
-          if parsed_message['id'] == @end_to_end_batch_id && parsed_message['status'] == 'sendCompleted'
-            @message_found = true
-            expect(parsed_message['status']).to eql('sendCompleted')
-            expect(parsed_message['expectedRecordCount']).to eq EXPECTED_RECORD_COUNT
-            expect(parsed_message['recordCount']).to eq EXPECTED_RECORD_COUNT
-            break
-          end
-        end
-        expect(@message_found).to be true
-      end
-      Logger.new(STDOUT).info("End to End: Kafka message received for batch #{@end_to_end_batch_id} sendCompleted")
-
-      #Set Batch Processing Complete
-      @record_counts = {
-          invalidRecordCount: INVALID_RECORD_COUNT,
-          actualRecordCount: ACTUAL_RECORD_COUNT
-      }
-      response = @hri_helper.hri_put_batch(TENANT_ID, @end_to_end_batch_id, 'processingComplete', @record_counts, {'Authorization' => "Bearer #{@token_internal_role_only}"})
-      expect(response.code).to eq 200
-
-      #Verify Batch Processing Complete
-      response = @hri_helper.hri_get_batch(TENANT_ID, @end_to_end_batch_id, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
-      expect(response.code).to eq 200
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['status']).to eql 'completed'
-      Logger.new(STDOUT).info("End to End: Status of batch #{@end_to_end_batch_id} updated to 'completed'")
-
-      #Verify Kafka Message
-      Timeout.timeout(KAFKA_TIMEOUT) do
-        Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@end_to_end_batch_id} and status: completed")
-        @kafka_consumer.each_message do |message|
-          parsed_message = JSON.parse(message.value)
-          if parsed_message['id'] == @end_to_end_batch_id && parsed_message['status'] == 'completed'
-            @message_found = true
-            expect(parsed_message['status']).to eql('completed')
-            break
-          end
-        end
-        expect(@message_found).to be true
-      end
-      Logger.new(STDOUT).info("End to End: Kafka message received for batch #{@end_to_end_batch_id} completed")
-
     end
 
   end
