@@ -85,7 +85,6 @@ jobs:
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
           # Strip git ref prefix from version
-          # TODO: should we add run id to the version?
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
           echo IMAGE_ID=$IMAGE_ID:$VERSION
           echo "IMAGE_ID=$IMAGE_ID:$VERSION" >> $GITHUB_ENV
