@@ -54,9 +54,7 @@ jobs:
       - name: Deploy to IBM Functions
         run: |
           curl -sL https://ibm.biz/idt-installer | bash
-          export OIDC_ISSUER=$APPID_URL/oauth/v4/$APPID_TENANT
-          echo "OIDC_ISSUER=$OIDC_ISSUER" >> $GITHUB_ENV
-          NAMESPACE=$BRANCH_NAME ./deploy.sh
+          OIDC_ISSUER=$APPID_URL/oauth/v4/$APPID_TENANT NAMESPACE=$BRANCH_NAME ./deploy.sh
   
       - name: Install Ruby 2.6.5
         uses: ruby/setup-ruby@v1
@@ -73,10 +71,6 @@ jobs:
           ibmcloud plugin install event-streams
           ibmcloud es init -i ${KAFKA_INSTANCE}
           ./run-ivttests.sh
-
-      - name: Update Flink Integration IBM Functions Namespace
-        if: ${{ github.ref == 'refs/heads/develop' }}
-        run: NAMESPACE=flink-integration VALIDATION=true ./deploy.sh
 
   docker-build:
     name: Docker Build
