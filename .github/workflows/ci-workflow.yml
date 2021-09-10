@@ -74,9 +74,8 @@ jobs:
           ibmcloud es init -i ${KAFKA_INSTANCE}
           ./run-ivttests.sh
 
-      ## Is this still correct?
       - name: Update Flink Integration IBM Functions Namespace
-        if: ${{ github.ref == 'refs/heads/develop' }}
+        if: ${{ github.ref == 'refs/heads/support-2.x' }}
         run: NAMESPACE=flink-integration VALIDATION=true ./deploy.sh
   
   docker-build:
