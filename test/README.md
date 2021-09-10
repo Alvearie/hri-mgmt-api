@@ -42,7 +42,7 @@
     - ELASTIC_USERNAME - cloud service
     - ELASTIC_PASSWORD - cloud service
     - COS_URL
-    - IAM_CLOUD_URL - password manager
+    - IAM_CLOUD_URL
     - CLOUD_API_KEY - password manager
     - KAFKA_BROKERS
     - KAFKA_PASSWORD - cloud service
