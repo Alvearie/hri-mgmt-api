@@ -8,7 +8,7 @@ class ElasticHelper
     @helper = Helper.new
     @elastic_url = ENV['ELASTIC_URL']
     @headers = {'Content-Type': 'application/json'}
-    @basic_auth = {user: ENV['ELASTIC_USER'], password: ENV['ELASTIC_PASSWORD']}
+    @basic_auth = {user: ENV['ELASTIC_USERNAME'], password: ENV['ELASTIC_PASSWORD']}
   end
 
   def es_health_check

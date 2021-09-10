@@ -3,19 +3,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-npm install -g api-spec-converter
-npm install -g dredd@12.2.0
-gem install dredd_hooks
+sudo npm install -g api-spec-converter
+sudo npm install -g dredd@12.2.0
 
 echo 'Clone Alvearie/hri-api-spec Repo'
 git clone https://github.com/Alvearie/hri-api-spec.git hri-api-spec
 cd hri-api-spec
-echo "if exists, checkout ${TRAVIS_BRANCH}"
-exists=$(git show-ref refs/remotes/origin/${TRAVIS_BRANCH})
+echo "if exists, checkout ${BRANCH_NAME}"
+exists=$(git show-ref refs/remotes/origin/${BRANCH_NAME})
 if [[ -n "$exists" ]]; then
-  git checkout ${TRAVIS_BRANCH}
+  git checkout ${BRANCH_NAME}
+elif [ -n "$API_SPEC_TAG" ]; then
+  git checkout -b mgmt-api_auto_dredd $API_SPEC_TAG
 else
-  git checkout support-1.x
+  git checkout $API_SPEC_DEV_BRANCH
 fi
 
 # convert API to swagger 2.0

@@ -9,8 +9,8 @@ describe 'HRI Management API ' do
   INVALID_ID = 'INVALID'
   TENANT_ID = 'test'
   INTEGRATOR_ID = 'claims'
-  TEST_TENANT_ID = "rspec-#{ENV['TRAVIS_BRANCH'].delete('.')}-test-tenant".downcase
-  TEST_INTEGRATOR_ID = "rspec-#{ENV['TRAVIS_BRANCH'].delete('.')}-test-integrator".downcase
+  TEST_TENANT_ID = "rspec-#{ENV['BRANCH_NAME'].delete('.')}-test-tenant".downcase
+  TEST_INTEGRATOR_ID = "rspec-#{ENV['BRANCH_NAME'].delete('.')}-test-integrator".downcase
   DATA_TYPE = 'rspec-batch'
   STATUS = 'started'
   BATCH_INPUT_TOPIC = "ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.in"
@@ -24,12 +24,12 @@ describe 'HRI Management API ' do
     @start_date = DateTime.now
 
     #Initialize Kafka Consumer
-    @kafka = Kafka.new(ENV['EVENTSTREAMS_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['SASL_PLAIN_PASSWORD'], ssl_ca_certs_from_system: true)
+    @kafka = Kafka.new(ENV['KAFKA_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['KAFKA_PASSWORD'], ssl_ca_certs_from_system: true)
     @kafka_consumer = @kafka.consumer(group_id: 'rspec-mgmt-api-consumer')
     @kafka_consumer.subscribe("ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.notification")
 
     #Create Batch
-    @batch_prefix = "rspec-#{ENV['TRAVIS_BRANCH'].delete('.')}"
+    @batch_prefix = "rspec-#{ENV['BRANCH_NAME'].delete('.')}"
     @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
     create_batch = {
         name: @batch_name,
@@ -67,7 +67,7 @@ describe 'HRI Management API ' do
 
   after(:all) do
     #Delete Batches
-    response = @elastic.es_delete_by_query(TENANT_ID, "name:rspec-#{ENV['TRAVIS_BRANCH']}*")
+    response = @elastic.es_delete_by_query(TENANT_ID, "name:rspec-#{ENV['BRANCH_NAME']}*")
     response.nil? ? (raise 'Elastic batch delete did not return a response') : (expect(response.code).to eq 200)
     Logger.new(STDOUT).info("Delete test batches by query response #{response.body}")
     @kafka_consumer.stop
@@ -1470,7 +1470,7 @@ describe 'HRI Management API ' do
       #Create Batch
       @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
       @batch_template = {
-          name: "rspec-#{ENV['TRAVIS_BRANCH'].delete('.')}-end-to-end-batch",
+          name: "rspec-#{ENV['BRANCH_NAME'].delete('.')}-end-to-end-batch",
           status: STATUS,
           recordCount: 1,
           dataType: DATA_TYPE,

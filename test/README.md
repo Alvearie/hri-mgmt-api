@@ -37,19 +37,22 @@
     NOTE: Ensure that your Ruby versions match across terminal default, Gemfile, and Gemfile.lock. If using IntelliJ, Ruby version in your module should match as well.
 
 8. (Optional) To run tests locally
-    - Export these environment variables. You can get most of the values from GitHub actions. Check IBM cloud service credentials or 1password for secure ones.
-      * HRI_API_KEY
+    - Export these environment variables. Most of the values can be found in `.github/workflows/ci-workflow.yml`, and the remaining values should be found in your password manager or cloud service.
+
       * ELASTIC_URL
-      * ELASTIC_USER
-      * ELASTIC_PASSWORD
-      * SASL_PLAIN_PASSWORD
+      * ELASTIC_USERNAME - cloud service
+      * ELASTIC_PASSWORD - cloud service
+      * KAFKA_BROKERS 
+      * KAFKA_PASSWORD - cloud service
       * COS_URL
       * IAM_CLOUD_URL
-      * CLOUD_API_KEY
+      * CLOUD_API_KEY - password manager
       * APPID_URL
       * APPID_TENANT
-      * TRAVIS_BRANCH
-    - Get an unencrypted copy of `jwt_assertion_tokens.json`
+      * JWT_AUDIENCE_ID
+      * TENANT_ID
+      * BRANCH_NAME
+
     - Login with the IBM Cloud CLI and set the Functions namespace to match the branch being tested:   
     ```ibmcloud fn property set --namespace <branch>```
     - Run the tests:   
