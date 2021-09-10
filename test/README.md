@@ -36,19 +36,20 @@
     
     NOTE: Ensure that your Ruby versions match across terminal default, Gemfile, and Gemfile.lock. If using IntelliJ, Ruby version in your module should match as well.
 
-8. (Optional) To run tests locally, export these environment variables. You can get most of the values from GitHub actions. Check IBM cloud service credentials or our password manager for secure ones.
+8. (Optional) To run tests locally, export these environment variables. Most of the values can be found in `.github/workflows/ci-workflow.yml`, and the remaining values should be found in your password manager or cloud service.
 
-    - ELASTIC_URL - Found in GitHub actions
-    - ELASTIC_USERNAME - Found in GitHub actions
-    - ELASTIC_PASSWORD - IBM Cloud -> Elasticsearch service -> Service credentials -> elastic-search-credential -> "password" field
-    - KAFKA_PASSWORD - Password Manager
-    - COS_URL - Found in GitHub actions
-    - IAM_CLOUD_URL - Found in GitHub actions
-    - CLOUD_API_KEY - Password Manager
-    - KAFKA_BROKERS - Found in GitHub actions
-    - APPID_URL - Found in GitHub actions
-    - APPID_TENANT - Found in GitHub actions
-    - JWT_AUDIENCE_ID - Found in GitHub actions
+    - ELASTIC_URL
+    - ELASTIC_USERNAME - cloud service
+    - ELASTIC_PASSWORD - cloud service
+    - COS_URL
+    - IAM_CLOUD_URL - password manager
+    - CLOUD_API_KEY - password manager
+    - KAFKA_BROKERS
+    - KAFKA_PASSWORD - cloud service
+    - APPID_URL
+    - APPID_TENANT
+    - JWT_AUDIENCE_ID
+    - TENANT_ID
 
    You will also need to set an environment variable called BRANCH_NAME that corresponds to your current working branch.
    
