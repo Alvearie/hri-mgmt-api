@@ -24,7 +24,7 @@ jobs:
         go-version: ^1.15
 
     - name: Unit Tests and Coverage
-      run: make
+      run: make test
 
     - name: SonarCloud Scan
       uses: sonarsource/sonarcloud-github-action@v1.6
