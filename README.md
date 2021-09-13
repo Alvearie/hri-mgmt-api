@@ -45,6 +45,12 @@ rm src/exec
 ## CI/CD
 Since this application must be deployed using IBM Functions in an IBM Cloud account, there isn't a way to launch and test the API & actions locally. So, we have set up GitHub actions to automatically deploy every branch in its own IBM Function's namespace in our IBM cloud account and run integration tests. They all share common Elastic Search and Event Streams instances. Once it's deployed, you can perform manual testing with your namespace. You can also use the IBM Functions UI or IBM Cloud CLI to modify the actions or API in your namespace. When the GitHub branch is deleted, the associated IBM Function's namespace is also automatically deleted. 
 
+### Static Code Analysis
+In addition, SonarCloud [analysis](https://sonarcloud.io/dashboard?id=Alvearie_hri-mgmt-api) is performed on all pull requests and on long-lived branches: `main`, `develop`, and `support-*`. Several IDE's, including IntelliJ, have SonarLint plugins for dynamic analysis as you code.
+
+### Dependency Vulnerabilities
+Dependencies are also checked for vulnerabilities when a pull request is created. If any are found, a comment will be added to the pull request with a link to the GitHub action, where you can view the logs for the details. If the vulnerabilities are caused by your changes or easy to fix, implement the changes on your branch. If not, create a ticket. To run the check again, submit a review for the pull request with `/pr_checks` in the message.
+
 ### Docker image build
 Images are published on every `develop` branch build with the tag `<branch>-timestamp`.
 
