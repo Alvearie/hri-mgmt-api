@@ -25,6 +25,7 @@ jobs:
       KAFKA_BROKERS: broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093
       KAFKA_INSTANCE: hri-dev1-event-streams
       TENANT_ID: test
+      COS_URL: https://s3.us-east.cloud-object-storage.appdomain.cloud
 
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
@@ -67,7 +68,5 @@ jobs:
           ibmcloud plugin install event-streams
           ibmcloud es init -i ${KAFKA_INSTANCE}
           ./run-ivttests.sh
-          wget https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.10.0/allure-commandline-2.10.0.zip
-          unzip allure-commandline-2.10.0.zip
-          ./allure-2.10.0/bin/allure generate test/ivt_test_results
-
+          ./test/spec/upload_test_reports.rb IVT
+          ./test/spec/upload_test_reports.rb Dredd
