@@ -3,6 +3,7 @@
 function combineTestResults() {
   INPUT_DIRECTORY="${1}"
   RESULT_FILE=$2
+  SUITE_NAME="hri-mgmt-api - $BRANCH_NAME"
   failures=0
   testCount=0
   errors=0
@@ -24,9 +25,11 @@ function combineTestResults() {
   done
 
   date=`date`
-  header="<testsuite name=\"$INPUT_DIRECTORY\" tests=\"$testCount\" failures=\"$failures\" errors=\"$errors\" skipped=\"${skipped}\" timestamp=\"${date}\" time=\"${time}\">"
+  header="<testsuite name=\"$SUITE_NAME\" tests=\"$testCount\" failures=\"$failures\" errors=\"$errors\" skipped=\"${skipped}\" timestamp=\"${date}\" time=\"${time}\">"
   footer="</testsuite>"
   echo -e "$header\n$output\n$footer" > "$RESULT_FILE"
 
   echo "Finished combining IVT JUnit files"
 }
+
+echo $(combineTestResults 'test/ivt_test_results' 'ivttest.xml')
