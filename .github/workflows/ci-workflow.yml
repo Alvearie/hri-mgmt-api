@@ -68,5 +68,6 @@ jobs:
           ibmcloud plugin install event-streams
           ibmcloud es init -i ${KAFKA_INSTANCE}
           ./run-ivttests.sh
+          ./combine_ivt_results.sh
           ./test/spec/upload_test_reports.rb IVT
           ./test/spec/upload_test_reports.rb Dredd
