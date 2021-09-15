@@ -17,7 +17,7 @@ cos_helper = HRITestHelpers::COSHelper.new(ENV['COS_URL'], ENV['IAM_CLOUD_URL'],
 logger = Logger.new(STDOUT)
 time = Time.now.strftime '%Y%m%d%H%M%S'
 
-if %w[main develop WHFHRI-667].include?(ENV['BRANCH_NAME'])
+if %w[main develop].include?(ENV['BRANCH_NAME'])
   if ARGV[0] == 'IVT'
     logger.info("Uploading ivttest-#{time}.xml to COS")
     File.rename("#{Dir.pwd}/ivttest.xml", "#{Dir.pwd}/ivttest-#{time}.xml")
@@ -30,5 +30,5 @@ if %w[main develop WHFHRI-667].include?(ENV['BRANCH_NAME'])
     raise "Invalid argument: #{ARGV[0]}. Valid arguments: 'IVT' or 'Dredd'"
   end
 else
-  logger.info("Test reports are only generated for the 'main', 'develop', or 'WHFHRI-667' branches. Exiting.")
+  logger.info("Test reports are only generated for the 'main' or 'develop' branches. Exiting.")
 end
