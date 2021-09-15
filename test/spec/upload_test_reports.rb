@@ -19,15 +19,12 @@ time = Time.now.strftime '%Y%m%d%H%M%S'
 
 if %w[main develop WHFHRI-667].include?(ENV['BRANCH_NAME'])
   if ARGV[0] == 'IVT'
-    logger.info('Uploading ivttest.xml to COS')
-    puts Dir.entries('.')
-    puts '---------'
-    puts Dir.entries('test/ivt_test_results')
-    `sed -i 's#test/ivt_test_results#rspec#g' ivttest.xml`
-    cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "mgmt-api/#{ENV['BRANCH_NAME']}/ivt/ivttest.xml", File.read(File.join(Dir.pwd, "ivttest.xml")))
+    logger.info("Uploading ivttest-#{time}.xml to COS")
+    `sed -i 's#test/ivt_test_results#rspec#g' ivttest-#{time}.xml`
+    cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "mgmt-api/#{ENV['BRANCH_NAME']}/ivt/ivttest-#{time}.xml", File.read(File.join(Dir.pwd, "ivttest-#{time}.xml")))
   elsif ARGV[0] == 'Dredd'
-    logger.info('Uploading dreddtests.xml to COS')
-    cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "mgmt-api/#{ENV['BRANCH_NAME']}/dredd/dreddtests-#{time}.xml", File.read(File.join(Dir.pwd, 'dreddtests.xml')))
+    logger.info("Uploading dreddtests-#{time}.xml to COS")
+    cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "mgmt-api/#{ENV['BRANCH_NAME']}/dredd/dreddtests-#{time}.xml", File.read(File.join(Dir.pwd, "dreddtests-#{time}.xml")))
   else
     raise "Invalid argument: #{ARGV[0]}. Valid arguments: 'IVT' or 'Dredd'"
   end
