@@ -22,7 +22,7 @@ if %w[main develop WHFHRI-667].include?(ENV['BRANCH_NAME'])
     logger.info('Uploading ivttest.xml to COS')
     puts Dir.entries('.')
     puts '---------'
-    puts Dir.entries('test')
+    puts Dir.entries('test/ivt_test_results')
     `sed -i 's#test/ivt_test_results#rspec#g' ivttest.xml`
     cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "mgmt-api/#{ENV['BRANCH_NAME']}/ivt/ivttest.xml", File.read(File.join(Dir.pwd, "ivttest.xml")))
   elsif ARGV[0] == 'Dredd'
