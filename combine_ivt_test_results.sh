@@ -30,5 +30,3 @@ function combineTestResults() {
 
   echo "Finished combining IVT JUnit files"
 }
-
-echo $(combineTestResults 'test/ivt_test_results' 'ivttest.xml')
