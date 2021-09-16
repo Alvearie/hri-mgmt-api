@@ -3,7 +3,7 @@
 function combineTestResults() {
   INPUT_DIRECTORY="${1}"
   RESULT_FILE=$2
-  SUITE_NAME="hri-mgmt-api - $BRANCH_NAME"
+  SUITE_NAME="hri-mgmt-api - IVT - $BRANCH_NAME"
   failures=0
   testCount=0
   errors=0
