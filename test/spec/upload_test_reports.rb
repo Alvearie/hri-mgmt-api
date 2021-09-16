@@ -17,18 +17,18 @@ cos_helper = HRITestHelpers::COSHelper.new(ENV['COS_URL'], ENV['IAM_CLOUD_URL'],
 logger = Logger.new(STDOUT)
 time = Time.now.strftime '%Y%m%d%H%M%S'
 
-if %w[main develop].include?(ENV['BRANCH_NAME'])
+if %w[main develop WHFHRI-667].include?(ARGV[1])
   if ARGV[0] == 'IVT'
     logger.info("Uploading ivttest-#{time}.xml to COS")
     File.rename("#{Dir.pwd}/ivttest.xml", "#{Dir.pwd}/ivttest-#{time}.xml")
-    cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "mgmt-api/#{ENV['BRANCH_NAME']}/ivt/ivttest-#{time}.xml", File.read(File.join(Dir.pwd, "ivttest-#{time}.xml")))
+    cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "ivttest-#{time}.xml", File.read(File.join(Dir.pwd, "ivttest-#{time}.xml")))
   elsif ARGV[0] == 'Dredd'
     logger.info("Uploading dreddtests-#{time}.xml to COS")
     text = File.read("#{Dir.pwd}/dreddtests.xml")
     text = text.gsub!('testsuite name="Dredd Tests"', %Q(testsuite name="hri-mgmt-api - Dredd - #{ENV['BRANCH_NAME']}"))
     File.open("#{Dir.pwd}/dreddtests.xml", "w") {|file| file.puts text}
     File.rename("#{Dir.pwd}/dreddtests.xml", "#{Dir.pwd}/dreddtests-#{time}.xml")
-    cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "mgmt-api/#{ENV['BRANCH_NAME']}/dredd/dreddtests-#{time}.xml", File.read(File.join(Dir.pwd, "dreddtests-#{time}.xml")))
+    cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "dreddtests-#{time}.xml", File.read(File.join(Dir.pwd, "dreddtests-#{time}.xml")))
   else
     raise "Invalid argument: #{ARGV[0]}. Valid arguments: 'IVT' or 'Dredd'"
   end
