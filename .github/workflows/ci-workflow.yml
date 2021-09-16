@@ -1,6 +1,6 @@
 name: CI Workflow
 
-on: 
+on:
   push:
     branches: [ '**' ]
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       API_SPEC_DEV_BRANCH: develop
-      API_SPEC_TAG: 
+      API_SPEC_TAG:
       APPID_TENANT: 0f389ea4-778e-4831-9b29-6156c4c1df1e
       APPID_URL: https://us-east.appid.cloud.ibm.com
       ELASTIC_CRN: "crn:v1:bluemix:public:databases-for-elasticsearch:us-east:a/52366c9ab214402f9e96917b1b2850e9:c9acb36a-0feb-4b6e-aac1-6651c71d19e4::"
@@ -25,6 +25,7 @@ jobs:
       KAFKA_BROKERS: broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093
       KAFKA_INSTANCE: hri-dev1-event-streams
       TENANT_ID: test
+      COS_URL: https://s3.us-east.cloud-object-storage.appdomain.cloud
 
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
@@ -34,27 +35,27 @@ jobs:
     steps:
       - name: Set Branch Name
         uses: nelonoel/branch-name@v1.0.1
-  
+
       - name: Install Go 1.15
         uses: actions/setup-go@v2
         with:
           go-version: ^1.15
-  
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
-  
+
       - name: Build HRI Executable and Run Unit Tests
         run: make
-  
+
       - name: Run Smoke Tests
         run: ./run-smoketests.sh
-  
+
       - name: Install Ruby 2.6.5
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 2.6.5
           bundler-cache: false
-          
+
       - name: Install Ruby Gems, Run Dredd Tests, and Run IVT
         run: |
           gem install bundler
@@ -67,6 +68,12 @@ jobs:
           ibmcloud plugin install event-streams
           ibmcloud es init -i ${KAFKA_INSTANCE}
           ./run-ivttests.sh
+          if [[ "$BRANCH_NAME" =~ ^(main|develop|support-1.x|support-2.x)$ ]]
+          then
+              ./combine_ivt_results.sh
+              ./test/spec/upload_test_reports.rb IVT $BRANCH_NAME
+              ./test/spec/upload_test_reports.rb Dredd $BRANCH_NAME
+          fi
 
   docker-build:
     name: Docker Build
@@ -93,7 +100,7 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ^1.15
-  
+
       - name: Build HRI Executable and Run Unit Tests
         run: make
 
@@ -122,4 +129,3 @@ jobs:
 
       - name: Push image
         run: docker push $IMAGE_ID
-
