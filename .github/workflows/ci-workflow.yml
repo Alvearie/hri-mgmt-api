@@ -68,6 +68,9 @@ jobs:
           ibmcloud plugin install event-streams
           ibmcloud es init -i ${KAFKA_INSTANCE}
           ./run-ivttests.sh
+
+      - name: Upload Test Results
+        run: |
           if [[ "$BRANCH_NAME" =~ ^(main|develop|support-1.x|support-2.x)$ ]]
           then
               ./combine_ivt_results.sh
