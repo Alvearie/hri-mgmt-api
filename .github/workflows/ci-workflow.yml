@@ -70,13 +70,11 @@ jobs:
           ./run-ivttests.sh
 
       - name: Upload Test Results
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-')
         run: |
-          if [[ "$BRANCH_NAME" =~ ^(main|develop|support-1.x|support-2.x)$ ]]
-          then
-              ./combine_ivt_results.sh
-              ./test/spec/upload_test_reports.rb IVT
-              ./test/spec/upload_test_reports.rb Dredd
-          fi
+          ./combine_ivt_results.sh
+          ./test/spec/upload_test_reports.rb IVT
+          ./test/spec/upload_test_reports.rb Dredd
 
   docker-build:
     name: Docker Build
