@@ -74,8 +74,8 @@ jobs:
           if [[ "$BRANCH_NAME" =~ ^(main|develop|support-1.x|support-2.x)$ ]]
           then
               ./combine_ivt_results.sh
-              ./test/spec/upload_test_reports.rb IVT $BRANCH_NAME
-              ./test/spec/upload_test_reports.rb Dredd $BRANCH_NAME
+              ./test/spec/upload_test_reports.rb IVT
+              ./test/spec/upload_test_reports.rb Dredd
           fi
 
   docker-build:
