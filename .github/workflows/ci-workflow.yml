@@ -36,6 +36,9 @@ jobs:
       - name: Set Branch Name
         uses: nelonoel/branch-name@v1.0.1
 
+      - name: Copyright Check
+        run: ./copyrightCheck.sh
+
       - name: Install Go 1.15
         uses: actions/setup-go@v2
         with:
