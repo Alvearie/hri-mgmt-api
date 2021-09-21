@@ -70,7 +70,7 @@ jobs:
           ./run-ivttests.sh
 
       - name: Upload Test Results
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-')
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/WHFHRI-667' || startsWith(github.ref, 'refs/heads/support-')
         run: |
           ./combine_ivt_results.sh
           ./test/spec/upload_test_reports.rb IVT
