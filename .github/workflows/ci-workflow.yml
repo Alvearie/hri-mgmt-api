@@ -63,6 +63,11 @@ jobs:
           gem specific_install -l https://github.com/Alvearie/hri-test-helpers.git main
           gem install dredd_hooks
           ./run-dreddtests.sh
+          curl -sL https://ibm.biz/idt-installer | bash
+          ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; exit 1; }
+          ibmcloud plugin install event-streams
+          ibmcloud es init -i ${KAFKA_INSTANCE}
+          ./run-ivttests.sh
 
       - name: Upload Test Results
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-')
