@@ -1,8 +1,9 @@
 name: CI Workflow
 
 on:
-  push:
-    branches: [ '**' ]
+  schedule:
+    - cron: "47 16 * * *"
+
   workflow_dispatch:
 
 concurrency: ci-${{ github.ref }}
@@ -70,7 +71,7 @@ jobs:
           ./run-ivttests.sh
 
       - name: Upload Test Results
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-')
+        if: github.ref == 'refs/heads/WHFHRI-668' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-')
         run: |
           ./combine_ivt_results.sh
           ./test/spec/upload_test_reports.rb IVT
