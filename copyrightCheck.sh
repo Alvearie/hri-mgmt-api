@@ -4,8 +4,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-echo "Beginning copyright check"
-
 files=$(find . -name "*.go" -or -name "*.rb" -or -name "*.sh")
 
 rtn=0
