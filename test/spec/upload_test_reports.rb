@@ -25,9 +25,12 @@ elsif ARGV[0] == 'Dredd'
   logger.info("Uploading dreddtests-#{time}.xml to COS")
   doc = Nokogiri::XML(File.open("#{Dir.pwd}/dreddtests.xml")) { |file| file.noblanks }
   doc.search('//testsuite').attribute('name').value = "hri-mgmt-api - #{ENV['BRANCH_NAME']} - Dredd"
+
+  #Dredd XUnit output contains skipped tests, so delete these elements from the result xml
   doc.search('//testsuite/testcase').each do |block|
     block.remove if block.children.count == 1
   end
+  
   File.write("#{Dir.pwd}/dreddtests.xml", doc)
   File.rename("#{Dir.pwd}/dreddtests.xml", "#{Dir.pwd}/hri-mgmt-api-dreddtests-#{time}.xml")
   cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "hri-mgmt-api-dreddtests-#{time}.xml", File.read(File.join(Dir.pwd, "hri-mgmt-api-dreddtests-#{time}.xml")))
