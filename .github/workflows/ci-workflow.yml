@@ -1,6 +1,8 @@
 name: CI Workflow
 
 on:
+  push:
+    branches: [ '**' ]
   schedule:
     - cron: "30 17 * * *"
 
