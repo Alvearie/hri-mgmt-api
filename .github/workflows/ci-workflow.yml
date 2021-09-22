@@ -36,9 +36,6 @@ jobs:
       - name: Set Branch Name
         uses: nelonoel/branch-name@v1.0.1
 
-      - name: Copyright Check
-        run: ./copyrightCheck.sh
-
       - name: Install Go 1.15
         uses: actions/setup-go@v2
         with:
@@ -46,6 +43,9 @@ jobs:
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Copyright Check
+        run: ./copyrightCheck.sh
 
       - name: Build HRI Executable and Run Unit Tests
         run: make
