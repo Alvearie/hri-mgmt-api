@@ -21,6 +21,7 @@ require 'logger'
 require 'securerandom'
 require 'kafka'
 require 'base64'
+require 'nokogiri'
 
 require_relative './spec/helper'
 require_relative './spec/elastic_helper'
