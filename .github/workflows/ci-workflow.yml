@@ -28,6 +28,7 @@ jobs:
       ELASTIC_SVC_ACCOUNT: elastic-search-credential
       KAFKA_INSTANCE: hri-dev1-event-streams
       KAFKA_SVC_ACCOUNT: event-streams-credential
+      COS_URL: https://s3.us-east.cloud-object-storage.appdomain.cloud
 
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       FN_WEB_SECURE_KEY: ${{ secrets.FN_WEB_SECURE_KEY }}
@@ -74,6 +75,12 @@ jobs:
           ibmcloud plugin install event-streams
           ibmcloud es init -i ${KAFKA_INSTANCE}
           ./run-ivttests.sh
+
+      - name: Upload Test Results
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-')
+        run: |
+          ./test/spec/upload_test_reports.rb IVT
+          ./test/spec/upload_test_reports.rb Dredd
 
   docker-build:
     name: Docker Build
