@@ -2,8 +2,8 @@ name: Delete branch actions
 
 on:
   # TODO: DELETE LATER
-  push:
-    branches: [ 'WHFHRI-692-**' ]
+#  push:
+#    branches: [ 'WHFHRI-692-**' ]
   delete:
     branches: [ '**' ]
 
@@ -34,4 +34,4 @@ jobs:
           ibmcloud target -g ${RESOURCE_GROUP}
 
       - name: Delete branch
-        run: ibmcloud fn namespace delete $branch
+        run: ibmcloud fn namespace delete $BRANCH_NAME
