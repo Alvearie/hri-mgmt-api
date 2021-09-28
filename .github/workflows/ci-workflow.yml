@@ -80,6 +80,7 @@ jobs:
           ./test/spec/upload_test_reports.rb Dredd
 
       - name: Post Slack Update
+        if: ${{ job.status == 'failure' }}
         id: slack
         uses: slackapi/slack-github-action@v1.14.0
         with:
