@@ -51,8 +51,7 @@ jobs:
         run: make
 
       - name: Run Smoke Tests
-        run: |
-          ./run-smoketests.sh
+        run: ./run-smoketests.sh
 
       - name: Install Ruby 2.6.5
         uses: ruby/setup-ruby@v1
