@@ -53,10 +53,6 @@ jobs:
       - name: Run Smoke Tests
         run: |
           ./run-smoketests.sh
-          echo "GITHUB_ACTION=$GITHUB_ACTION"
-          echo "GITHUB_JOB=$GITHUB_JOB"
-          echo "GITHUB_RUN_ID=$GITHUB_RUN_ID"
-          echo "GITHUB_WORKFLOW=$GITHUB_WORKFLOW"
 
       - name: Install Ruby 2.6.5
         uses: ruby/setup-ruby@v1
@@ -86,11 +82,11 @@ jobs:
           ./test/spec/upload_test_reports.rb Dredd
 
       - name: Post Slack Update
-        if: ${{ job.status == 'failure' }}
+        #if: ${{ job.status == 'failure' }}
         id: slack
         uses: slackapi/slack-github-action@v1.14.0
         with:
-          payload: "{\"Repo\":\"hri-mgmt-api\",\"Branch\":\"${{ env.BRANCH_NAME }}\",\"Link\":\"https://github.com/Alvearie/hri-mgmt-api/actions/runs/${{ env.GITHUB_RUN_ID }}\"}"
+          payload: "{\"Repo\":\"hri-mgmt-api\",\"Branch\":\"${{ env.BRANCH_NAME }}\",\"Link\":\"https://github.com/Alvearie/hri-mgmt-api/actions/runs/${{ github.run_id }}\"}"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
