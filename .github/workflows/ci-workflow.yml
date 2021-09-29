@@ -85,7 +85,7 @@ jobs:
         id: slack
         uses: slackapi/slack-github-action@v1.14.0
         with:
-          payload: "{\"Repo\":\"hri-mgmt-api\",\"Branch\":\"$BRANCH_NAME\"}"
+          payload: "{\"Repo\":\"hri-mgmt-api\",\"Branch\":\"${{ env.BRANCH_NAME }}\",\"Link\":\"https://github.com/Alvearie/hri-mgmt-api/actions/runs/${{ env.GITHUB_RUN_ID }}\"}"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
