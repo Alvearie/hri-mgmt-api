@@ -51,7 +51,12 @@ jobs:
         run: make
 
       - name: Run Smoke Tests
-        run: ./run-smoketests.sh
+        run: |
+          ./run-smoketests.sh
+          echo "GITHUB_ACTION=$GITHUB_ACTION"
+          echo "GITHUB_JOB=$GITHUB_JOB"
+          echo "GITHUB_RUN_ID=$GITHUB_RUN_ID"
+          echo "GITHUB_WORKFLOW=$GITHUB_WORKFLOW"
 
       - name: Install Ruby 2.6.5
         uses: ruby/setup-ruby@v1
@@ -81,7 +86,7 @@ jobs:
           ./test/spec/upload_test_reports.rb Dredd
 
       - name: Post Slack Update
-        #if: ${{ job.status == 'failure' }}
+        if: ${{ job.status == 'failure' }}
         id: slack
         uses: slackapi/slack-github-action@v1.14.0
         with:
