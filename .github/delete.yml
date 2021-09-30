@@ -3,8 +3,8 @@ name: Delete branch actions
 on:
   delete:
     branches:
-      - 'support-1.x**'
-      - 'support-2.x**'
+      - 'support-1.**'
+      - 'support-2.**'
 
 concurrency: delete-${{ github.ref }}
 
