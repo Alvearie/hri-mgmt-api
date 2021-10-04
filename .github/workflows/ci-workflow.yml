@@ -94,7 +94,7 @@ jobs:
   docker-build:
     name: Docker Build
     needs: build
-    if: ${{ github.ref == 'refs/heads/develop' }}
+    #if: ${{ github.ref == 'refs/heads/develop' }}
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: mgmt-api-deploy
