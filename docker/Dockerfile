@@ -36,7 +36,6 @@ WORKDIR mgmt-api-release
 # Setup hri user 
 # Disable priveledge escalation utilities
 #   https://github.com/goodwithtech/dockle/blob/master/CHECKPOINT.md#cis-di-0008
-# Remove the temp directory
 RUN groupadd -g 1000 hri && \
     useradd --shell /bin/bash -u 1000 -g 1000 -m hri && \
     chown -R hri:hri /mgmt-api-release && \
@@ -45,8 +44,7 @@ RUN groupadd -g 1000 hri && \
     chmod u-s /usr/bin/gpasswd && \
     chmod u-g /usr/bin/gpasswd && \
     chmod u-s /usr/bin/newgrp && \
-    chmod u-g /usr/bin/newgrp && \
-    rm -rf /tmp
+    chmod u-g /usr/bin/newgrp
 
 USER hri
 
