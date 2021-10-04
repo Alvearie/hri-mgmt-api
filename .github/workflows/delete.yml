@@ -1,0 +1,33 @@
+name: Delete branch actions
+
+on:
+  delete:
+    branches:
+      - 'support-1.**'
+      - 'support-2.**'
+
+concurrency: delete-${{ github.ref }}
+
+jobs:
+  delete-namespace:
+    name: Delete branch namespace
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP: hri-dev1-wdc-kube
+
+    steps:
+      - name: Set branch name
+        uses: nelonoel/branch-name@v1.0.1
+
+      - name: Download IBM Dev Tools
+        run: curl -sL https://ibm.biz/idt-installer | bash
+
+      - name: Log into IBM Cloud
+        env:
+          CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
+        run: |
+          IBMCLOUD_API_KEY="$CLOUD_API_KEY" ibmcloud login -r us-east || { echo 'IBM Cloud CLI login failed!'; exit 1; }
+          ibmcloud target -g ${RESOURCE_GROUP}
+
+      - name: Delete branch
+        run: ibmcloud fn namespace delete $BRANCH_NAME
