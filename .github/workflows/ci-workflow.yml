@@ -91,7 +91,7 @@ jobs:
   docker-build:
     name: Docker Build
     needs: build
-    if: ${{ github.ref == 'refs/heads/develop' }}
+    #if: ${{ github.ref == 'refs/heads/develop' }}
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: mgmt-api
@@ -118,6 +118,8 @@ jobs:
         run: make
 
       - name: Build image
+        env: 
+          DOCKER_CONTENT_TRUST: 1
         run: docker build . --file docker/Dockerfile --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
 
       - name: Linter
