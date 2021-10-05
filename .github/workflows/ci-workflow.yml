@@ -93,8 +93,8 @@ jobs:
 
   docker-build:
     name: Docker Build
-    #needs: build
-    #if: ${{ github.ref == 'refs/heads/develop' }}
+    needs: build
+    if: ${{ github.ref == 'refs/heads/develop' }}
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: mgmt-api-deploy
@@ -130,6 +130,7 @@ jobs:
           report-format: sarif
           exit-code: 1
           failure-threshold: 'WARN'
+          # When updating, also update release.yml
           accept-filenames: 'config.json'
           accept-extensions: 'key,p12'
 
@@ -142,6 +143,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH,MEDIUM'
+          # When updating, also update release.yml
           skip-dirs: 'home/hri/.bluemix,root/.bluemix,usr/local/ibmcloud/bin/ibmcloud'
 
       - name: Log in to registry

@@ -40,12 +40,16 @@ jobs:
       - name: Build image
         run: docker build . --file docker/Dockerfile --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
 
-      - name: Linter
-        uses: hands-lab/dockle-action@v1
+      - name: Dockle Linter
+        uses: erzz/dockle-action@v1.1.1
         with:
           image: "${{ env.IMAGE_ID }}"
+          report-format: sarif
           exit-code: 1
-          exit-level: 'WARN'
+          failure-threshold: 'WARN'
+          # When updating, also update release.yml
+          accept-filenames: 'config.json'
+          accept-extensions: 'key,p12'
 
       - name: Vulnerability Scan
         uses: aquasecurity/trivy-action@0.0.20
@@ -56,6 +60,8 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH,MEDIUM'
+          # When updating, also update release.yml
+          skip-dirs: 'home/hri/.bluemix,root/.bluemix,usr/local/ibmcloud/bin/ibmcloud'
 
       - name: Log in to registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
