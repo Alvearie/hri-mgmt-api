@@ -93,7 +93,7 @@ jobs:
 
   docker-build:
     name: Docker Build
-    needs: build
+    #needs: build
     #if: ${{ github.ref == 'refs/heads/develop' }}
     runs-on: ubuntu-latest
     env:
@@ -129,6 +129,8 @@ jobs:
           image: "${{ env.IMAGE_ID }}"
           exit-code: 1
           exit-level: 'WARN'
+          accept-filenames: 'config.json'
+          accept-extensions: 'key,p12'
 
       - name: Vulnerability Scan
         uses: aquasecurity/trivy-action@0.0.20
