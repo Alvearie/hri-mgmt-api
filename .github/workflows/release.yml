@@ -47,7 +47,6 @@ jobs:
           report-format: sarif
           exit-code: 1
           failure-threshold: 'WARN'
-          # When updating, also update release.yml
           accept-filenames: 'config.json'
           accept-extensions: 'key,p12'
 
@@ -60,7 +59,6 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH,MEDIUM'
-          # When updating, also update release.yml
           skip-dirs: 'home/hri/.bluemix,root/.bluemix,usr/local/ibmcloud/bin/ibmcloud'
 
       - name: Log in to registry
