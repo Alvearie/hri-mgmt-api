@@ -124,11 +124,11 @@ jobs:
         run: docker build . --file docker/Dockerfile --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
 
       - name: Linter
-        uses: hands-lab/dockle-action@v1
+        uses: hands-lab/dockle-action@v1.1.1
         with:
           image: "${{ env.IMAGE_ID }}"
           exit-code: 1
-          exit-level: 'WARN'
+          failure-threshold: 'WARN'
           accept-filenames: 'config.json'
           accept-extensions: 'key,p12'
 
