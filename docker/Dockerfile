@@ -10,7 +10,7 @@ FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4
 # the installer into thinking that docker is installed.
 # jq is used for JSON parsing of Elastic credentials.
 RUN microdnf update -y && \
-    microdnf -y install git openssl yum which tar sudo && \
+    microdnf -y install git openssl yum which tar && \
     microdnf clean all && \
     echo "echo 'fake docker install'" > /usr/local/bin/docker && \
     chmod 777 /usr/local/bin/docker && \
