@@ -124,13 +124,19 @@ jobs:
         run: docker build . --file docker/Dockerfile --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
 
       - name: Linter
-        uses: hands-lab/dockle-action@v1.1.1
+        uses: erzz/dockle-action@v1.1.1
         with:
           image: "${{ env.IMAGE_ID }}"
+          report-format: sarif
           exit-code: 1
           failure-threshold: 'WARN'
           accept-filenames: 'config.json'
           accept-extensions: 'key,p12'
+
+      - name: Upload Dockle report
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: dockle-report.sarif
 
       - name: Vulnerability Scan
         uses: aquasecurity/trivy-action@0.0.20
