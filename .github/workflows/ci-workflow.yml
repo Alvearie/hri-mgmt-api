@@ -90,8 +90,8 @@ jobs:
 
   docker-build:
     name: Docker Build
-    needs: build
-    if: ${{ github.ref == 'refs/heads/develop' }}
+    #needs: build
+    #if: ${{ github.ref == 'refs/heads/develop' }}
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: mgmt-api
@@ -108,14 +108,6 @@ jobs:
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
           echo IMAGE_ID=$IMAGE_ID:$VERSION
           echo "IMAGE_ID=$IMAGE_ID:$VERSION" >> $GITHUB_ENV
-
-      - name: Install Go 1.15
-        uses: actions/setup-go@v2
-        with:
-          go-version: ^1.15
-
-      - name: Build HRI Executable and Run Unit Tests
-        run: make
 
       - name: Build image
         run: docker build . --file docker/Dockerfile --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
