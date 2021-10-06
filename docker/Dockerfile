@@ -10,7 +10,7 @@ FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4
 # the installer into thinking that docker is installed.
 # jq is used for JSON parsing of Elastic credentials.
 RUN microdnf update -y && \
-    microdnf -y install git openssl yum which tar sudo && \
+    microdnf -y install git openssl yum which tar && \
     microdnf clean all && \
     echo "echo 'fake docker install'" > /usr/local/bin/docker && \
     chmod 777 /usr/local/bin/docker && \
@@ -33,10 +33,18 @@ COPY build \
 
 WORKDIR mgmt-api-release
 
-# Setup hri user
+# Setup hri user 
+# Disable priveledge escalation utilities
+#   https://github.com/goodwithtech/dockle/blob/master/CHECKPOINT.md#cis-di-0008
 RUN groupadd -g 1000 hri && \
     useradd --shell /bin/bash -u 1000 -g 1000 -m hri && \
-    chown -R hri:hri /mgmt-api-release
+    chown -R hri:hri /mgmt-api-release && \
+    chmod u-s /usr/bin/chage && \
+    chmod u-g /usr/bin/chage && \
+    chmod u-s /usr/bin/gpasswd && \
+    chmod u-g /usr/bin/gpasswd && \
+    chmod u-s /usr/bin/newgrp && \
+    chmod u-g /usr/bin/newgrp
 
 USER hri
 
