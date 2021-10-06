@@ -30,6 +30,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/Sirupsen/logrus v1.8.1 => github.com/sirupsen/logrus v1.8.1
+replace (
+	github.com/Sirupsen/logrus v1.8.1 => github.com/sirupsen/logrus v1.8.1
+	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.0.0
+)
 
 go 1.15
