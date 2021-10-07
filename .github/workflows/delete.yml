@@ -2,9 +2,7 @@ name: Delete branch actions
 
 on:
   delete:
-    branches:
-      - 'support-1.**'
-      - 'support-2.**'
+    branches: [ '**' ]
 
 concurrency: delete-${{ github.ref }}
 
@@ -16,8 +14,10 @@ jobs:
       RESOURCE_GROUP: hri-dev1-wdc-kube
 
     steps:
-      - name: Set branch name
-        uses: nelonoel/branch-name@v1.0.1
+      - name: Get deleted branch name
+        run: |
+          BRANCH_NAME=$(echo "${{ github.event.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Download IBM Dev Tools
         run: curl -sL https://ibm.biz/idt-installer | bash
@@ -30,4 +30,7 @@ jobs:
           ibmcloud target -g ${RESOURCE_GROUP}
 
       - name: Delete branch
-        run: ibmcloud fn namespace delete $BRANCH_NAME
+        run: |
+          if ibmcloud fn namespace get $BRANCH_NAME; then
+            ibmcloud fn namespace delete $BRANCH_NAME
+          fi
