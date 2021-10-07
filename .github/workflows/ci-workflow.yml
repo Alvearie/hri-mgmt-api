@@ -95,6 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: mgmt-api
+      TOOLCHAIN_ID: 44eca025-5bc3-4dc9-8d86-d8c4956d09f0
 
     steps:
       - uses: actions/checkout@v2
@@ -135,6 +136,15 @@ jobs:
 
       - name: Push image
         run: docker push $IMAGE_ID
+
+      - name: Trigger IBM Toolchain
+        if: github.ref == 'refs/heads/develop'
+        env:
+          CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
+        run: |
+          curl -sL https://ibm.biz/idt-installer | bash
+          ibmcloud login --apikey $CLOUD_API_KEY -r us-east
+          ibmcloud dev tekton-trigger $TOOLCHAIN_ID --trigger-name 'CD Manual Trigger'
 
       - name: Post Slack Update
         if: ${{ job.status == 'failure' }}
