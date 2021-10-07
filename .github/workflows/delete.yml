@@ -31,6 +31,6 @@ jobs:
 
       - name: Delete branch
         run: |
-          if ibmcloud fn namespace get $BRANCH_NAME; then
+          if ibmcloud fn property set --namespace $BRANCH_NAME; then
             ibmcloud fn namespace delete $BRANCH_NAME
           fi
