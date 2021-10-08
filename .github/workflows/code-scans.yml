@@ -35,7 +35,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     - name: Post Slack Update
-      if: ${{ failure() }}
+      if: ${{ failure() && github.event_name == 'push' }}
       id: slack
       uses: slackapi/slack-github-action@v1.14.0
       with:
