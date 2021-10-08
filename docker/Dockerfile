@@ -2,6 +2,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4 AS builder
+
+RUN microdnf update -y && \
+    microdnf -y install golang-1.15.14 make && \
+    microdnf clean all
+
+COPY ./ /hri-mgmt-api/
+WORKDIR /hri-mgmt-api
+RUN make
+
+
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4
 
 ENV HOME=/mgmt-api-release/
@@ -11,9 +22,9 @@ RUN microdnf update -y && \
     microdnf -y install shadow-utils.x86_64 && \
     microdnf clean all
 
-COPY src/hri ${HOME}
+COPY --from=builder /hri-mgmt-api/src/hri ${HOME}
 
-WORKDIR mgmt-api-release
+WORKDIR ${HOME}
 
 # Setup hri user 
 # Disable priveledge escalation utilities

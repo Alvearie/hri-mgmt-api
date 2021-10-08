@@ -1,17 +1,12 @@
 # HRI Management API Docker Image
 
 ## Building the Image Locally
-1. First, build the code targeting linux. Because the Confluent Kafka-go library uses a C library that is OS specific, the code has to be built in Linux. This docker command will run a Golang container, mount the source code, and build a binary. Run this from the base directory of the repository.
-    ```shell script
-    docker run --rm -v $(pwd)/src:/hri-mgmt-api/src golang:1.15 /bin/bash -c "cd /hri-mgmt-api/src; go build"
-    ```
+From the base repo directory, run:
+```shell script
+docker build ./ -f docker/Dockerfile
+```
 
-2. Build the image:
-    ```shell script
-    docker build ./ -f docker/Dockerfile
-    ```
-
-    If you have an error that's asking you "Is the docker daemon running?", and it is, then why don't you go catch it?  If it's not, start up Docker by simply opening the Docker application on your computer.
+If you have an error that's asking you "Is the docker daemon running?", and it is, then why don't you go catch it?  If it's not, start up Docker by simply opening the Docker application on your computer.
 
 ## Testing Locally 
 You can test locally by just running the docker container. If you are making changes to your local hri-mgmt-api source code (excluding files not pushed to your branch) as you test, you will need to rebuild the image every time you want to run the container with those changes. If you come across any trouble with this, please see the Troubleshooting section.
