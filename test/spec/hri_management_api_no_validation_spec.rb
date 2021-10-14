@@ -87,7 +87,7 @@ describe 'HRI Management API Without Validation' do
     end
 
     #Delete Batches
-    response = @elastic.es_delete_by_query(TENANT_ID, "name:rspec-#{ENV['BRANCH_NAME']}*")
+    response = @elastic.es_delete_by_query(TENANT_ID, "name:#{@batch_prefix}*")
     response.nil? ? (raise 'Elastic batch delete did not return a response') : (expect(response.code).to eq 200)
     Logger.new(STDOUT).info("Delete test batches by query response #{response.body}")
 
