@@ -5,7 +5,7 @@ require (
 	github.com/IBM/resource-controller-go-sdk-generator v1.0.1
 	github.com/confluentinc/confluent-kafka-go v1.7.0
 	github.com/coreos/go-oidc v2.2.1+incompatible
-	github.com/elastic/go-elasticsearch/v7 v7.15.0
+	github.com/elastic/go-elasticsearch/v7 v7.11.0
 	github.com/go-playground/locales v0.14.0
 	github.com/go-playground/universal-translator v0.18.0
 	github.com/go-playground/validator/v10 v10.9.0
@@ -30,6 +30,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
+// The jwt-go substitution is neccessary for nrecho-v4 to work, as it uses an old version
+// of Echo that is dependent on a vulnerable dependency.  The golang-jwt vers. 4 library
+// was designed to be able to be substitutable for jwt-go in this way.
 replace (
 	github.com/Sirupsen/logrus v1.8.1 => github.com/sirupsen/logrus v1.8.1
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.0.0

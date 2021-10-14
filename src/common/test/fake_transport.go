@@ -82,8 +82,9 @@ func (ft *FakeTransport) RoundTrip(request *http.Request) (*http.Response, error
 	// optionally validate that the request body is as expected
 	ft.checkBody(request.Body, call.RequestBody)
 
-	// convert response status code and body to an http.Response
+	// convert response status code and body to a http.Response
 	httpResp := &http.Response{
+		Header:     http.Header{"X-Elastic-Product": {"Elasticsearch"}},
 		StatusCode: call.ResponseStatusCode,
 		Body:       ioutil.NopCloser(strings.NewReader(call.ResponseBody)),
 	}
