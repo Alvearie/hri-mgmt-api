@@ -4,8 +4,6 @@ on:
   delete:
     branches: [ '**' ]
 
-concurrency: delete-${{ github.ref }}
-
 jobs:
   delete-namespace:
     name: Delete branch namespace
