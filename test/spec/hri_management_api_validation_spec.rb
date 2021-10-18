@@ -98,6 +98,12 @@ describe 'HRI Management API With Validation' do
     Logger.new(STDOUT).info("Delete test batches by query response #{response.body}")
 
     @kafka_consumer.stop
+
+    #Ensure Event Stream topics were deleted
+    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in")
+    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification")
+    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.out")
+    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.invalid")
   end
 
   context 'POST /tenants/{tenant_id}/streams/{integrator_id}' do
