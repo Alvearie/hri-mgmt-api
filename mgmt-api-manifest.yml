@@ -4,7 +4,7 @@
 
 packages:
     hri_mgmt_api:
-        version: 1.2.5
+        version: 1.2.6
         actions:
             create_batch:
                 function: build/batches_create-bin.zip
