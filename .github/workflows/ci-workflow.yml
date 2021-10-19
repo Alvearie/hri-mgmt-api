@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       API_SPEC_DEV_BRANCH: support-1.x
-      API_SPEC_TAG: 
+      API_SPEC_TAG: v1.2.6
       APPID_TENANT: 0f389ea4-778e-4831-9b29-6156c4c1df1e
       APPID_URL: https://us-east.appid.cloud.ibm.com
       JWT_AUDIENCE_ID: 21e7d376-9cdb-4a9d-a11f-9b76c007244d
