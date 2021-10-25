@@ -1,0 +1,78 @@
+name: Release
+
+on: 
+  push:
+    tags: [ '**' ]
+  workflow_dispatch:
+
+concurrency: release-${{ github.ref }}
+
+env:
+  IMAGE_NAME: mgmt-api
+  WH_COMMONS_CR: us.icr.io/wh-common-rns/hri
+
+jobs:
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Determine Image Name & Tag
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          VERSION=$(echo $VERSION | sed -e 's/^v//')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo IMAGE_ID=$IMAGE_ID:$VERSION
+          echo "IMAGE_ID=$IMAGE_ID:$VERSION" >> $GITHUB_ENV
+
+      - name: Build image
+        run: docker build . --file docker/Dockerfile --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
+
+      - name: Dockle Linter
+        uses: erzz/dockle-action@v1.1.1
+        with:
+          image: "${{ env.IMAGE_ID }}"
+          report-format: sarif
+          exit-code: 1
+          failure-threshold: 'WARN'
+
+      - name: Vulnerability Scan
+        uses: aquasecurity/trivy-action@0.0.20
+        with:
+          image-ref: "${{ env.IMAGE_ID }}"
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Log in to registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push image
+        run: docker push $IMAGE_ID
+
+      - name: Push image to WH Commons CR
+        env:
+          CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
+        run: |
+          curl -sL https://ibm.biz/idt-installer | bash
+          ibmcloud login --apikey $CLOUD_API_KEY -r us-south
+          ibmcloud cr login
+          docker tag $IMAGE_ID $WH_COMMONS_CR/$IMAGE_NAME:$VERSION
+          docker push $WH_COMMONS_CR/$IMAGE_NAME:$VERSION
+
+      - name: Post Slack Update
+        if: ${{ failure() }}
+        id: slack
+        uses: slackapi/slack-github-action@v1.14.0
+        with:
+          payload: "{\"Repo\":\"${{ github.repository }}\",\"Workflow\":\"${{ github.workflow }}\",\"Branch\":\"${{ env.BRANCH_NAME }}\",\"Link\":\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

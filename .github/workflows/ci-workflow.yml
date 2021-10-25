@@ -1,0 +1,156 @@
+name: CI Workflow
+
+on:
+  push:
+    branches: [ '**' ]
+  workflow_dispatch:
+
+concurrency: ci-${{ github.ref }}
+
+jobs:
+
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    env:
+      API_SPEC_DEV_BRANCH: main
+      API_SPEC_TAG: 3.1-2.0.2
+      APPID_TENANT: 0f389ea4-778e-4831-9b29-6156c4c1df1e
+      APPID_URL: https://us-east.appid.cloud.ibm.com
+      ELASTIC_CRN: "crn:v1:bluemix:public:databases-for-elasticsearch:us-east:a/52366c9ab214402f9e96917b1b2850e9:c9acb36a-0feb-4b6e-aac1-6651c71d19e4::"
+      ELASTIC_URL: https://c9acb36a-0feb-4b6e-aac1-6651c71d19e4.2adb0220806343e3ae11df79c89b377f.databases.appdomain.cloud:32085
+      HRI_URL: https://localhost:1323/hri
+      IAM_CLOUD_URL: https://iam.cloud.ibm.com
+      JWT_AUDIENCE_ID: 21e7d376-9cdb-4a9d-a11f-9b76c007244d
+      KAFKA_BROKERS: broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093
+      KAFKA_INSTANCE: hri-dev1-event-streams
+      TENANT_ID: test
+      COS_URL: https://s3.us-east.cloud-object-storage.appdomain.cloud
+
+      CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
+      ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
+      ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
+      KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
+
+    steps:
+      - name: Set Branch Name
+        uses: nelonoel/branch-name@v1.0.1
+
+      - name: Install Go 1.15
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Copyright Check
+        run: ./copyrightCheck.sh
+
+      - name: Build HRI Executable and Run Unit Tests
+        run: make
+
+      - name: Run Smoke Tests
+        run: ./run-smoketests.sh
+
+      - name: Install Ruby 2.6.5
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.6.5
+          bundler-cache: false
+
+      - name: Install Ruby Gems, Run Dredd Tests, and Run IVT
+        run: |
+          gem install bundler
+          BUNDLE_GEMFILE="./test/Gemfile" bundle install
+          gem specific_install -l https://github.com/Alvearie/hri-test-helpers.git main
+          gem install dredd_hooks
+          ./run-dreddtests.sh
+          curl -sL https://ibm.biz/idt-installer | bash
+          ibmcloud login --apikey $CLOUD_API_KEY -r us-east || { echo 'IBM Cloud CLI login failed!'; exit 1; }
+          ibmcloud plugin install event-streams
+          ibmcloud es init -i ${KAFKA_INSTANCE}
+          ./run-ivttests.sh
+
+      - name: Upload Test Results
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-')
+        run: |
+          ./combine_ivt_results.sh
+          ./test/spec/upload_test_reports.rb IVT
+          ./test/spec/upload_test_reports.rb Dredd
+
+      - name: Post Slack Update
+        if: ${{ failure() && ( github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-') ) }}
+        id: slack
+        uses: slackapi/slack-github-action@v1.14.0
+        with:
+          payload: "{\"Repo\":\"${{ github.repository }}\",\"Workflow\":\"${{ github.workflow }}\",\"Branch\":\"${{ env.BRANCH_NAME }}\",\"Link\":\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  docker-build:
+    name: Docker Build
+    needs: build
+    if: ${{ github.ref == 'refs/heads/develop' }}
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: mgmt-api
+      TOOLCHAIN_ID: 44eca025-5bc3-4dc9-8d86-d8c4956d09f0
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Determine Image Name & Tag
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository }}/$IMAGE_NAME
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          echo IMAGE_ID=$IMAGE_ID:$VERSION
+          echo "IMAGE_ID=$IMAGE_ID:$VERSION" >> $GITHUB_ENV
+
+      - name: Build image
+        run: docker build . --file docker/Dockerfile --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
+
+      - name: Dockle Linter
+        uses: erzz/dockle-action@v1.1.1
+        with:
+          image: "${{ env.IMAGE_ID }}"
+          report-format: sarif
+          exit-code: 1
+          failure-threshold: 'WARN'
+
+      - name: Vulnerability Scan
+        uses: aquasecurity/trivy-action@0.0.20
+        with:
+          image-ref: "${{ env.IMAGE_ID }}"
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Log in to registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push image
+        run: docker push $IMAGE_ID
+
+      - name: Trigger IBM Toolchain
+        if: github.ref == 'refs/heads/develop'
+        env:
+          CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
+        run: |
+          curl -sL https://ibm.biz/idt-installer | bash
+          ibmcloud login --apikey $CLOUD_API_KEY -r us-east
+          ibmcloud dev tekton-trigger $TOOLCHAIN_ID --trigger-name 'CD Manual Trigger'
+
+      - name: Post Slack Update
+        if: ${{ failure() }}
+        id: slack
+        uses: slackapi/slack-github-action@v1.14.0
+        with:
+          payload: "{\"Repo\":\"${{ github.repository }}\",\"Workflow\":\"${{ github.workflow }}\",\"Branch\":\"${{ env.BRANCH_NAME }}\",\"Link\":\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

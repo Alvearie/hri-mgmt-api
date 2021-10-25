@@ -23,21 +23,14 @@ import (
 const requestId string = "testRequestId"
 
 func TestHealthcheck(t *testing.T) {
-	//Success Case Kafka Partition Reader
-	defaultKafkaReader := test.FakePartitionReader{
-		T:          t,
-		Partitions: test.GetFakeTwoPartitionSlice(),
-		Err:        nil,
-	}
-
 	logwrapper.Initialize("error", os.Stdout)
 
 	testCases := []struct {
-		name         string
-		transport    *test.FakeTransport
-		kafkaReader  kafka.PartitionReader
-		expectedCode int
-		expectedBody *response.ErrorDetail
+		name               string
+		transport          *test.FakeTransport
+		kafkaHealthChecker kafka.HealthChecker
+		expectedCode       int
+		expectedBody       *response.ErrorDetail
 	}{
 		{
 			name: "Success-case",
@@ -63,9 +56,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader:  defaultKafkaReader,
-			expectedCode: http.StatusOK,
-			expectedBody: nil,
+			kafkaHealthChecker: fakeKafkaHealthChecker{},
+			expectedCode:       http.StatusOK,
+			expectedBody:       nil,
 		},
 		{
 			name: "elastic-search-bad-status",
@@ -91,9 +84,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader:  defaultKafkaReader,
-			expectedCode: http.StatusServiceUnavailable,
-			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{},
+			expectedCode:       http.StatusServiceUnavailable,
+			expectedBody:       response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
 		},
 		{
 			name: "invalid-ES-response-missing-status-field",
@@ -108,9 +101,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader:  defaultKafkaReader,
-			expectedCode: http.StatusServiceUnavailable,
-			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: NONE/NotReported, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{},
+			expectedCode:       http.StatusServiceUnavailable,
+			expectedBody:       response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: NONE/NotReported, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886"),
 		},
 		{
 			name: "invalid-ES-response-missing-cluster-or-epoch-field",
@@ -133,9 +126,9 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader:  defaultKafkaReader,
-			expectedCode: http.StatusServiceUnavailable,
-			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: NotReported, unixTimestamp: NotReported"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{},
+			expectedCode:       http.StatusServiceUnavailable,
+			expectedBody:       response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: NotReported, unixTimestamp: NotReported"),
 		},
 		{
 			name: "ES-client-error",
@@ -145,13 +138,13 @@ func TestHealthcheck(t *testing.T) {
 					ResponseErr: errors.New("client error"),
 				},
 			),
-			kafkaReader:  defaultKafkaReader,
-			expectedCode: http.StatusServiceUnavailable,
+			kafkaHealthChecker: fakeKafkaHealthChecker{},
+			expectedCode:       http.StatusServiceUnavailable,
 			expectedBody: response.NewErrorDetail(requestId,
 				"Could not perform elasticsearch health check: [500] elasticsearch client error: client error"),
 		},
 		{
-			name: "Kafka-connection-returns-err",
+			name: "Kafka-health-check-returns-err",
 			transport: test.NewFakeTransport(t).AddCall(
 				"/_cat/health",
 				test.ElasticCall{
@@ -174,13 +167,11 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: test.FakePartitionReader{
-				T:          t,
-				Partitions: nil,
-				Err:        errors.New("ResponseError contacting Kafka cluster: could not read partitions"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{
+				err: errors.New("ResponseError contacting Kafka cluster: could not read partitions"),
 			},
 			expectedCode: http.StatusServiceUnavailable,
-			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: Kafka status: Kafka Connection/Read Partition failed"),
+			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ResponseError contacting Kafka cluster: could not read partitions"),
 		},
 		{
 			name: "Kafka-returns-Err-AND-ES-return-bad-status",
@@ -206,13 +197,11 @@ func TestHealthcheck(t *testing.T) {
 					}]`)))),
 				},
 			),
-			kafkaReader: test.FakePartitionReader{
-				T:          t,
-				Partitions: nil,
-				Err:        errors.New("ResponseError contacting Kafka cluster: could not read partitions"),
+			kafkaHealthChecker: fakeKafkaHealthChecker{
+				err: errors.New("ResponseError contacting Kafka cluster: could not read partitions"),
 			},
 			expectedCode: http.StatusServiceUnavailable,
-			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886| Kafka status: Kafka Connection/Read Partition failed"),
+			expectedBody: response.NewErrorDetail(requestId, "HRI Service Temporarily Unavailable | error Detail: ElasticSearch status: red, clusterId: 8165307e-6130-4581-942d-20fcfc4e795d, unixTimestamp: 1578512886 | ResponseError contacting Kafka cluster: could not read partitions"),
 		},
 	}
 
@@ -223,11 +212,23 @@ func TestHealthcheck(t *testing.T) {
 		}
 
 		t.Run(tc.name, func(t *testing.T) {
-			actualCode, actualBody := Get(requestId, client, tc.kafkaReader)
+			actualCode, actualBody := Get(requestId, client, tc.kafkaHealthChecker)
 			if actualCode != tc.expectedCode || !reflect.DeepEqual(tc.expectedBody, actualBody) {
 				//notify/print error event as test result
 				t.Errorf("HealthCheck-Get()\n   actual: %v,%v\n expected: %v,%v", actualCode, actualBody, tc.expectedCode, tc.expectedBody)
 			}
 		})
 	}
+}
+
+type fakeKafkaHealthChecker struct {
+	err error
+}
+
+func (fhc fakeKafkaHealthChecker) Check() error {
+	return fhc.err
+}
+
+func (fhc fakeKafkaHealthChecker) Close() {
+	return
 }

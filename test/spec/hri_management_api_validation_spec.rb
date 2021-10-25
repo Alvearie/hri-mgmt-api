@@ -9,8 +9,8 @@ describe 'HRI Management API With Validation' do
   INVALID_ID = 'INVALID'
   TENANT_ID = ENV['TENANT_ID']
   INTEGRATOR_ID = 'claims'
-  TEST_TENANT_ID = "rspec-#{ENV['TRAVIS_BRANCH'].delete('.')}-test-tenant".downcase
-  TEST_INTEGRATOR_ID = "rspec-#{ENV['TRAVIS_BRANCH'].delete('.')}-test-integrator".downcase
+  TEST_TENANT_ID = "rspec-#{ENV['BRANCH_NAME'].delete('.')}-test-tenant".downcase
+  TEST_INTEGRATOR_ID = "rspec-#{ENV['BRANCH_NAME'].delete('.')}-test-integrator".downcase
   DATA_TYPE = 'rspec-batch'
   STATUS = 'started'
   BATCH_INPUT_TOPIC = "ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.in"
@@ -36,7 +36,7 @@ describe 'HRI Management API With Validation' do
     @config_path = File.absolute_path(File.join(File.dirname(__FILE__), "test_config"))
     @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "/"))
 
-    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, '-validation true')
+    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, '-validation=true')
     response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
     unless response.code == 200
       raise "Health check failed: #{response.body}"
@@ -48,7 +48,7 @@ describe 'HRI Management API With Validation' do
     @kafka_consumer.subscribe("ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.notification")
 
     #Create Batch
-    @batch_prefix = "rspec-#{ENV['TRAVIS_BRANCH'].delete('.')}"
+    @batch_prefix = "rspec-#{ENV['BRANCH_NAME'].delete('.')}"
     @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
     create_batch = {
       name: @batch_name,
@@ -93,11 +93,17 @@ describe 'HRI Management API With Validation' do
     end
 
     #Delete Batches
-    response = @elastic.es_delete_by_query(TENANT_ID, "name:rspec-#{ENV['TRAVIS_BRANCH']}*")
+    response = @elastic.es_delete_by_query(TENANT_ID, "name:#{@batch_prefix}*")
     response.nil? ? (raise 'Elastic batch delete did not return a response') : (expect(response.code).to eq 200)
     Logger.new(STDOUT).info("Delete test batches by query response #{response.body}")
 
     @kafka_consumer.stop
+
+    #Ensure Event Stream topics were deleted
+    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in")
+    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification")
+    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.out")
+    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.invalid")
   end
 
   context 'POST /tenants/{tenant_id}/streams/{integrator_id}' do
@@ -142,15 +148,19 @@ describe 'HRI Management API With Validation' do
   context 'DELETE /tenants/{tenant_id}/streams/{integrator_id}' do
 
     it 'Success' do
-      #Delete Stream
-      response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID)
-      expect(response.code).to eq 200
+      #Delete Stream and Verify Deletion
+      Timeout.timeout(20, nil, 'Kafka topics not deleted after 20 seconds') do
+        loop do
+          response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID)
+          break if response.code == 200
 
-      #Verify Stream Deletion
-      response = @mgmt_api_helper.hri_get_tenant_streams(TEST_TENANT_ID)
-      expect(response.code).to eq 200
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['results']).to eql []
+          response = @mgmt_api_helper.hri_get_tenant_streams(TEST_TENANT_ID)
+          expect(response.code).to eq 200
+          parsed_response = JSON.parse(response.body)
+          break if parsed_response['results'] == []
+          sleep 1
+        end
+      end
 
       #Delete Tenant
       response = @mgmt_api_helper.hri_delete_tenant(TEST_TENANT_ID)

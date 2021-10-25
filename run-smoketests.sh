@@ -10,7 +10,7 @@ passing=0
 failing=0
 output=""
 
-./src/hri -config-path=test/spec/test_config/valid_config.yml >/dev/null &
+./src/hri -config-path=test/spec/test_config/valid_config.yml -kafka-properties=security.protocol:sasl_ssl,sasl.mechanism:PLAIN,sasl.username:token,sasl.password:$KAFKA_PASSWORD,ssl.endpoint.identification.algorithm:https >/dev/null &
 sleep 1
 HRI_WEB_SERVER_STATUS=$(curl -k --write-out "%{http_code}\n" --silent "$HRI_URL/healthcheck" )
 if [ $HRI_WEB_SERVER_STATUS -eq 200 ]; then

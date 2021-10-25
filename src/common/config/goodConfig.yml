@@ -25,12 +25,14 @@ elastic-cert: |
   +PQzp/B9cQmOO8dCe049Q3oaUA==
   -----END CERTIFICATE-----
 elastic-crn: "elasticCrn"
-kafka-username: "kafkaUsername"
-kafka-password: "kafkaPassword"
 kafka-admin-url: "https://ibm.kafka.com"
 kafka-brokers:
   - "broker 1"
   - "broker 2"
+kafka-properties:
+  - "sasl.mechanism:PLAIN"
+  - "sasl.username:kafkaUsername"
+  - "sasl.password:kafkaPassword"
 new-relic-enabled: true
 new-relic-app-name: "nrAppName"
 # New relic License Keys have to be 40 characters long

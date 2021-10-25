@@ -6,56 +6,78 @@
 package kafka
 
 import (
-	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
-	kg "github.com/segmentio/kafka-go"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"strings"
 )
 
 type Writer interface {
 	Write(topic string, key string, val map[string]interface{}) error
+	Close()
 }
 
-type KafkaConnect struct {
-	Brokers []string
-	Dialer  *kg.Dialer
+// internal type that meets the Writer interface
+type confluentKafkaWriter struct {
+	confluentProducer
 }
 
-func (kc KafkaConnect) Write(topic string, key string, val map[string]interface{}) error {
+// internal interface for unit testing
+type confluentProducer interface {
+	Produce(*kafka.Message, chan kafka.Event) error
+	Events() chan kafka.Event
+	Flush(int) int
+	Close()
+}
+
+func NewWriterFromConfig(config config.Config) (Writer, error) {
+	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
+	for key, value := range config.KafkaProperties {
+		kafkaConfig.SetKey(key, value)
+	}
+
+	producer, err := kafka.NewProducer(kafkaConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing Kafka producer: %w", err)
+	}
+
+	return confluentKafkaWriter{
+		producer,
+	}, nil
+}
+
+// This method is not thread safe. Each thread needs it's own ConfluentKafkaWriter instance
+func (cfk confluentKafkaWriter) Write(topic string, key string, val map[string]interface{}) error {
 	jsonVal, err := json.Marshal(val)
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshaling kafka message: %w", err)
 	}
 
-	// NOTE: The Kafka Go Library used for this writer is DEPRECATED.  There has been an attempt to update
-	// the version in the past (shoutout to Aram), but while going down that rabbit hole, he discovered
-	// copious issues.  Thus, full implementation of the update was adjourned.
+	err = cfk.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+		Key:            []byte(key),
+		Value:          jsonVal,
+	}, nil) // nil uses the default producer channel
 
-	// Configure batch size so that message is sent immediately, instead of waiting for 1-second timeout.
-	// We also must set the TLS version to match example provided in Event Streams "Getting Started" guide
-	writer := kg.NewWriter(kg.WriterConfig{
-		Brokers:   kc.Brokers,
-		Topic:     topic,
-		Balancer:  kg.Murmur2Balancer{},
-		BatchSize: 1,
-		Dialer:    kc.Dialer,
-	})
-
-	defer writer.Close()
-
-	// Context object is only useful in async mode, to cancel jobs, but we still must provide an instance
-	return writer.WriteMessages(
-		context.Background(),
-		kg.Message{Key: []byte(key), Value: []byte(jsonVal)},
-	)
-}
-
-func NewWriterFromConfig(config config.Config) Writer {
-	brokers := config.KafkaBrokers
-	dialer := CreateDialerFromConfig(config)
-
-	return KafkaConnect{
-		Brokers: brokers,
-		Dialer:  dialer,
+	if err != nil {
+		return fmt.Errorf("kafka producer error: %w", err)
 	}
+
+	// wait upto 1 second for messages to be written
+	cfk.Flush(1000)
+
+	// The Confluent Kafka library sends the messages in a separate thread and
+	// a channel is used to communicate a result back. This call blocks until
+	// that threads sends the result back over the channel, and let's us verify
+	// there weren't any issues. This pattern was taken from the library's examples:
+	// https://github.com/confluentinc/confluent-kafka-go/blob/master/examples/producer_example/producer_example.go
+	e := <-cfk.Events()
+	m := e.(*kafka.Message)
+
+	if m.TopicPartition.Error != nil {
+		return fmt.Errorf("kafka producer error: %w", m.TopicPartition.Error)
+	}
+
+	return nil
 }

@@ -21,6 +21,7 @@ require 'logger'
 require 'securerandom'
 require 'kafka'
 require 'base64'
+require 'nokogiri'
 
 require 'hritesthelpers'
 

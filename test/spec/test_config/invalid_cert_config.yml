@@ -25,11 +25,22 @@ elastic-cert: |
   i+3XjJ7/peF3xMvTMoy35DcT3E2ZeSVjouZs15O90kI3k2daS2OHJABW0vSj4nLz
   +PQzp/B9cQmOO8dCe049Q3oaUA==
   -----END CERTIFICATE-----
-kafka-username: "token"
-kafka-password: "kafkaPassword"
 kafka-admin-url: "https://twvyj4m0kft5j0mh.svc01.us-east.eventstreams.cloud.ibm.com"
-kafka-brokers: "broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093,broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
+kafka-brokers:
+  - "broker-4-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
+  - "broker-3-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
+  - "broker-2-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
+  - "broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
+  - "broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
+  - "broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
+kafka-properties:
+  - "security.protocol:sasl_ssl"
+  - "sasl.mechanism:PLAIN"
+  - "sasl.username:token"
+  - "sasl.password:kafkaPassword"
+  - "ssl.endpoint.identification.algorithm:https"
 new-relic-enabled: false
 tls-enabled: true
 tls-cert-path: "cert.pem"
 tls-key-path: "key.pem"
+log-level: info

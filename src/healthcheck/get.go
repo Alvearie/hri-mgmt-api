@@ -13,18 +13,15 @@ import (
 	esp "github.com/Alvearie/hri-mgmt-api/common/param/esparam"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/elastic/go-elasticsearch/v7"
-	"github.com/sirupsen/logrus"
 	"net/http"
-	"strconv"
 )
 
 const statusAllGood string = "green"
 const serviceUnavailableMsg string = "HRI Service Temporarily Unavailable | error Detail: %v"
-const kafkaConnFail string = "Kafka status: Kafka Connection/Read Partition failed"
 const notReported string = "NotReported"
 const noStatusReported = "NONE/" + notReported
 
-func Get(requestId string, client *elasticsearch.Client, partReader kafka.PartitionReader) (int, *response.ErrorDetail) {
+func Get(requestId string, client *elasticsearch.Client, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
 	prefix := "healthcheck/get"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Infof("Prepare HealthCheck - ElasticSearch (No Input Params)")
@@ -54,35 +51,29 @@ func Get(requestId string, client *elasticsearch.Client, partReader kafka.Partit
 			status, unixTimestamp)
 	}
 
-	//2. Do Kafka Conn healthCheck
-	isAvailable, err := kafka.CheckConnection(partReader)
-	logger.Infoln("Kafka HealthCheck Result: " + strconv.FormatBool(isAvailable))
+	//2. Do Kafka healthCheck
+	err = healthChecker.Check()
+	logger.Infof("Kafka HealthCheck error: %v", err)
 	var kaErrMsg = ""
-	if err != nil || isAvailable == false {
+	if err != nil {
 		isErr = true
-		kaErrMsg = printKafkaErrDetail(logger)
+		kaErrMsg = err.Error()
 		logger.Errorln(kaErrMsg)
 	}
 
 	var errMessage string
 	if isErr {
 		if len(esErrMsg) > 0 && len(kaErrMsg) > 0 {
-			errMessage = esErrMsg + "| " + kafkaConnFail
+			errMessage = fmt.Sprintf(serviceUnavailableMsg, esErrMsg+" | "+kaErrMsg)
 		} else if len(kaErrMsg) > 0 {
-			errMessage = kaErrMsg
+			errMessage = fmt.Sprintf(serviceUnavailableMsg, kaErrMsg)
 		} else {
-			errMessage = esErrMsg
+			errMessage = fmt.Sprintf(serviceUnavailableMsg, esErrMsg)
 		}
 		return http.StatusServiceUnavailable, response.NewErrorDetail(requestId, errMessage)
 	} else { //All Good for BOTH ElasticSearch AND Kafka Healthcheck
 		return http.StatusOK, nil
 	}
-}
-
-func printKafkaErrDetail(logger logrus.FieldLogger) string {
-	errMessage := fmt.Sprintf(serviceUnavailableMsg, kafkaConnFail)
-	logger.Errorln(errMessage)
-	return errMessage
 }
 
 func getESErrorDetail(decodedResultBody map[string]interface{}, status string) string {
@@ -106,6 +97,5 @@ func getReturnedTimestamp(decodedResultBody map[string]interface{}) string {
 }
 
 func createESErrMsg(epoch string, clusterId string, status string) string {
-	errDetails := "ElasticSearch status: " + status + ", clusterId: " + clusterId + ", unixTimestamp: " + epoch
-	return fmt.Sprintf(serviceUnavailableMsg, errDetails)
+	return "ElasticSearch status: " + status + ", clusterId: " + clusterId + ", unixTimestamp: " + epoch
 }

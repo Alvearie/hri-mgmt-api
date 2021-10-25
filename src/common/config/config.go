@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"flag"
+	"fmt"
 	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffyaml"
 	"net/url"
@@ -27,10 +28,9 @@ type Config struct {
 	ElasticPassword    string
 	ElasticCert        string
 	ElasticServiceCrn  string
-	KafkaUsername      string
-	KafkaPassword      string
-	KafkaAdminUrl      string
+	KafkaAdminUrl      string // required for IBM Event Streams to manage topics
 	KafkaBrokers       StringSlice
+	KafkaProperties    StringMap // valid properties: https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
 	LogLevel           string
 	NewRelicEnabled    bool
 	NewRelicAppName    string
@@ -52,6 +52,32 @@ func (ss *StringSlice) Set(s string) error {
 // Return an empty string. This method is required for the flag.Value interface, but is not needed for the hri-mgmt-api.
 func (ss *StringSlice) String() string {
 	return ""
+}
+
+// StringMap is a flag.Value that collects each Set(string) into a map
+// using ':' as the key:value separator and allowing for repeated flags.
+type StringMap map[string]string
+
+// Set implements flag.Value and appends the string to the slice.
+func (sm *StringMap) Set(s string) error {
+	if *sm == nil {
+		*sm = make(StringMap)
+	}
+
+	entries := strings.Split(s, ",")
+	for i := range entries {
+		tokens := strings.Split(entries[i], ":")
+		if len(tokens) != 2 {
+			return errors.New("invalid StringMap entry '" + entries[i] + "'; it must contain exactly one ':' to separate the key from the value")
+		}
+		(*sm)[tokens[0]] = tokens[1]
+	}
+	return nil
+}
+
+// This method is required for the flag.Value interface, but is not needed for the hri-mgmt-api.
+func (sm *StringMap) String() string {
+	return fmt.Sprint(*sm)
 }
 
 // ValidateConfig Perform verification on the finalized config.  Return an error if validation failed.
@@ -88,12 +114,6 @@ func ValidateConfig(config Config) error {
 	}
 	if config.ElasticServiceCrn == "" {
 		errorBuilder.WriteString("\n\tAn Elasticsearch service CRN was not specified")
-	}
-	if config.KafkaUsername == "" {
-		errorBuilder.WriteString("\n\tA Kafka username was not specified")
-	}
-	if config.KafkaPassword == "" {
-		errorBuilder.WriteString("\n\tA Kafka password was not specified")
 	}
 	if config.KafkaAdminUrl == "" {
 		errorBuilder.WriteString("\n\tThe Kafka administration url was not specified")
@@ -143,10 +163,9 @@ func GetConfig(configPath string, commandLineFlags []string) (Config, error) {
 	fs.StringVar(&config.ElasticPassword, "elastic-password", "", "(Optional) Elasticsearch password")
 	fs.StringVar(&config.ElasticCert, "elastic-cert", "", "(Optional) Elasticsearch TLS public certificate")
 	fs.StringVar(&config.ElasticServiceCrn, "elastic-crn", "", "(Optional) Elasticsearch service CRN")
-	fs.StringVar(&config.KafkaUsername, "kafka-username", "", "(Optional) Kafka user name")
-	fs.StringVar(&config.KafkaPassword, "kafka-password", "", "(Optional) Kafka password")
 	fs.StringVar(&config.KafkaAdminUrl, "kafka-admin-url", "", "(Optional) Kafka administration url")
 	fs.Var(&config.KafkaBrokers, "kafka-brokers", "(Optional) A list of Kafka brokers, separated by \",\"")
+	fs.Var(&config.KafkaProperties, "kafka-properties", "(Optional) A list of Kafka properties, entries separated by \",\", key value pairs separated by \":\"")
 	fs.StringVar(&config.LogLevel, "log-level", "info", "(Optional) Minimum Log Level for logging output. Available levels are: Trace, Debug, Info, Warning, Error, Fatal and Panic.")
 	fs.BoolVar(&config.NewRelicEnabled, "new-relic-enabled", false, "(Optional) True to enable New Relic monitoring, false otherwise")
 	fs.StringVar(&config.NewRelicAppName, "new-relic-app-name", "", "(Optional) Application name to aggregate data under in New Relic")

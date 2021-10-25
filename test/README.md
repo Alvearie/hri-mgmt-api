@@ -36,27 +36,25 @@
     
     NOTE: Ensure that your Ruby versions match across terminal default, Gemfile, and Gemfile.lock. If using IntelliJ, Ruby version in your module should match as well.
 
-8. (Optional) To run tests locally, export these environment variables. All of the values can be found in GitHub actions unless otherwise specified.
+8. (Optional) To run tests locally, export these environment variables. Most of the values can be found in `.github/workflows/ci-workflow.yml`, and the remaining values should be found in your password manager.
 
     - APPID_TENANT
     - APPID_URL
-    - CLOUD_API_KEY - Password Manager
-    - COS_URL
+    - CLOUD_API_KEY
     - ELASTIC_CRN
-    - ELASTIC_PASSWORD - IBM Cloud -> Elasticsearch service -> Service credentials -> elastic-search-credential -> "password" field
+    - ELASTIC_PASSWORD
     - ELASTIC_URL
     - ELASTIC_USERNAME
     - HRI_URL
     - IAM_CLOUD_URL
     - JWT_AUDIENCE_ID
     - KAFKA_BROKERS
-    - KAFKA_PASSWORD - IBM Cloud -> EventStreams service -> Service credentials -> dev-test -> "password" field
-    - KAFKA_USERNAME
+    - KAFKA_PASSWORD
     - TENANT_ID
 
-   You will also need to set an environment variable called TRAVIS_BRANCH that corresponds to your current working branch.
+   You will also need to set an environment variable called BRANCH_NAME that corresponds to your current working branch.
    
-   Then, install the IBM Cloud CLI and the Event Streams CLI. You can find the RESOURCE_GROUP in GitHub actions and the CLOUD_API_KEY in our password manager:
+   Then, install the IBM Cloud CLI and the Event Streams CLI. You can find the RESOURCE_GROUP in `.github/workflows/ci-workflow.yml` and the CLOUD_API_KEY in your password manager:
    ```bash
    curl -sL https://ibm.biz/idt-installer | bash
    bx login --apikey {CLOUD_API_KEY}
@@ -64,13 +62,13 @@
    bx plugin install event-streams
    bx es init
    ```
-           
-   Select the number corresponding to the KAFKA_INSTANCE.
+
+   Select the number corresponding to the KAFKA_INSTANCE in `.github/workflows/ci-workflow.yml`.
 
    The last step before running the tests is to install the `hri-test-helpers` gem locally. Run the following commands:
       ```bash
          gem install specific_install
-         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b master
+         gem specific_install -l git@github.com:Alvearie/hri-test-helpers.git -b main
       ```
    Then, add the following line to Gemfile, but *do not commit this change to Github*:
    ```gem 'hri-test-helpers```
@@ -80,7 +78,7 @@
     ```rspec test/spec --tag ~@broken```
     
 # Dredd Tests
-Dredd is used to verify the implemented API meets our published [specification](https://github.com/Alvearie/hri-api-spec/blob/main/management-api/management.yml).
+Dredd is used to verify the implemented API meets our published [specification](https://github.com/Alvearie/hri-api-spec/blob/develop/management-api/management.yml).
 By default, it generates a test for every endpoint, uses the example values for input, and verifies the response matches the 200 response schema. All other responses are skipped. Ruby 'hooks' are used to modify the default behavior and do setup/teardown.
 Here are some helpful documentation links:
 * https://dredd.org/en/latest/hooks/ruby.html
@@ -103,7 +101,7 @@ gem install dredd_hooks
 
 ### Running Dredd Tests
 First you need to convert the API spec to Swagger 2.0, so checkout the hri-api-spec [repo](https://github.com/Alvearie/hri-api-spec).
-Then use api-spec-converter to convert it. You should make a branch with the same name if changes are needed. The build will checkout the same branch if it exists. 
+Then use api-spec-converter to convert it. You should make a branch with the same name if changes are needed. The build will checkout the same branch if it exists.
 ```bash
 api-spec-converter -f openapi_3 -t swagger_2 -s yaml hri-api-spec/management-api/management.yml > hri-api-spec/management-api/management.swagger.yml
 ```

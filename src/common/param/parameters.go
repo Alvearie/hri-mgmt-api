@@ -6,8 +6,6 @@
 package param
 
 const (
-	BoundCreds string = "__bx_creds"
-
 	BatchId             string = "id"
 	TenantId            string = "tenantId"
 	StreamId            string = "id"

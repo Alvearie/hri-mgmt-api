@@ -7,7 +7,6 @@
 package healthcheck
 
 import (
-	"errors"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
@@ -54,10 +53,7 @@ func TestHealthcheckHandler(t *testing.T) {
 			name: "Good healthcheck",
 			handler: &theHandler{
 				config: config.Config{},
-				partitionReaderFromConfig: func(config config.Config) (kafka.PartitionReader, error) {
-					return test.FakePartitionReader{}, nil
-				},
-				healthcheck: func(requestId string, client *elasticsearch.Client, partReader kafka.PartitionReader) (int, *response.ErrorDetail) {
+				healthcheck: func(requestId string, client *elasticsearch.Client, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
 					return http.StatusOK, nil
 				},
 			},
@@ -68,10 +64,7 @@ func TestHealthcheckHandler(t *testing.T) {
 			name: "Bad healthcheck",
 			handler: &theHandler{
 				config: config.Config{},
-				partitionReaderFromConfig: func(config config.Config) (kafka.PartitionReader, error) {
-					return test.FakePartitionReader{}, nil
-				},
-				healthcheck: func(requestId string, client *elasticsearch.Client, partReader kafka.PartitionReader) (int, *response.ErrorDetail) {
+				healthcheck: func(requestId string, client *elasticsearch.Client, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
 					return http.StatusServiceUnavailable, response.NewErrorDetail(requestId, "Elastic not available")
 				},
 			},
@@ -81,13 +74,8 @@ func TestHealthcheckHandler(t *testing.T) {
 		{
 			name: "Elastic client error",
 			handler: &theHandler{
-				config: config.Config{ElasticUrl: "https://an.invalid url.com/", ElasticCert: "Invalid Cert"},
-				partitionReaderFromConfig: func(config config.Config) (kafka.PartitionReader, error) {
-					return test.FakePartitionReader{}, nil
-				},
-				healthcheck: func(requestId string, client *elasticsearch.Client, partReader kafka.PartitionReader) (int, *response.ErrorDetail) {
-					return http.StatusOK, nil
-				},
+				config:      config.Config{ElasticUrl: "https://an.invalid url.com/", ElasticCert: "Invalid Cert"},
+				healthcheck: nil,
 			},
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: "{\"errorEventId\":\"" + requestId + "\",\"errorDescription\":\"cannot create client: cannot parse url: parse \\\"https://an.invalid url.com\\\": invalid character \\\" \\\" in host name\"}\n",
@@ -95,14 +83,11 @@ func TestHealthcheckHandler(t *testing.T) {
 		{
 			name: "Kafka client error",
 			handler: &theHandler{
-				config: config.Config{},
-				partitionReaderFromConfig: func(config config.Config) (kafka.PartitionReader, error) {
-					return nil, errors.New("something went wrong")
-				},
+				config:      config.Config{KafkaProperties: config.StringMap{"message.max.bytes": "bad_value"}},
 				healthcheck: nil,
 			},
 			expectedCode: http.StatusInternalServerError,
-			expectedBody: "{\"errorEventId\":\"" + requestId + "\",\"errorDescription\":\"something went wrong\"}\n",
+			expectedBody: "{\"errorEventId\":\"" + requestId + "\",\"errorDescription\":\"error constructing Kafka admin client: Invalid value for configuration property \\\"message.max.bytes\\\"\"}\n",
 		},
 	}
 

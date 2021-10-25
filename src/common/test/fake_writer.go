@@ -48,3 +48,7 @@ func copyValue(value map[string]interface{}) map[string]interface{} {
 	}
 	return rtn
 }
+
+func (fw FakeWriter) Close() {
+	return
+}
