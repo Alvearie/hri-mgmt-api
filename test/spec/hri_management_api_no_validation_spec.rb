@@ -286,6 +286,7 @@ describe 'HRI Management API Without Validation' do
     it 'Success With Invalid Topic Only' do
       invalid_topic = "ingest.#{TENANT_ID}.#{TEST_INTEGRATOR_ID}.invalid"
       @event_streams_helper.create_topic(invalid_topic, 1)
+      
       response = @hri_helper.hri_get_tenant_streams(TENANT_ID)
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
@@ -296,9 +297,6 @@ describe 'HRI Management API Without Validation' do
       raise "Tenant Stream Not Found: #{TEST_INTEGRATOR_ID}" unless stream_found
 
       Timeout.timeout(15, nil, "Timed out waiting for the '#{invalid_topic}' topic to be deleted") do
-        loop do
-          break if @event_streams_helper.get_topics.include?(invalid_topic)
-        end
         loop do
           @event_streams_helper.delete_topic(invalid_topic)
           break unless @event_streams_helper.get_topics.include?(invalid_topic)
