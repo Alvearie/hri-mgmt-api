@@ -31,11 +31,11 @@ describe 'HRI Management API Without Validation' do
     @config_path = File.absolute_path(File.join(File.dirname(__FILE__), "test_config"))
     @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "/"))
 
-    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path)
-    response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
-    unless response.code == 200
-      raise "Health check failed: #{response.body}"
-    end
+    # @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path)
+    # response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
+    # unless response.code == 200
+    #   raise "Health check failed: #{response.body}"
+    # end
 
     #Initialize Kafka Consumer
     @kafka = Kafka.new(ENV['KAFKA_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['KAFKA_PASSWORD'], ssl_ca_certs_from_system: true)
@@ -629,23 +629,17 @@ describe 'HRI Management API Without Validation' do
       expect(parsed_response['errorDescription']).to eql 'kafka producer error: Broker: Unknown topic or partition'
 
       #Verify Batch Delete
-      50.times do
-        new_batches = []
-        @batch_deleted = false
-        response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
-        expect(response.code).to eq 200
-        parsed_response = JSON.parse(response.body)
-        expect(parsed_response['total']).to be > 0
-        parsed_response['results'].each do |batch|
-          new_batches << batch['id'] unless batch['dataType'] == 'rspec-batch'
-        end
-        if existing_batches.sort == new_batches.sort
-          @batch_deleted = true
-          break
+      Timeout.timeout(30, nil, 'Batch with invalid topic not deleted after 30 seconds') do
+        loop do
+          response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
+          expect(response.code).to eq 200
+          parsed_response = JSON.parse(response.body)
+          expect(parsed_response['total']).to be > 0
+          parsed_response['results'].each do |batch|
+            break if batch['dataType'] == 'rspec-invalid-batch'
+          end
         end
       end
-
-      expect(@batch_deleted).to be true
     end
 
     it 'Invalid Name' do
