@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: mgmt-api
-      TOOLCHAIN_ID: 44eca025-5bc3-4dc9-8d86-d8c4956d09f0
+      TOOLCHAIN_ID: 7014c9e3-9e16-4491-b547-6fc7157bfef8
 
     steps:
       - uses: actions/checkout@v2
