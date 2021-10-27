@@ -77,7 +77,7 @@ jobs:
           ./run-ivttests.sh
 
       - name: Upload Test Results
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-')
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-'))
         run: |
           ./test/spec/upload_test_reports.rb IVT
           ./test/spec/upload_test_reports.rb Dredd

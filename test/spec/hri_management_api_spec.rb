@@ -786,16 +786,6 @@ describe 'HRI Management API ' do
     end
 
     it 'should auto-delete a batch from Elastic if the batch was created with an invalid Kafka topic' do
-      #Gather existing batches
-      existing_batches = []
-      response = @hri_helper.hri_get_batches(TENANT_ID, nil, {'Authorization' => "Bearer #{@token_all_roles}"})
-      expect(response.code).to eq 200
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['total']).to be > 0
-      parsed_response['results'].each do |batch|
-        existing_batches << batch['id'] unless batch['dataType'] == 'rspec-batch'
-      end
-
       #Create Batch with Bad Topic
       @batch_template[:topic] = 'INVALID-TEST-TOPIC'
       @batch_template[:dataType] = 'rspec-invalid-batch'
@@ -805,23 +795,19 @@ describe 'HRI Management API ' do
       expect(parsed_response['errorDescription']).to include('the request is for a topic or partition that does not exist on this broker')
 
       #Verify Batch Delete
-      50.times do
-        new_batches = []
-        @batch_deleted = false
-        response = @hri_helper.hri_get_batches(TENANT_ID, nil, {'Authorization' => "Bearer #{@token_all_roles}"})
-        expect(response.code).to eq 200
-        parsed_response = JSON.parse(response.body)
-        expect(parsed_response['total']).to be > 0
-        parsed_response['results'].each do |batch|
-          new_batches << batch['id'] unless batch['dataType'] == 'rspec-batch'
-        end
-        if existing_batches.sort == new_batches.sort
-          @batch_deleted = true
-          break
+      Timeout.timeout(30, nil, 'Batch with invalid topic not deleted after 30 seconds') do
+        loop do
+          response = @hri_helper.hri_get_batches(TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
+          expect(response.code).to eq 200
+          parsed_response = JSON.parse(response.body)
+          expect(parsed_response['total']).to be > 0
+          @batch_found = false
+          parsed_response['results'].each do |batch|
+            @batch_found = true if batch['dataType'] == 'rspec-invalid-batch'
+          end
+          break unless @batch_found
         end
       end
-
-      expect(@batch_deleted).to be true
     end
 
     it 'Invalid Name' do
