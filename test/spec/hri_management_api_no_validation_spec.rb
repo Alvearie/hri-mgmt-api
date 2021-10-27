@@ -17,7 +17,6 @@ describe 'HRI Management API Without Validation' do
   KAFKA_TIMEOUT = 60
 
   before(:all) do
-    raise ''
     @hri_base_url = ENV['HRI_URL']
     @request_helper = HRITestHelpers::RequestHelper.new
     @elastic = HRITestHelpers::ElasticHelper.new({url: ENV['ELASTIC_URL'], username: ENV['ELASTIC_USERNAME'], password: ENV['ELASTIC_PASSWORD']})
