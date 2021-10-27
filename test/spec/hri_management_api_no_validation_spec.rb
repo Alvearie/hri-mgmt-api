@@ -452,9 +452,9 @@ describe 'HRI Management API Without Validation' do
       end
       raise "Tenant Stream Not Found: #{TEST_INTEGRATOR_ID}" unless stream_found
 
+      @event_streams_helper.delete_topic(invalid_topic)
       Timeout.timeout(30, nil, "Timed out waiting for the '#{invalid_topic}' topic to be deleted") do
         loop do
-          @event_streams_helper.delete_topic(invalid_topic)
           break unless @event_streams_helper.get_topics.include?(invalid_topic)
         end
       end
