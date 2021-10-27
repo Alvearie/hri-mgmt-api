@@ -630,9 +630,11 @@ describe 'HRI Management API Without Validation' do
           expect(response.code).to eq 200
           parsed_response = JSON.parse(response.body)
           expect(parsed_response['total']).to be > 0
+          @batch_found = false
           parsed_response['results'].each do |batch|
-            break if batch['dataType'] == 'rspec-invalid-batch'
+            @batch_found = true if batch['dataType'] == 'rspec-invalid-batch'
           end
+          break unless @batch_found
         end
       end
     end
