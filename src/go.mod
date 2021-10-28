@@ -30,9 +30,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-// The jwt-go substitution is neccessary for nrecho-v4 to work, as it uses an old version
-// of Echo that is dependent on a vulnerable dependency.  The golang-jwt vers. 4 library
-// was designed to be able to be substitutable for jwt-go in this way.
 replace github.com/Sirupsen/logrus v1.8.1 => github.com/sirupsen/logrus v1.8.1
 
 go 1.15
