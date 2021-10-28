@@ -73,7 +73,7 @@ jobs:
           ./run-ivttests.sh
 
       - name: Upload Test Results
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-')
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-'))
         run: |
           ./combine_ivt_results.sh
           ./test/spec/upload_test_reports.rb IVT
@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: mgmt-api
-      TOOLCHAIN_ID: 44eca025-5bc3-4dc9-8d86-d8c4956d09f0
+      TOOLCHAIN_ID: 7014c9e3-9e16-4491-b547-6fc7157bfef8
 
     steps:
       - uses: actions/checkout@v2
@@ -151,6 +151,6 @@ jobs:
         id: slack
         uses: slackapi/slack-github-action@v1.14.0
         with:
-          payload: "{\"Repo\":\"${{ github.repository }}\",\"Workflow\":\"${{ github.workflow }}\",\"Branch\":\"${{ env.BRANCH_NAME }}\",\"Link\":\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+          payload: "{\"Repo\":\"${{ github.repository }}\",\"Workflow\":\"${{ github.workflow }}\",\"Branch\":\"${{ github.ref }}\",\"Link\":\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
