@@ -13,7 +13,7 @@ require (
 	github.com/labstack/echo/v4 v4.6.1
 	github.com/mattn/go-colorable v0.1.11 // indirect
 	github.com/newrelic/go-agent/v3 v3.15.0
-	github.com/newrelic/go-agent/v3/integrations/nrecho-v4 v1.0.1
+	github.com/newrelic/go-agent/v3/integrations/nrecho-v4 v1.0.2
 	github.com/peterbourgon/ff/v3 v3.1.2
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
 	github.com/sirupsen/logrus v1.8.1
@@ -30,12 +30,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-// The jwt-go substitution is neccessary for nrecho-v4 to work, as it uses an old version
-// of Echo that is dependent on a vulnerable dependency.  The golang-jwt vers. 4 library
-// was designed to be able to be substitutable for jwt-go in this way.
-replace (
-	github.com/Sirupsen/logrus v1.8.1 => github.com/sirupsen/logrus v1.8.1
-	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.0.0
-)
+replace github.com/Sirupsen/logrus v1.8.1 => github.com/sirupsen/logrus v1.8.1
 
 go 1.15
