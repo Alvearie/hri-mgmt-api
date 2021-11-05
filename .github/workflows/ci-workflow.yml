@@ -77,7 +77,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: hri-logs
-          path: logs/*
+          path: test/logs/*
           retention-days: 7
 
       - name: Upload Test Results
