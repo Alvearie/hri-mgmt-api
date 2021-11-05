@@ -32,7 +32,7 @@ describe 'HRI Management API Without Validation' do
     @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "../logs"))
     Dir.mkdir(@log_path) if !Dir.exists?(@log_path)
 
-    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'no-validation')
+    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'no-validation-')
     response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
     unless response.code == 200
       raise "Health check failed: #{response.body}"
