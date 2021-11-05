@@ -32,7 +32,7 @@ describe 'HRI Management API Without Validation' do
     @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "../logs"))
     Dir.mkdir(@log_path) if !Dir.exists?(@log_path)
 
-    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'no-validation-')
+    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'no-validation-1-')
     response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
     unless response.code == 200
       raise "Health check failed: #{response.body}"
@@ -152,13 +152,13 @@ describe 'HRI Management API Without Validation' do
       `kill #{process_id}` unless process_id.nil?
       temp = ENV['ELASTIC_CRN']
       ENV['ELASTIC_CRN'] = 'INVALID'
-      @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path)
+      @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'invalid-crn-')
       response = @mgmt_api_helper.hri_post_tenant(TEST_TENANT_ID)
       expect(response.code).to eq 500
       ENV['ELASTIC_CRN'] = temp
       process_id = `lsof -iTCP:1323 -sTCP:LISTEN`.split("\n").select { |s| s.start_with?('hri') }[0].split(' ')[1].to_i
       `kill #{process_id}` unless process_id.nil?
-      @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path)
+      @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'no-validation-2-')
     end
 
   end
