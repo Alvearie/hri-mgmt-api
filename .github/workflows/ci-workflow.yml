@@ -72,6 +72,14 @@ jobs:
           ibmcloud es init -i ${KAFKA_INSTANCE}
           ./run-ivttests.sh
 
+      - name: Archive Logs
+        if: failure()
+        uses: actions/upload-artifact@v2
+        with:
+          name: hri-logs
+          path: test/logs/*
+          retention-days: 7
+
       - name: Upload Test Results
         if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/support-'))
         run: |

@@ -34,9 +34,10 @@ describe 'HRI Management API With Validation' do
 
     @exe_path = File.absolute_path(File.join(File.dirname(__FILE__), "../../src/hri"))
     @config_path = File.absolute_path(File.join(File.dirname(__FILE__), "test_config"))
-    @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "/"))
+    @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "../logs"))
+    Dir.mkdir(@log_path) unless Dir.exists?(@log_path)
 
-    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, '-validation=true')
+    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'validation-', '-validation=true')
     response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
     unless response.code == 200
       raise "Health check failed: #{response.body}"
@@ -83,9 +84,6 @@ describe 'HRI Management API With Validation' do
   end
 
   after(:all) do
-    File.delete("#{@log_path}/output.txt") if File.exists?("#{@log_path}/output.txt")
-    File.delete("#{@log_path}/error.txt") if File.exists?("#{@log_path}/error.txt")
-
     processes = `lsof -iTCP:1323 -sTCP:LISTEN`
     unless processes == ''
       process_id = processes.split("\n").select { |s| s.start_with?('hri') }[0].split(' ')[1].to_i
