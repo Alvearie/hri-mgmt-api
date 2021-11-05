@@ -73,7 +73,7 @@ jobs:
           ./run-ivttests.sh
 
       - name: Archive Logs
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v2
         with:
           name: hri-logs
