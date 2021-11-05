@@ -72,12 +72,12 @@ jobs:
           ibmcloud es init -i ${KAFKA_INSTANCE}
           ./run-ivttests.sh
 
-      - name: Upload Logs
+      - name: Archive Logs
         if: always()
         uses: actions/upload-artifact@v2
         with:
-          name: hri.log
-          path: hri.log
+          name: hri-logs
+          path: logs/*
           retention-days: 7
 
       - name: Upload Test Results
