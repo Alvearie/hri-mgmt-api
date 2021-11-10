@@ -5,8 +5,13 @@
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4 AS builder
 
 RUN microdnf update -y && \
-    microdnf -y install golang-1.15.14 make && \
+    microdnf -y install make tar gzip gcc && \
     microdnf clean all
+
+RUN curl -f https://dl.google.com/go/go1.15.15.linux-amd64.tar.gz -o /tmp/golang.tar.gz && \
+    tar -C /usr/local/ -xzf /tmp/golang.tar.gz
+
+ENV PATH=$PATH:/usr/local/go/bin
 
 COPY ./ /hri-mgmt-api/
 WORKDIR /hri-mgmt-api

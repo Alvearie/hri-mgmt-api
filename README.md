@@ -42,6 +42,13 @@ ok  	github.com/Alvearie/hri-mgmt-api/tenants	0.316s	coverage: 100.0% of stateme
 cd src; GOOS=linux GOACH=amd64 go build
 ```
 
+### Troubleshooting
+If you encounter this error:
+```
+rdkafka#producer-1| [thrd:sasl_ssl://...]: sasl_ssl://.../bootstrap: SSL handshake failed: error:14090086:SSL routines:ssl3_get_server_certificate:certificate verify failed: broker certificate could not be verified, verify that ssl.ca.location is correctly configured or root CA certificates are installed (brew install openssl)
+```
+There is a problem with the default root CA. See the Confluent [documentation](https://docs.confluent.io/platform/current/tutorials/examples/clients/docs/go.html#configure-ssl-trust-store) for instructions on how to fix it.
+
 ## CI/CD
 This application can be run locally, but almost all the endpoints require Elasticsearch, Kafka, and an OIDC server. GitHub actions builds and runs integration tests using a common Elastic Search and Event Streams instance. You can perform local manual testing using these resources. See [test/README.md](test/README.md) for more details.
 
