@@ -78,7 +78,7 @@
     ```rspec test/spec --tag ~@broken```
     
 ### Troubleshooting
-If you encounter rdkafka SSL root CA certificate errors, see [Troubleshooting](READMD.md#troubleshooting) for instructions on how to update you local root CA certificates. To set the `ssl.ca.location` property for the tests, in `test/spec/hri_deploy_helper.rb` add it to the command line override of `-kafka-properties`, but ensure you don't commit this or it will break the GitHub Actions tests. 
+If you encounter rdkafka SSL root CA certificate errors, see [Troubleshooting](READMD.md#troubleshooting) for instructions on how to update your local root CA certificates. To set the `ssl.ca.location` property for the tests, in `test/spec/hri_deploy_helper.rb` add it to the command line override of `-kafka-properties`, but ensure you don't commit this or it will break the GitHub Actions tests. 
 
 # Dredd Tests
 Dredd is used to verify the implemented API meets our published [specification](https://github.com/Alvearie/hri-api-spec/blob/develop/management-api/management.yml).
