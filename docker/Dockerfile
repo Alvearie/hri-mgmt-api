@@ -8,7 +8,7 @@ RUN microdnf update -y && \
     microdnf -y install make tar gzip gcc && \
     microdnf clean all
 
-RUN curl -f https://dl.google.com/go/go1.15.15.linux-amd64.tar.gz -o /tmp/golang.tar.gz && \
+RUN curl -f https://dl.google.com/go/go1.17.3.linux-amd64.tar.gz -o /tmp/golang.tar.gz && \
     tar -C /usr/local/ -xzf /tmp/golang.tar.gz
 
 ENV PATH=$PATH:/usr/local/go/bin
