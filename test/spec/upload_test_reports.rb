@@ -29,7 +29,7 @@ elsif ARGV[0] == 'Dredd'
   doc.search('//testsuite/testcase').each do |block|
     block.remove if block.children.count == 1
   end
-  
+
   File.write("#{Dir.pwd}/dreddtests.xml", doc)
   File.rename("#{Dir.pwd}/dreddtests.xml", "#{Dir.pwd}/hri-mgmt-api-dreddtests-#{ENV['BRANCH_NAME']}.xml")
   cos_helper.upload_object_data('wh-hri-dev1-allure-reports', "hri-mgmt-api-dreddtests-#{ENV['BRANCH_NAME']}.xml", File.read(File.join(Dir.pwd, "hri-mgmt-api-dreddtests-#{ENV['BRANCH_NAME']}.xml")))

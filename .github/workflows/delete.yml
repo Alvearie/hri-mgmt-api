@@ -1,0 +1,34 @@
+name: Delete branch actions
+
+on:
+  delete:
+    branches: [ '**' ]
+
+jobs:
+  delete-namespace:
+    name: Delete branch namespace
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP: hri-dev1-wdc-kube
+
+    steps:
+      - name: Get deleted branch name
+        run: |
+          BRANCH_NAME=$(echo "${{ github.event.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Download IBM Dev Tools
+        run: curl -sL https://ibm.biz/idt-installer | bash
+
+      - name: Log into IBM Cloud
+        env:
+          CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
+        run: |
+          IBMCLOUD_API_KEY="$CLOUD_API_KEY" ibmcloud login -r us-east || { echo 'IBM Cloud CLI login failed!'; exit 1; }
+          ibmcloud target -g ${RESOURCE_GROUP}
+
+      - name: Delete branch
+        run: |
+          if ibmcloud fn property set --namespace $BRANCH_NAME; then
+            ibmcloud fn namespace delete $BRANCH_NAME
+          fi

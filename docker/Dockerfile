@@ -31,7 +31,7 @@ COPY --from=builder /hri-mgmt-api/src/hri ${HOME}
 
 WORKDIR ${HOME}
 
-# Setup hri user 
+# Setup hri user
 # Disable priveledge escalation utilities
 #   https://github.com/goodwithtech/dockle/blob/master/CHECKPOINT.md#cis-di-0008
 # Remove the temp directory
