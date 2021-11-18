@@ -17,6 +17,7 @@ pkg
 .DS_Store
 test/.idea
 test/jwt_assertion_tokens.json
+test/logs
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out

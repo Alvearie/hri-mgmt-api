@@ -29,9 +29,10 @@ describe 'HRI Management API Without Validation' do
 
     @exe_path = File.absolute_path(File.join(File.dirname(__FILE__), "../../src/hri"))
     @config_path = File.absolute_path(File.join(File.dirname(__FILE__), "test_config"))
-    @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "/"))
+    @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "../logs"))
+    Dir.mkdir(@log_path) if !Dir.exists?(@log_path)
 
-    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path)
+    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'no-validation-1-')
     response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
     unless response.code == 200
       raise "Health check failed: #{response.body}"
@@ -77,9 +78,6 @@ describe 'HRI Management API Without Validation' do
   end
 
   after(:all) do
-    File.delete("#{@log_path}/output.txt") if File.exists?("#{@log_path}/output.txt")
-    File.delete("#{@log_path}/error.txt") if File.exists?("#{@log_path}/error.txt")
-
     processes = `lsof -iTCP:1323 -sTCP:LISTEN`
     unless processes == ''
       process_id = processes.split("\n").select { |s| s.start_with?('hri') }[0].split(' ')[1].to_i
@@ -154,13 +152,13 @@ describe 'HRI Management API Without Validation' do
       `kill #{process_id}` unless process_id.nil?
       temp = ENV['ELASTIC_CRN']
       ENV['ELASTIC_CRN'] = 'INVALID'
-      @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path)
+      @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'invalid-crn-')
       response = @mgmt_api_helper.hri_post_tenant(TEST_TENANT_ID)
       expect(response.code).to eq 500
       ENV['ELASTIC_CRN'] = temp
       process_id = `lsof -iTCP:1323 -sTCP:LISTEN`.split("\n").select { |s| s.start_with?('hri') }[0].split(' ')[1].to_i
       `kill #{process_id}` unless process_id.nil?
-      @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path)
+      @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'no-validation-2-')
     end
 
   end
@@ -437,6 +435,12 @@ describe 'HRI Management API Without Validation' do
     it 'Success With Invalid Topic Only' do
       invalid_topic = "ingest.#{TENANT_ID}.#{TEST_INTEGRATOR_ID}.invalid"
       @event_streams_helper.create_topic(invalid_topic, 1)
+      Timeout.timeout(30, nil, "Timed out waiting for the '#{invalid_topic}' topic to be created") do
+        loop do
+          break if @event_streams_helper.get_topics.include?(invalid_topic)
+        end
+      end
+
       response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID)
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
@@ -446,12 +450,9 @@ describe 'HRI Management API Without Validation' do
       end
       raise "Tenant Stream Not Found: #{TEST_INTEGRATOR_ID}" unless stream_found
 
-      Timeout.timeout(15, nil, "Timed out waiting for the '#{invalid_topic}' topic to be deleted") do
+      @event_streams_helper.delete_topic(invalid_topic)
+      Timeout.timeout(30, nil, "Timed out waiting for the '#{invalid_topic}' topic to be deleted") do
         loop do
-          break if @event_streams_helper.get_topics.include?(invalid_topic)
-        end
-        loop do
-          @event_streams_helper.delete_topic(invalid_topic)
           break unless @event_streams_helper.get_topics.include?(invalid_topic)
         end
       end
@@ -612,16 +613,6 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'should auto-delete a batch from Elastic if the batch was created with an invalid Kafka topic' do
-      #Gather existing batches
-      existing_batches = []
-      response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
-      expect(response.code).to eq 200
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['total']).to be > 0
-      parsed_response['results'].each do |batch|
-        existing_batches << batch['id'] unless batch['dataType'] == 'rspec-batch'
-      end
-
       #Create Batch with Bad Topic
       @batch_template[:topic] = 'INVALID-TEST-TOPIC'
       @batch_template[:dataType] = 'rspec-invalid-batch'
@@ -631,23 +622,19 @@ describe 'HRI Management API Without Validation' do
       expect(parsed_response['errorDescription']).to eql 'kafka producer error: Broker: Unknown topic or partition'
 
       #Verify Batch Delete
-      50.times do
-        new_batches = []
-        @batch_deleted = false
-        response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
-        expect(response.code).to eq 200
-        parsed_response = JSON.parse(response.body)
-        expect(parsed_response['total']).to be > 0
-        parsed_response['results'].each do |batch|
-          new_batches << batch['id'] unless batch['dataType'] == 'rspec-batch'
-        end
-        if existing_batches.sort == new_batches.sort
-          @batch_deleted = true
-          break
+      Timeout.timeout(30, nil, 'Batch with invalid topic not deleted after 30 seconds') do
+        loop do
+          response = @mgmt_api_helper.hri_get_batches(TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
+          expect(response.code).to eq 200
+          parsed_response = JSON.parse(response.body)
+          expect(parsed_response['total']).to be > 0
+          @batch_found = false
+          parsed_response['results'].each do |batch|
+            @batch_found = true if batch['dataType'] == 'rspec-invalid-batch'
+          end
+          break unless @batch_found
         end
       end
-
-      expect(@batch_deleted).to be true
     end
 
     it 'Invalid Name' do

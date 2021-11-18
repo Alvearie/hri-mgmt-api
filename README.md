@@ -3,7 +3,7 @@ The Alvearie Health Record Ingestion service: a common 'Deployment Ready Compone
 
 This repo contains the code for the Management API of the HRI, which is written in Golang using the [Echo](https://echo.labstack.com/) web framework. A separate OpenAPI specification is maintained in [Alvearie/hri-api-spec](https://github.com/Alvearie/hri-api-spec) for external user's reference. Please Note: Any changes to this (RESTful) Management API for the HRI requires changes in both the hri-api-spec repo and this hri-mgmt-api repo.
 
-This version is compatible with HRI `v3.1`.
+This version is compatible with HRI `v3.2`.
 
 ## Communication
 * Please [join](https://alvearie.io/contributions/requestSlackAccess) our Slack channel for further questions: [#health-record-ingestion](https://alvearie.slack.com/archives/C01GM43LFJ6)
@@ -13,7 +13,7 @@ This version is compatible with HRI `v3.1`.
 
 ### Prerequisites
 
-* Golang 1.15 - you can use an official [distribution](https://golang.org/dl/) or a package manager like `homebrew` for mac
+* Golang 1.17 - you can use an official [distribution](https://golang.org/dl/) or a package manager like `homebrew` for mac
 * Make - should come pre-installed on MacOS and Linux
 * [GoMock latest](https://github.com/golang/mock) released version. Installation: 
     run `$ go get github.com/golang/mock/mockgen@latest`. See [GoMock docs](https://github.com/golang/mock). 
@@ -41,6 +41,13 @@ coverage: 100.0% of statements
 ok  	github.com/Alvearie/hri-mgmt-api/tenants	0.316s	coverage: 100.0% of statements
 cd src; GOOS=linux GOACH=amd64 go build
 ```
+
+### Troubleshooting
+If you encounter this error:
+```
+rdkafka#producer-1| [thrd:sasl_ssl://...]: sasl_ssl://.../bootstrap: SSL handshake failed: error:14090086:SSL routines:ssl3_get_server_certificate:certificate verify failed: broker certificate could not be verified, verify that ssl.ca.location is correctly configured or root CA certificates are installed (brew install openssl)
+```
+There is a problem with the default root CA. See the Confluent [documentation](https://docs.confluent.io/platform/current/tutorials/examples/clients/docs/go.html#configure-ssl-trust-store) for instructions on how to fix it.
 
 ## CI/CD
 This application can be run locally, but almost all the endpoints require Elasticsearch, Kafka, and an OIDC server. GitHub actions builds and runs integration tests using a common Elastic Search and Event Streams instance. You can perform local manual testing using these resources. See [test/README.md](test/README.md) for more details.
