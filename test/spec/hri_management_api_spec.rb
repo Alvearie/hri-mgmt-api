@@ -215,15 +215,19 @@ describe 'HRI Management API ' do
   context 'DELETE /tenants/{tenant_id}/streams/{integrator_id}' do
 
     it 'Success' do
-      #Delete Stream
-      response = @hri_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID)
-      expect(response.code).to eq 200
+      #Delete Stream and Verify Deletion
+      Timeout.timeout(20, nil, 'Kafka topics not deleted after 20 seconds') do
+        loop do
+          response = @hri_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID)
+          break if response.code == 200
 
-      #Verify Stream Deletion
-      response = @hri_helper.hri_get_tenant_streams(TEST_TENANT_ID)
-      expect(response.code).to eq 200
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['results']).to eql []
+          response = @hri_helper.hri_get_tenant_streams(TEST_TENANT_ID)
+          expect(response.code).to eq 200
+          parsed_response = JSON.parse(response.body)
+          break if parsed_response['results'] == []
+          sleep 1
+        end
+      end
     end
 
     it 'Invalid Stream' do
