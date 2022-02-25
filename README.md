@@ -13,7 +13,7 @@ This version is compatible with HRI `v2.1`.
 
 ### Prerequisites
 
-* Golang 1.15 - you can use an official [distribution](https://golang.org/dl/) or a package manager like `homebrew` for mac
+* Golang 1.17 - you can use an official [distribution](https://golang.org/dl/) or a package manager like `homebrew` for mac
 * Make - should come pre-installed on MacOS and Linux
 * [GoMock latest](https://github.com/golang/mock) released version. Installation: 
     run `$ GO111MODULE=on go get github.com/golang/mock/mockgen@latest`. See [GoMock docs](https://github.com/golang/mock). 
