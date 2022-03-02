@@ -118,7 +118,7 @@ describe 'HRI Management API With Validation' do
       response = @hri_helper.hri_get_batch(TENANT_ID, @send_complete_batch_id, {'Authorization' => "Bearer #{@token_consumer_role_only}"})
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['status']).to eql 'sendCompleted'
+      expect(parsed_response['status']).to eql 'completed'
       expect(parsed_response['endDate']).to be_nil
       expect(parsed_response['expectedRecordCount']).to eq EXPECTED_RECORD_COUNT
       expect(parsed_response['recordCount']).to eq EXPECTED_RECORD_COUNT
