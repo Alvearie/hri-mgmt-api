@@ -4,7 +4,7 @@
 
 # This creates an IBM Function's zipped actionloop executable for every *.go file in the base src/ directory.
 # Each of these files should have a 'main' method and use common/actionloopmin to implement the actionloop protocol.
-# Also '// +build !tests' must be at the beginning of the file, so it is excluded from tests.
+# Also '//go:build !tests' must be at the beginning of the file, so it is excluded from tests.
 MAINS:= $(wildcard src/*.go)
 BUILD:=build
 BIN:=$(MAINS:src/%.go=$(BUILD)/%-bin.zip)
