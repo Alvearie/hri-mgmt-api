@@ -1,4 +1,4 @@
-// +build !tests
+//go:build !tests
 
 /*
  * (C) Copyright IBM Corp. 2020
