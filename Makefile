@@ -1,5 +1,5 @@
 # This creates a binary executable file, src/hri, which creates a web server.
-# Also '//go:build !tests' must be at the beginning of the file, so it is excluded from tests.
+# Also '// +build !tests' must be at the beginning of the file, so it is excluded from tests.
 # While the other functions are still in an unconverted state, they will also contain an // +build ignore which prevents the compiler from complaining about there being several definitions of func main().
 HRI:=./src/hri
 SRCS:=$(find src -name *.go)
