@@ -13,7 +13,7 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
     env:
-      API_SPEC_DEV_BRANCH: develop
+      API_SPEC_DEV_BRANCH: main
       API_SPEC_TAG:
       APPID_TENANT: 0f389ea4-778e-4831-9b29-6156c4c1df1e
       APPID_URL: https://us-east.appid.cloud.ibm.com
