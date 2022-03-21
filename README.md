@@ -93,15 +93,27 @@ The API that this repo implements is defined in [Alvearie/hri-api-spec](https://
 In addition to the API spec, an `/alive` endpoint was added to support Kubernetes readiness and liveness probes. This endpoint returns `yes` with a 200 response code when the Echo web server is up and running.
 
 ### Authentication & Authorization
-All endpoints (except the health check) require an OAuth 2.0 JWT bearer access token per [RFC8693](https://tools.ietf.org/html/rfc8693) in the `Authorization` header field. The Tenant and Stream endpoints require IAM tokens, but the Batch endpoints require a token with HRI and Tenant scopes for authorization. The Batch token issuer is configurable via a bound parameter, and must be OIDC compliant because the code dynamically uses the OIDC defined well know endpoints to validate tokens. Integration and testing have already been completed with [App ID](https://cloud.ibm.com/docs/appid), the standard IBM Cloud solution.
+Different endpoints have different requirements.
+* The Tenant endpoints require IAM tokens
+* The Stream endpoints require IAM tokens
+* The health check and alive endpoints don't have any authorization
+* The Batch (`/hri/tenants/<tenantId>/batches`) endpoints were created to require an OAuth 2.0 JWT bearer access token per [RFC8693](https://tools.ietf.org/html/rfc8693) in the `Authorization` header field, but unfortunately not all services adhered to that standard. See the next section for requirements.
 
-Batch JWT access token scopes:
-- hri_data_integrator - Data Integrators can create, get, and call 'sendComplete' and 'terminate' endpoints for batches, but only ones that they created.
-- hri_consumer - Consumers can list and get batches.
-- hri_internal - For internal processing, can call batch 'processingComplete' and 'fail' endpoints.
-- tenant_<tenantId> - provides access to this tenant's batches. This scope must use the prefix 'tenant_'. For example, if a data integrator tries to create a batch by making an HTTP POST call to `tenants/24/batches`, the token must contain scope `tenant_24`, where the `24` is the tenantId.
- 
-The scopes claim must contain one or more of the HRI roles ("hri_data_integrator", "hri_consumer", "hri_internal") as well as the tenant id of the tenant being accessed.
+#### Batch endpoint JWT Token Requirements
+1. The token issuer (`iss`) claim must:
+    1. match the `oidc-issuer` configuration value
+    1. have the OIDC defined well known configuration (`.well-known/openid-configuration`) endpoint. This is used to dynamically verify token signatures.
+1. The token audience (`aud`) claim must match the `jwt-audience-id` configuration value.
+1. The token subject (`sub`) claim must be unique and consistent for each client. This value is used to isolate Data Integrators.
+1. The token must contain certain 'scopes' for each endpoint. Because different authorization services put these in different claims, the code will search both the `scopes` claim and the `roles` claim for scopes. Below is the list of scopes and the permissions each enables:
+    - hri_data_integrator - Data Integrators can create, get, and call 'sendComplete' and 'terminate' endpoints for batches, but only ones that they created.
+    - hri_consumer - Consumers can list and get batches.
+    - hri_internal - For internal processing, can call batch 'processingComplete' and 'fail' endpoints.
+    - tenant_<tenantId> - provides access to this tenant's batches. This scope must use the prefix 'tenant_'. For example, if a data integrator tries to create a batch by making an HTTP POST call to `tenants/24/batches`, the token must contain scope `tenant_24`, where the `24` is the tenantId.
+
+   **Note**: The scopes claim must contain one or more of the HRI roles ("hri_data_integrator", "hri_consumer", "hri_internal") as well as the tenant id of the tenant being accessed.
+
+Integration and testing has already been completed with [App ID](https://cloud.ibm.com/docs/appid), the standard IBM Cloud solution. Limited testing has also been completed with [Azure AD]().
 
 ## Contribution Guide
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
