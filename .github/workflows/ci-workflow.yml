@@ -19,6 +19,7 @@ jobs:
       APPID_URL: https://us-east.appid.cloud.ibm.com
       ELASTIC_CRN: "crn:v1:bluemix:public:databases-for-elasticsearch:us-east:a/52366c9ab214402f9e96917b1b2850e9:c9acb36a-0feb-4b6e-aac1-6651c71d19e4::"
       ELASTIC_URL: https://c9acb36a-0feb-4b6e-aac1-6651c71d19e4.2adb0220806343e3ae11df79c89b377f.databases.appdomain.cloud:32085
+      ES_ADMIN_URL: https://twvyj4m0kft5j0mh.svc01.us-east.eventstreams.cloud.ibm.com
       HRI_URL: https://localhost:1323/hri
       IAM_CLOUD_URL: https://iam.cloud.ibm.com
       JWT_AUDIENCE_ID: 21e7d376-9cdb-4a9d-a11f-9b76c007244d
@@ -30,6 +31,7 @@ jobs:
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
       ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
+      ES_API_KEY: ${{ secrets.ES_API_KEY }}
       KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
 
     steps:

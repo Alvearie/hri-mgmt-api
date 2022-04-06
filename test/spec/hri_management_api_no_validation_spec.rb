@@ -23,7 +23,7 @@ describe 'HRI Management API Without Validation' do
     @iam_token = HRITestHelpers::IAMHelper.new(ENV['IAM_CLOUD_URL']).get_access_token(ENV['CLOUD_API_KEY'])
     @mgmt_api_helper = HRITestHelpers::MgmtAPIHelper.new(@hri_base_url, @iam_token)
     @hri_deploy_helper = HRIDeployHelper.new
-    @event_streams_helper = HRITestHelpers::EventStreamsHelper.new
+    @event_streams_api_helper = HRITestHelpers::EventStreamsAPIHelper.new(ENV['ES_ADMIN_URL'], ENV['ES_API_KEY'])
     @app_id_helper = HRITestHelpers::AppIDHelper.new(ENV['APPID_URL'], ENV['APPID_TENANT'], @iam_token, ENV['JWT_AUDIENCE_ID'])
     @start_date = DateTime.now
 
@@ -92,8 +92,8 @@ describe 'HRI Management API Without Validation' do
     @kafka_consumer.stop
 
     #Ensure Event Stream topics were deleted
-    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in")
-    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification")
+    @event_streams_api_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in")
+    @event_streams_api_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification")
   end
 
   context 'POST /tenants/{tenant_id}' do
@@ -186,7 +186,7 @@ describe 'HRI Management API Without Validation' do
 
       Timeout.timeout(30, nil, 'Kafka topics not created after 30 seconds') do
         loop do
-          topics = @event_streams_helper.get_topics
+          topics = @event_streams_api_helper.get_topics
           break if (topics.include?("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in") && topics.include?("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification"))
         end
       end
@@ -434,10 +434,10 @@ describe 'HRI Management API Without Validation' do
 
     it 'Success With Invalid Topic Only' do
       invalid_topic = "ingest.#{TENANT_ID}.#{TEST_INTEGRATOR_ID}.invalid"
-      @event_streams_helper.create_topic(invalid_topic, 1)
+      @event_streams_api_helper.create_topic(invalid_topic, 1)
       Timeout.timeout(30, nil, "Timed out waiting for the '#{invalid_topic}' topic to be created") do
         loop do
-          break if @event_streams_helper.get_topics.include?(invalid_topic)
+          break if @event_streams_api_helper.get_topics.include?(invalid_topic)
         end
       end
 
@@ -450,10 +450,10 @@ describe 'HRI Management API Without Validation' do
       end
       raise "Tenant Stream Not Found: #{TEST_INTEGRATOR_ID}" unless stream_found
 
-      @event_streams_helper.delete_topic(invalid_topic)
+      @event_streams_api_helper.delete_topic(invalid_topic)
       Timeout.timeout(30, nil, "Timed out waiting for the '#{invalid_topic}' topic to be deleted") do
         loop do
-          break unless @event_streams_helper.get_topics.include?(invalid_topic)
+          break unless @event_streams_api_helper.get_topics.include?(invalid_topic)
         end
       end
     end
