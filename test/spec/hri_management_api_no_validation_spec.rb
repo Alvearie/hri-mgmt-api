@@ -23,7 +23,7 @@ describe 'HRI Management API Without Validation' do
     @iam_token = HRITestHelpers::IAMHelper.new(ENV['IAM_CLOUD_URL']).get_access_token(ENV['CLOUD_API_KEY'])
     @mgmt_api_helper = HRITestHelpers::MgmtAPIHelper.new(@hri_base_url, @iam_token)
     @hri_deploy_helper = HRIDeployHelper.new
-    @event_streams_api_helper = HRITestHelpers::EventStreamsAPIHelper.new(ENV['ES_ADMIN_URL'], ENV['ES_API_KEY'])
+    @event_streams_api_helper = HRITestHelpers::EventStreamsAPIHelper.new(ENV['ES_ADMIN_URL'], ENV['CLOUD_API_KEY'])
     @app_id_helper = HRITestHelpers::AppIDHelper.new(ENV['APPID_URL'], ENV['APPID_TENANT'], @iam_token, ENV['JWT_AUDIENCE_ID'])
     @start_date = DateTime.now
 
@@ -437,7 +437,7 @@ describe 'HRI Management API Without Validation' do
       @event_streams_api_helper.create_topic(invalid_topic, 1)
       Timeout.timeout(30, nil, "Timed out waiting for the '#{invalid_topic}' topic to be created") do
         loop do
-          break if @event_streams_api_helper.get_topics.include?(invalid_topic)
+          break if @event_streams_api_helper.get_topic(invalid_topic).code == 200
         end
       end
 
@@ -450,12 +450,14 @@ describe 'HRI Management API Without Validation' do
       end
       raise "Tenant Stream Not Found: #{TEST_INTEGRATOR_ID}" unless stream_found
 
-      @event_streams_api_helper.delete_topic(invalid_topic)
       Timeout.timeout(30, nil, "Timed out waiting for the '#{invalid_topic}' topic to be deleted") do
         loop do
-          break unless @event_streams_api_helper.get_topics.include?(invalid_topic)
+          response = @event_streams_api_helper.delete_topic_no_verification(invalid_topic)
+          break if response.code == 202
+          sleep 3
         end
       end
+      expect(@event_streams_api_helper.get_topics).to_not include(invalid_topic)
     end
 
     it 'Missing Tenant ID' do

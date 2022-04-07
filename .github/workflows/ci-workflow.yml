@@ -31,7 +31,6 @@ jobs:
       CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
       ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
       ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
-      ES_API_KEY: ${{ secrets.ES_API_KEY }}
       KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
 
     steps:
