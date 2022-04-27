@@ -7,13 +7,12 @@ package streams
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
-	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
+	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -32,7 +31,7 @@ const (
 	topicAlreadyExistsMessage   string = "topic already exists"
 	invalidCleanupPolicyMessage string = "invalid cleanup policy"
 	forbiddenMessage            string = "forbidden"
-	unauthorizedMessage         string = "unauthorized"
+	unauthorizedMessage         string = "SASL authentication error: SaslAuthenticateRequest failed: Local: Broker handle destroyed"
 	kafkaConnectionMessage      string = "Unable to connect to Kafka"
 )
 
@@ -40,18 +39,6 @@ var StatusForbidden = http.Response{StatusCode: 403}
 var StatusUnauthorized = http.Response{StatusCode: 401}
 
 var StatusUnprocessableEntity = http.Response{StatusCode: 422}
-var TopicAlreadyExistsError = es.ModelError{
-	ErrorCode: topicAlreadyExists,
-	Message:   topicAlreadyExistsMessage,
-}
-var invalidCleanupPolicyError = es.ModelError{
-	ErrorCode: invalidCleanupPolicy,
-	Message:   invalidCleanupPolicyMessage,
-}
-var OtherError = es.ModelError{
-	ErrorCode: 1,
-	Message:   kafkaConnectionMessage,
-}
 
 var getInt64Pointer = func(num int64) *int64 {
 	return &num
@@ -79,29 +66,24 @@ func TestCreate(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                   string
-		streamsRequest         model.CreateStreamsRequest
-		tenantId               string
-		streamId               string
-		validationEnabled      bool
-		modelInError           *es.ModelError
-		modelNotificationError *es.ModelError
-		modelOutError          *es.ModelError
-		modelInvalidError      *es.ModelError
-		mockResponse           *http.Response
-		expectedTopic          string
-		expectedTopics         []string
-		expectedReturnCode     int
-		expectedError          error
+		name               string
+		streamsRequest     model.CreateStreamsRequest
+		tenantId           string
+		streamId           string
+		validationEnabled  bool
+		mockResponse       *http.Response
+		expectedTopic      string
+		expectedTopics     []string
+		expectedReturnCode int
+		expectedError      error
 	}{
 		{
 			name:               "not-authorized",
 			streamsRequest:     validStreamsRequest,
 			tenantId:           tenantId,
 			streamId:           streamId1,
-			modelInError:       &es.ModelError{},
 			mockResponse:       &StatusForbidden,
-			expectedError:      fmt.Errorf(eventstreams.UnauthorizedMsg),
+			expectedError:      fmt.Errorf(kafka.UnauthorizedMsg),
 			expectedReturnCode: http.StatusUnauthorized,
 			expectedTopic:      baseTopicName,
 		},
@@ -110,9 +92,8 @@ func TestCreate(t *testing.T) {
 			streamsRequest:     validStreamsRequest,
 			tenantId:           tenantId,
 			streamId:           streamId1,
-			modelInError:       &es.ModelError{},
 			mockResponse:       &StatusUnauthorized,
-			expectedError:      fmt.Errorf(eventstreams.MissingHeaderMsg),
+			expectedError:      fmt.Errorf(kafka.MissingHeaderMsg),
 			expectedReturnCode: http.StatusUnauthorized,
 			expectedTopic:      baseTopicName,
 		},
@@ -121,23 +102,21 @@ func TestCreate(t *testing.T) {
 			streamsRequest:     validStreamsRequest,
 			tenantId:           tenantId,
 			streamId:           streamId1,
-			modelInError:       &TopicAlreadyExistsError,
 			mockResponse:       &StatusUnprocessableEntity,
 			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
 			expectedReturnCode: http.StatusConflict,
 			expectedTopic:      baseTopicName,
 		},
 		{
-			name:                   "notification-topic-already-exists",
-			streamsRequest:         validStreamsRequest,
-			tenantId:               tenantId,
-			streamId:               streamId1,
-			modelNotificationError: &TopicAlreadyExistsError,
-			mockResponse:           &StatusUnprocessableEntity,
-			expectedError:          fmt.Errorf(topicAlreadyExistsMessage),
-			expectedReturnCode:     http.StatusConflict,
-			expectedTopic:          baseTopicName,
-			expectedTopics:         []string{eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.InSuffix},
+			name:               "notification-topic-already-exists",
+			streamsRequest:     validStreamsRequest,
+			tenantId:           tenantId,
+			streamId:           streamId1,
+			mockResponse:       &StatusUnprocessableEntity,
+			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
+			expectedReturnCode: http.StatusConflict,
+			expectedTopic:      baseTopicName,
+			expectedTopics:     []string{kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.InSuffix},
 		},
 		{
 			name:               "out-topic-already-exists",
@@ -145,14 +124,13 @@ func TestCreate(t *testing.T) {
 			tenantId:           tenantId,
 			streamId:           streamId1,
 			validationEnabled:  true,
-			modelOutError:      &TopicAlreadyExistsError,
 			mockResponse:       &StatusUnprocessableEntity,
 			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
 			expectedReturnCode: http.StatusConflict,
 			expectedTopic:      baseTopicName,
 			expectedTopics: []string{
-				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.InSuffix,
-				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.NotificationSuffix,
+				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.InSuffix,
+				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.NotificationSuffix,
 			},
 		},
 		{
@@ -161,15 +139,14 @@ func TestCreate(t *testing.T) {
 			tenantId:           tenantId,
 			streamId:           streamId1,
 			validationEnabled:  true,
-			modelInvalidError:  &TopicAlreadyExistsError,
 			mockResponse:       &StatusUnprocessableEntity,
 			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
 			expectedReturnCode: http.StatusConflict,
 			expectedTopic:      baseTopicName,
 			expectedTopics: []string{
-				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.InSuffix,
-				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.NotificationSuffix,
-				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.OutSuffix,
+				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.InSuffix,
+				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.OutSuffix,
 			},
 		},
 		{
@@ -177,7 +154,6 @@ func TestCreate(t *testing.T) {
 			streamsRequest:     validStreamsRequest,
 			tenantId:           tenantId,
 			streamId:           streamId1,
-			modelInError:       &invalidCleanupPolicyError,
 			mockResponse:       &StatusUnprocessableEntity,
 			expectedReturnCode: http.StatusBadRequest,
 			expectedError:      fmt.Errorf(invalidCleanupPolicyMessage),
@@ -188,7 +164,6 @@ func TestCreate(t *testing.T) {
 			streamsRequest:     validStreamsRequest,
 			tenantId:           tenantId,
 			streamId:           streamId1,
-			modelInError:       &OtherError,
 			mockResponse:       &StatusUnprocessableEntity,
 			expectedReturnCode: http.StatusInternalServerError,
 			expectedError:      fmt.Errorf(kafkaConnectionMessage),
@@ -203,10 +178,10 @@ func TestCreate(t *testing.T) {
 			expectedReturnCode: http.StatusCreated,
 			expectedTopic:      baseTopicName,
 			expectedTopics: []string{
-				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.InSuffix,
-				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.NotificationSuffix,
-				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.OutSuffix,
-				eventstreams.TopicPrefix + tenantId + "." + streamId1 + eventstreams.InvalidSuffix,
+				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.InSuffix,
+				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.OutSuffix,
+				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.InvalidSuffix,
 			},
 		},
 	}
@@ -216,69 +191,28 @@ func TestCreate(t *testing.T) {
 		defer controller.Finish()
 		mockService := test.NewMockService(controller)
 
-		var mockInErr error
-		var mockNotificationErr error
-		var mockOutErr error
-		var mockInvalidErr error
-		if tc.modelInError != nil {
-			mockInErr = errors.New(tc.modelInError.Message)
-		}
-		if tc.modelNotificationError != nil {
-			mockNotificationErr = errors.New(tc.modelNotificationError.Message)
-		}
-		if tc.modelOutError != nil {
-			mockOutErr = errors.New(tc.modelOutError.Message)
-		}
-		if tc.modelInvalidError != nil {
-			mockInvalidErr = errors.New(tc.modelInvalidError.Message)
-		}
-
 		mockService.
 			EXPECT().
-			CreateTopic(context.Background(), getTestTopicRequest(tc.expectedTopic, eventstreams.InSuffix)).
-			Return(nil, tc.mockResponse, mockInErr).
+			CreateTopics(context.Background(), getTestTopicSpecs(tc.expectedTopics)).
+			Return(nil, tc.mockResponse, tc.expectedError).
 			MaxTimes(1)
 
 		mockService.
 			EXPECT().
-			CreateTopic(context.Background(), getTestTopicRequest(tc.expectedTopic, eventstreams.NotificationSuffix)).
-			Return(nil, tc.mockResponse, mockNotificationErr).
+			CreateTopics(context.Background(), getTestTopicSpecs(tc.expectedTopics)).
+			Return(nil, tc.mockResponse, tc.expectedError).
 			MaxTimes(1)
 
 		mockService.
 			EXPECT().
-			CreateTopic(context.Background(), getTestTopicRequest(tc.expectedTopic, eventstreams.OutSuffix)).
-			Return(nil, tc.mockResponse, mockOutErr).
+			CreateTopics(context.Background(), getTestTopicSpecs(tc.expectedTopics)).
+			Return(nil, tc.mockResponse, tc.expectedError).
 			MaxTimes(1)
 
 		mockService.
 			EXPECT().
-			CreateTopic(context.Background(), getTestTopicRequest(tc.expectedTopic, eventstreams.InvalidSuffix)).
-			Return(nil, tc.mockResponse, mockInvalidErr).
-			MaxTimes(1)
-
-		mockService.
-			EXPECT().
-			HandleModelError(mockInErr).
-			Return(tc.modelInError).
-			MaxTimes(1)
-
-		mockService.
-			EXPECT().
-			HandleModelError(mockNotificationErr).
-			Return(tc.modelNotificationError).
-			MaxTimes(1)
-
-		mockService.
-			EXPECT().
-			HandleModelError(mockOutErr).
-			Return(tc.modelOutError).
-			MaxTimes(1)
-
-		mockService.
-			EXPECT().
-			HandleModelError(mockInvalidErr).
-			Return(tc.modelInvalidError).
+			CreateTopics(context.Background(), getTestTopicSpecs(tc.expectedTopics)).
+			Return(nil, tc.mockResponse, tc.expectedError).
 			MaxTimes(1)
 
 		t.Run(tc.name, func(t *testing.T) {
@@ -309,32 +243,15 @@ func TestCreate(t *testing.T) {
 
 func TestSetUpTopicConfigs(t *testing.T) {
 	var configsValue = 10485760
-	expectedConfigs := []es.ConfigCreate{
-		{
-			Name:  "retention.ms",
-			Value: strconv.Itoa(retentionMs),
-		},
-		{
-			Name:  "retention.bytes",
-			Value: strconv.Itoa(configsValue),
-		},
-		{
-			Name:  "cleanup.policy",
-			Value: "compact",
-		},
-		{
-			Name:  "segment.ms",
-			Value: strconv.Itoa(configsValue),
-		},
-		{
-			Name:  "segment.bytes",
-			Value: strconv.Itoa(configsValue),
-		},
-		{
-			Name:  "segment.index.bytes",
-			Value: strconv.Itoa(configsValue),
-		},
+	expectedConfig := map[string]string{
+		"retention.ms":        strconv.Itoa(retentionMs),
+		"retention.bytes":     strconv.Itoa(configsValue),
+		"cleanup.policy":      "compact",
+		"segment.ms":          strconv.Itoa(configsValue),
+		"segment.bytes":       strconv.Itoa(configsValue),
+		"segment.index.bytes": strconv.Itoa(configsValue),
 	}
+
 	validArgs := model.CreateStreamsRequest{
 		RetentionMs:       getIntPointer(retentionMs),
 		RetentionBytes:    getIntPointer(configsValue),
@@ -343,19 +260,21 @@ func TestSetUpTopicConfigs(t *testing.T) {
 		SegmentBytes:      getIntPointer(configsValue),
 		SegmentIndexBytes: getIntPointer(configsValue),
 	}
-	configs := setUpTopicConfigs(validArgs)
-	assert.Equal(t, expectedConfigs, configs)
+	config := setUpTopicConfig(validArgs)
+	assert.Equal(t, expectedConfig, config)
 }
 
-func getTestTopicRequest(streamName string, topicSuffix string) es.TopicCreateRequest {
-	return es.TopicCreateRequest{
-		Name:           eventstreams.TopicPrefix + streamName + topicSuffix,
-		PartitionCount: numPartitions,
-		Configs: []es.ConfigCreate{{
-			Name:  "retention.ms",
-			Value: strconv.Itoa(retentionMs),
-		}},
+func getTestTopicSpecs(streamNames []string) []cfk.TopicSpecification {
+
+	topicSpecs := make([]cfk.TopicSpecification, 0, 4)
+	suffixes := []string{kafka.InSuffix, kafka.OutSuffix, kafka.NotificationSuffix, kafka.InvalidSuffix}
+	for i, streamName := range streamNames {
+		topicSpecs[i] = cfk.TopicSpecification{
+			Topic:         kafka.TopicPrefix + streamName + suffixes[i],
+			NumPartitions: 1,
+		}
 	}
+	return topicSpecs
 }
 
 func TestCreateRequestValidation(t *testing.T) {

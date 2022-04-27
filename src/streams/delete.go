@@ -7,58 +7,52 @@ package streams
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
+	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 	"net/http"
-	"strings"
+	"time"
 )
 
 const deleteErrMessageTemplate = "Unable to delete topic \"%s\": %s"
 
-func Delete(requestId string, topics []string, service eventstreams.Service) (int, error) {
+func Delete(requestId string, topics []string, adminClient kafka.KafkaAdmin) (int, error) {
 	prefix := "streams/Delete"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Streams Delete")
 
-	returnCode := http.StatusOK
-	var errorMessageBuilder strings.Builder
+	ctx := context.Background()
 
-	for _, topic := range topics {
-		logger.Debugln("Delete Stream: " + topic)
-		_, deleteResp, err := service.DeleteTopic(context.Background(), topic)
-		if err != nil {
-			deleteReturnCode, deleteErrMessage := getDeleteResponseError(deleteResp, service.HandleModelError(err))
-			if returnCode == http.StatusOK {
-				// Save the first error's code to return later. Initialize the error message
-				returnCode = deleteReturnCode
-				fmt.Fprintf(&errorMessageBuilder, deleteErrMessageTemplate, topic, deleteErrMessage)
-			} else {
-				fmt.Fprintf(&errorMessageBuilder, "\n"+deleteErrMessageTemplate, topic, deleteErrMessage)
-			}
+	results, err := adminClient.DeleteTopics(ctx, topics, cfk.SetAdminRequestTimeout(time.Second*10))
+	if err != nil {
+		return http.StatusBadRequest, fmt.Errorf("unexpected error deleting Kafka topics: %w", err)
+	}
+
+	errs := make([]cfk.Error, 0, 4)
+	for _, res := range results {
+		if res.Error.Code() != cfk.ErrNoError {
+			logger.Errorf(res.Error.Error())
+			errs = append(errs, res.Error)
 		}
 	}
 
-	if returnCode != http.StatusOK {
-		var err = fmt.Errorf(errorMessageBuilder.String())
-		logger.Errorln(err.Error())
-		return returnCode, err
+	if len(errs) > 0 {
+		code, msg := getDeleteResponseError(errs[0])
+		return code, errors.New(msg)
 	}
 
-	return returnCode, nil
+	return http.StatusOK, nil
 }
 
-func getDeleteResponseError(resp *http.Response, err *es.ModelError) (int, string) {
-	//EventStreams Admin API gives us status 403 when provided bearer token is unauthorized
-	//and status 401 when Authorization isn't provided or is nil
-	if resp.StatusCode == http.StatusForbidden {
-		return http.StatusUnauthorized, eventstreams.UnauthorizedMsg
-	} else if resp.StatusCode == http.StatusUnauthorized {
-		return http.StatusUnauthorized, eventstreams.MissingHeaderMsg
-	} else if resp.StatusCode == http.StatusNotFound {
-		return http.StatusNotFound, err.Message
+func getDeleteResponseError(err cfk.Error) (int, string) {
+	code := err.Code()
+	// In confluent-kafka-go library, Auth errors seem to get logged
+	// as auth errors, but returned with very generic error messages so
+	// we can't distinguish them
+	if code == cfk.ErrUnknownTopic || code == cfk.ErrUnknownTopicOrPart {
+		return http.StatusNotFound, err.Error()
 	}
-
-	return http.StatusInternalServerError, err.Message
+	return http.StatusInternalServerError, err.Error()
 }

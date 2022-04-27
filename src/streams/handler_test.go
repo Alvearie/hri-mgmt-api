@@ -9,7 +9,7 @@ package streams
 import (
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
@@ -72,7 +72,7 @@ func TestHandlerCreate(t *testing.T) {
 			name: "happy path",
 			handler: theHandler{
 				config: config.Config{},
-				create: func(model.CreateStreamsRequest, string, string, bool, string, eventstreams.Service) ([]string, int, error) {
+				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
 					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
 				},
 			},
@@ -86,7 +86,7 @@ func TestHandlerCreate(t *testing.T) {
 			name: "failed event streams service create with bad auth token",
 			handler: theHandler{
 				config: config.Config{},
-				create: func(model.CreateStreamsRequest, string, string, bool, string, eventstreams.Service) ([]string, int, error) {
+				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
 					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
 				},
 			},
@@ -100,7 +100,7 @@ func TestHandlerCreate(t *testing.T) {
 			name: "failed with bad tenant id",
 			handler: theHandler{
 				config: config.Config{},
-				create: func(model.CreateStreamsRequest, string, string, bool, string, eventstreams.Service) ([]string, int, error) {
+				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
 					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
 				},
 			},
@@ -114,7 +114,7 @@ func TestHandlerCreate(t *testing.T) {
 			name: "failed with bad stream id",
 			handler: theHandler{
 				config: config.Config{},
-				create: func(model.CreateStreamsRequest, string, string, bool, string, eventstreams.Service) ([]string, int, error) {
+				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
 					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
 				},
 			},
@@ -128,7 +128,7 @@ func TestHandlerCreate(t *testing.T) {
 			name: "failed with invalid request fields",
 			handler: theHandler{
 				config: config.Config{},
-				create: func(model.CreateStreamsRequest, string, string, bool, string, eventstreams.Service) ([]string, int, error) {
+				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
 					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
 				},
 			},
@@ -143,7 +143,7 @@ func TestHandlerCreate(t *testing.T) {
 			name: "failed with invalid json",
 			handler: theHandler{
 				config: config.Config{},
-				create: func(model.CreateStreamsRequest, string, string, bool, string, eventstreams.Service) ([]string, int, error) {
+				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
 					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
 				},
 			},
@@ -158,7 +158,7 @@ func TestHandlerCreate(t *testing.T) {
 			name: "create fails and topic deletion succeeds",
 			handler: theHandler{
 				config: config.Config{},
-				create: func(model.CreateStreamsRequest, string, string, bool, string, eventstreams.Service) ([]string, int, error) {
+				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
 					message := "create failure message"
 					return []string{"in", "out"}, http.StatusInternalServerError, fmt.Errorf(message)
 				},
@@ -175,7 +175,7 @@ func TestHandlerCreate(t *testing.T) {
 			name: "create fails and topic deletion fails",
 			handler: theHandler{
 				config: config.Config{},
-				create: func(model.CreateStreamsRequest, string, string, bool, string, eventstreams.Service) ([]string, int, error) {
+				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
 					message := "create failure message"
 					return []string{"in", "out"}, http.StatusInternalServerError, fmt.Errorf(message)
 				},
@@ -209,7 +209,7 @@ func TestHandlerCreate(t *testing.T) {
 			context.Response().Header().Add(echo.HeaderXRequestID, "test-request-id")
 
 			if tt.deleteReturnCode != 0 {
-				tt.handler.delete = func(requestId string, topicsToDelete []string, service eventstreams.Service) (int, error) {
+				tt.handler.delete = func(requestId string, topicsToDelete []string, service kafka.KafkaAdmin) (int, error) {
 					if !reflect.DeepEqual(topicsToDelete, tt.expectedDeleteTopics) {
 						t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", tt.expectedDeleteTopics, topicsToDelete))
 					}
@@ -325,7 +325,7 @@ func TestHandlerDelete(t *testing.T) {
 				config: config.Config{
 					Validation: true,
 				},
-				delete: func(string, []string, eventstreams.Service) (int, error) {
+				delete: func(string, []string, kafka.KafkaAdmin) (int, error) {
 					message := "delete failure message"
 					return http.StatusInternalServerError, fmt.Errorf(message)
 				},
@@ -354,7 +354,7 @@ func TestHandlerDelete(t *testing.T) {
 			if tt.handler.delete == nil {
 				// The handler wasn't mocked in the test case. Assert that the proper arguments were sent to
 				// the delete handler and return a 200.
-				tt.handler.delete = func(requestId string, actualStreamNames []string, service eventstreams.Service) (int, error) {
+				tt.handler.delete = func(requestId string, actualStreamNames []string, service kafka.KafkaAdmin) (int, error) {
 					assert.NotNil(t, service)
 					if !reflect.DeepEqual(actualStreamNames, tt.expectedStreamNames) {
 						t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", tt.expectedStreamNames, actualStreamNames))
@@ -398,7 +398,7 @@ func TestHandlerGet(t *testing.T) {
 			name: "happy path",
 			handler: theHandler{
 				config: config.Config{},
-				get: func(string, string, eventstreams.Service) (int, interface{}) {
+				get: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
 					return http.StatusOK, goodRequestStreams
 				},
 			},
@@ -411,7 +411,7 @@ func TestHandlerGet(t *testing.T) {
 			name: "list streams returns no results",
 			handler: theHandler{
 				config: config.Config{},
-				get: func(string, string, eventstreams.Service) (int, interface{}) {
+				get: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
 					return http.StatusOK, emptyStreamsResults
 				},
 			},
@@ -424,7 +424,7 @@ func TestHandlerGet(t *testing.T) {
 			name: "List streams fails with bad auth token",
 			handler: theHandler{
 				config: config.Config{},
-				get: func(string, string, eventstreams.Service) (int, interface{}) {
+				get: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
 					return http.StatusForbidden, map[string]interface{}{"NO_CALL": "This Function Should Never Get Called"}
 				},
 			},
@@ -437,7 +437,7 @@ func TestHandlerGet(t *testing.T) {
 			name: "Return Bad Request for missing TenantId Param ",
 			handler: theHandler{
 				config: config.Config{},
-				get: func(string, string, eventstreams.Service) (int, interface{}) {
+				get: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
 					return http.StatusForbidden, map[string]interface{}{"NO_CALL": "This Function Should Never Get Called"}
 				},
 			},
@@ -449,7 +449,7 @@ func TestHandlerGet(t *testing.T) {
 			name: "List streams function call fails",
 			handler: theHandler{
 				config: config.Config{},
-				get: func(string, string, eventstreams.Service) (int, interface{}) {
+				get: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
 					return http.StatusInternalServerError,
 						response.NewErrorDetail(requestId, "Error List Streams: Unable to connect to Kafka")
 				},

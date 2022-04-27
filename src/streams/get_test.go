@@ -8,12 +8,12 @@ package streams
 import (
 	"errors"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
-	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
+	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/golang/mock/gomock"
 	"net/http"
 	"os"
@@ -67,7 +67,7 @@ func TestGet(t *testing.T) {
 			mockError:    errors.New(forbiddenMessage),
 			mockResponse: &StatusForbidden,
 			expectedCode: http.StatusUnauthorized,
-			expectedBody: response.NewErrorDetail(requestId, eventstreams.UnauthorizedMsg),
+			expectedBody: response.NewErrorDetail(requestId, kafka.UnauthorizedMsg),
 		},
 		{
 			name:         "missing-auth-header",
@@ -75,7 +75,7 @@ func TestGet(t *testing.T) {
 			mockError:    errors.New(unauthorizedMessage),
 			mockResponse: &StatusUnauthorized,
 			expectedCode: http.StatusUnauthorized,
-			expectedBody: response.NewErrorDetail(requestId, eventstreams.MissingHeaderMsg),
+			expectedBody: response.NewErrorDetail(requestId, kafka.MissingHeaderMsg),
 		},
 		{
 			name:         "happy-path-good-request",
@@ -99,15 +99,15 @@ func TestGet(t *testing.T) {
 		mockService := test.NewMockService(controller)
 
 		//Mock return topics for all tenants, GetById should return only the unique stream names for the specified tenant
-		topicDetails := []es.TopicDetail{
-			{Name: eventstreams.TopicPrefix + validTenant1WithQualifier + eventstreams.InSuffix},
-			{Name: eventstreams.TopicPrefix + validTenant1WithQualifier + eventstreams.NotificationSuffix},
-			{Name: eventstreams.TopicPrefix + validTenant1NoQualifier + eventstreams.InSuffix},
-			{Name: eventstreams.TopicPrefix + validTenant1NoQualifier + eventstreams.NotificationSuffix},
-		}
+		topicDetails := &cfk.Metadata{}
+		topicDetails.Topics[kafka.TopicPrefix+validTenant1WithQualifier+kafka.InSuffix] = cfk.TopicMetadata{}
+		topicDetails.Topics[kafka.TopicPrefix+validTenant1WithQualifier+kafka.NotificationSuffix] = cfk.TopicMetadata{}
+		topicDetails.Topics[kafka.TopicPrefix+validTenant1NoQualifier+kafka.InSuffix] = cfk.TopicMetadata{}
+		topicDetails.Topics[kafka.TopicPrefix+validTenant1NoQualifier+kafka.NotificationSuffix] = cfk.TopicMetadata{}
+
 		mockService.
 			EXPECT().
-			ListTopics(gomock.Any(), &es.ListTopicsOpts{}).
+			GetMetadata(nil, true, 10000).
 			Return(topicDetails, tc.mockResponse, tc.mockError).
 			MaxTimes(1)
 
@@ -136,35 +136,35 @@ func TestGetStreamNames(t *testing.T) {
 
 	testCases := []struct {
 		name     string
-		topics   []es.TopicDetail
+		topics   []string
 		tenantId string
 		expected []map[string]interface{}
 	}{
 		{
 			name:     "no-partitions",
-			topics:   []es.TopicDetail{},
+			topics:   []string{},
 			tenantId: tenantId1,
 			expected: []map[string]interface{}{},
 		},
 		{
 			name: "with-optional-qualifier",
-			topics: []es.TopicDetail{
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.InvalidSuffix},
+			topics: []string{
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.InvalidSuffix,
 			},
 			tenantId: tenantId1,
 			expected: []map[string]interface{}{
@@ -174,11 +174,11 @@ func TestGetStreamNames(t *testing.T) {
 		},
 		{
 			name: "with-optional-qualifier-in-only",
-			topics: []es.TopicDetail{
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.InSuffix},
+			topics: []string{
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.InSuffix,
 			},
 			tenantId: tenantId1,
 			expected: []map[string]interface{}{
@@ -188,11 +188,11 @@ func TestGetStreamNames(t *testing.T) {
 		},
 		{
 			name: "with-optional-qualifier-out-only",
-			topics: []es.TopicDetail{
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.OutSuffix},
+			topics: []string{
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.OutSuffix,
 			},
 			tenantId: tenantId1,
 			expected: []map[string]interface{}{
@@ -202,11 +202,11 @@ func TestGetStreamNames(t *testing.T) {
 		},
 		{
 			name: "with-optional-qualifier-invalid-only",
-			topics: []es.TopicDetail{
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.InvalidSuffix},
+			topics: []string{
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.InvalidSuffix,
 			},
 			tenantId: tenantId1,
 			expected: []map[string]interface{}{
@@ -216,11 +216,11 @@ func TestGetStreamNames(t *testing.T) {
 		},
 		{
 			name: "with-optional-qualifier-notification-only",
-			topics: []es.TopicDetail{
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.NotificationSuffix},
+			topics: []string{
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.NotificationSuffix,
 			},
 			tenantId: tenantId1,
 			expected: []map[string]interface{}{
@@ -231,91 +231,91 @@ func TestGetStreamNames(t *testing.T) {
 		{
 			//"tenant" and "tenant1" should be treated uniquely
 			name: "similar-tenant-names",
-			topics: []es.TopicDetail{
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant0WithQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant0WithQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant0WithQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant0WithQualifier + eventstreams.InvalidSuffix},
+			topics: []string{
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant0WithQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant0WithQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant0WithQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant0WithQualifier + kafka.InvalidSuffix,
 			},
 			tenantId: tenantId0,
 			expected: []map[string]interface{}{{param.StreamId: streamId}},
 		},
 		{
 			name: "qualifier-with-extra-period",
-			topics: []es.TopicDetail{
-				{Name: eventstreams.TopicPrefix + tenant1ExtraPeriod + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1ExtraPeriod + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1ExtraPeriod + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1ExtraPeriod + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant0WithQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant0WithQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant0WithQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant0WithQualifier + eventstreams.InvalidSuffix},
+			topics: []string{
+				kafka.TopicPrefix + tenant1ExtraPeriod + kafka.InSuffix,
+				kafka.TopicPrefix + tenant1ExtraPeriod + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant1ExtraPeriod + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant1ExtraPeriod + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant0WithQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant0WithQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant0WithQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant0WithQualifier + kafka.InvalidSuffix,
 			},
 			tenantId: tenantId1,
 			expected: []map[string]interface{}{{param.StreamId: streamIdExtraPeriod}},
 		},
 		{
 			name: "tenant-not-found",
-			topics: []es.TopicDetail{
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2WithQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant2NoQualifier + eventstreams.InvalidSuffix},
+			topics: []string{
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant1WithQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant2WithQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant2NoQualifier + kafka.InvalidSuffix,
 			},
 			tenantId: tenantId0,
 			expected: []map[string]interface{}{},
 		},
 		{
 			name: "ignore-invalid-prefix",
-			topics: []es.TopicDetail{
-				{Name: tenant1WithQualifier + eventstreams.InSuffix},
-				{Name: tenant1WithQualifier + eventstreams.NotificationSuffix},
-				{Name: tenant1WithQualifier + eventstreams.OutSuffix},
-				{Name: tenant1WithQualifier + eventstreams.InvalidSuffix},
-				{Name: "bad-prefix" + tenant1WithQualifier + eventstreams.InSuffix},
-				{Name: "bad-prefix" + tenant1WithQualifier + eventstreams.NotificationSuffix},
-				{Name: "bad-prefix" + tenant1WithQualifier + eventstreams.OutSuffix},
-				{Name: "bad-prefix" + tenant1WithQualifier + eventstreams.InvalidSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InvalidSuffix},
+			topics: []string{
+				tenant1WithQualifier + kafka.InSuffix,
+				tenant1WithQualifier + kafka.NotificationSuffix,
+				tenant1WithQualifier + kafka.OutSuffix,
+				tenant1WithQualifier + kafka.InvalidSuffix,
+				"bad-prefix" + tenant1WithQualifier + kafka.InSuffix,
+				"bad-prefix" + tenant1WithQualifier + kafka.NotificationSuffix,
+				"bad-prefix" + tenant1WithQualifier + kafka.OutSuffix,
+				"bad-prefix" + tenant1WithQualifier + kafka.InvalidSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InvalidSuffix,
 			},
 			tenantId: tenantId1,
 			expected: []map[string]interface{}{{param.StreamId: streamIdNoQualifier}},
 		},
 		{
 			name: "ignore-invalid-suffix",
-			topics: []es.TopicDetail{
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + "bad-suffix"},
-				{Name: eventstreams.TopicPrefix + tenant1WithQualifier + "bad-suffix"},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.NotificationSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.OutSuffix},
-				{Name: eventstreams.TopicPrefix + tenant1NoQualifier + eventstreams.InvalidSuffix},
+			topics: []string{
+				kafka.TopicPrefix + tenant1WithQualifier,
+				kafka.TopicPrefix + tenant1WithQualifier,
+				kafka.TopicPrefix + tenant1WithQualifier + "bad-suffix",
+				kafka.TopicPrefix + tenant1WithQualifier + "bad-suffix",
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.NotificationSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.OutSuffix,
+				kafka.TopicPrefix + tenant1NoQualifier + kafka.InvalidSuffix,
 			},
 			tenantId: tenantId1,
 			expected: []map[string]interface{}{{param.StreamId: streamIdNoQualifier}},

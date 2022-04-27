@@ -9,7 +9,7 @@ package streams
 import (
 	"fmt"
 	configPkg "github.com/Alvearie/hri-mgmt-api/common/config"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
@@ -32,9 +32,9 @@ type Handler interface {
 // logic and other methods that reach out to external services like JWT token validation.
 type theHandler struct {
 	config configPkg.Config
-	create func(model.CreateStreamsRequest, string, string, bool, string, eventstreams.Service) ([]string, int, error)
-	delete func(string, []string, eventstreams.Service) (int, error)
-	get    func(string, string, eventstreams.Service) (int, interface{})
+	create func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error)
+	delete func(string, []string, kafka.KafkaAdmin) (int, error)
+	get    func(string, string, kafka.KafkaAdmin) (int, interface{})
 }
 
 func NewHandler(config configPkg.Config) Handler {
@@ -54,9 +54,13 @@ func (h *theHandler) Create(c echo.Context) error {
 
 	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
 	if len(bearerTokens) == 0 {
-		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, eventstreams.MissingHeaderMsg))
+		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, "missing header 'Authorization'"))
 	}
-	service := eventstreams.CreateServiceFromConfig(h.config, bearerTokens[0])
+	service, err := kafka.NewAdminClientFromConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
 
 	// bind & validate request body
 	var request model.CreateStreamsRequest
@@ -92,9 +96,14 @@ func (h *theHandler) Delete(c echo.Context) error {
 
 	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
 	if len(bearerTokens) == 0 {
-		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, eventstreams.MissingHeaderMsg))
+		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, "missing header 'Authorization'"))
 	}
-	service := eventstreams.CreateServiceFromConfig(h.config, bearerTokens[0])
+
+	service, err := kafka.NewAdminClientFromConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
 
 	// bind & validate request body
 	var request model.DeleteStreamRequest
@@ -107,7 +116,7 @@ func (h *theHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
 	}
 
-	inTopicName, notificationTopicName, outTopicName, invalidTopicName := eventstreams.CreateTopicNames(request.TenantId, request.StreamId)
+	inTopicName, notificationTopicName, outTopicName, invalidTopicName := kafka.CreateTopicNames(request.TenantId, request.StreamId)
 	streamNames := []string{inTopicName, notificationTopicName}
 	if h.config.Validation {
 		streamNames = append(streamNames, outTopicName, invalidTopicName)
@@ -129,11 +138,16 @@ func (h *theHandler) Get(c echo.Context) error {
 
 	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
 	if len(bearerTokens) == 0 {
-		msg := eventstreams.MissingHeaderMsg
+		msg := "missing header 'Authorization'"
 		logger.Errorln(msg)
 		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, msg))
 	}
-	service := eventstreams.CreateServiceFromConfig(h.config, bearerTokens[0])
+
+	service, err := kafka.NewAdminClientFromConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
 
 	// bind & validate request body
 	var request model.GetStreamRequest

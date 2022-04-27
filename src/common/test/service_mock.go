@@ -6,9 +6,8 @@ package test
 
 import (
 	context "context"
-	generated "github.com/IBM/event-streams-go-sdk-generator/build/generated"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	gomock "github.com/golang/mock/gomock"
-	http "net/http"
 	reflect "reflect"
 )
 
@@ -36,63 +35,43 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 }
 
 // CreateTopic mocks base method.
-func (m *MockService) CreateTopic(ctx context.Context, topicCreate generated.TopicCreateRequest) (map[string]interface{}, *http.Response, error) {
+func (m *MockService) CreateTopics(ctx context.Context, topics []kafka.TopicSpecification, options ...kafka.CreateTopicsAdminOption) (result []kafka.TopicResult, err error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateTopic", ctx, topicCreate)
-	ret0, _ := ret[0].(map[string]interface{})
-	ret1, _ := ret[1].(*http.Response)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret := m.ctrl.Call(m, "CreateTopics", ctx, topics, options)
+	ret0, _ := ret[0].([]kafka.TopicResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateTopic indicates an expected call of CreateTopic.
-func (mr *MockServiceMockRecorder) CreateTopic(ctx, topicCreate interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) CreateTopics(ctx, topicCreate interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTopic", reflect.TypeOf((*MockService)(nil).CreateTopic), ctx, topicCreate)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTopics", reflect.TypeOf((*MockService)(nil).CreateTopics), ctx, topicCreate)
 }
 
-// DeleteTopic mocks base method.
-func (m *MockService) DeleteTopic(ctx context.Context, topicName string) (map[string]interface{}, *http.Response, error) {
+func (m *MockService) DeleteTopics(ctx context.Context, topics []string, options ...kafka.DeleteTopicsAdminOption) (result []kafka.TopicResult, err error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteTopic", ctx, topicName)
-	ret0, _ := ret[0].(map[string]interface{})
-	ret1, _ := ret[1].(*http.Response)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret := m.ctrl.Call(m, "DeleteTopic", ctx, topics, options)
+	ret0, _ := ret[0].([]kafka.TopicResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteTopic indicates an expected call of DeleteTopic.
-func (mr *MockServiceMockRecorder) DeleteTopic(ctx, topicName interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) DeleteTopics(ctx, topics interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTopic", reflect.TypeOf((*MockService)(nil).DeleteTopic), ctx, topicName)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTopics", reflect.TypeOf((*MockService)(nil).DeleteTopics), ctx, topics)
 }
 
-// ListTopics mocks base method.
-func (m *MockService) ListTopics(ctx context.Context, localVarOptionals *generated.ListTopicsOpts) ([]generated.TopicDetail, *http.Response, error) {
+func (m *MockService) GetMetadata(topic *string, allTopics bool, timeoutMs int) (*kafka.Metadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListTopics", ctx, localVarOptionals)
-	ret0, _ := ret[0].([]generated.TopicDetail)
-	ret1, _ := ret[1].(*http.Response)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret := m.ctrl.Call(m, "GetMetadata", topic, allTopics, timeoutMs)
+	ret0, _ := ret[0].(*kafka.Metadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// ListTopics indicates an expected call of ListTopics.
-func (mr *MockServiceMockRecorder) ListTopics(ctx, localVarOptionals interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) GetMetadata(topic *string, allTopics bool, timeoutMs int) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTopics", reflect.TypeOf((*MockService)(nil).ListTopics), ctx, localVarOptionals)
-}
-
-// HandleModelError mocks base method.
-func (m *MockService) HandleModelError(err error) *generated.ModelError {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandleModelError", err)
-	ret0, _ := ret[0].(*generated.ModelError)
-	return ret0
-}
-
-// HandleModelError indicates an expected call of HandleModelError.
-func (mr *MockServiceMockRecorder) HandleModelError(err interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleModelError", reflect.TypeOf((*MockService)(nil).HandleModelError), err)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockService)(nil).GetMetadata), topic, allTopics, timeoutMs)
 }

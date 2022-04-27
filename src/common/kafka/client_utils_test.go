@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package eventstreams
+package kafka
 
 import (
 	"github.com/stretchr/testify/assert"

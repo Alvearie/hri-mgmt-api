@@ -1,7 +1,6 @@
 module github.com/Alvearie/hri-mgmt-api
 
 require (
-	github.com/IBM/event-streams-go-sdk-generator v1.0.0
 	github.com/IBM/resource-controller-go-sdk-generator v1.0.1
 	github.com/confluentinc/confluent-kafka-go v1.8.2
 	github.com/coreos/go-oidc v2.2.1+incompatible

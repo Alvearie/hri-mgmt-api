@@ -6,13 +6,10 @@
 package streams
 
 import (
-	"context"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
 	"net/http"
 	"strings"
 )
@@ -21,52 +18,37 @@ const msgStreamsNotFound = "Unable to get stream names for tenant [%s]. %s"
 
 func Get(
 	requestId string, tenantId string,
-	service eventstreams.Service) (int, interface{}) {
+	adminClient kafka.KafkaAdmin) (int, interface{}) {
 	prefix := "streams/Get"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("List streams for: " + tenantId)
 
 	// get all topics for the kafka connection, then take only the streams for the given tenantId
-	topicDetails, resp, err := service.ListTopics(context.Background(), &es.ListTopicsOpts{})
+	topics, err := listTopics(adminClient)
 	if err != nil {
 		msg := fmt.Sprintf(msgStreamsNotFound, tenantId, err.Error())
 		logger.Errorln(msg)
-		return getResponseError(requestId, resp, err)
+		// Only error we'd expect to handle differently is auth. However, confluent-kafka-go behavior
+		// makes those difficult to detect.
+		return http.StatusInternalServerError, err
 	}
 
-	streamNames := GetStreamNames(topicDetails, tenantId)
+	streamNames := GetStreamNames(topics, tenantId)
 	return http.StatusOK, map[string]interface{}{"results": streamNames}
 }
 
-func getResponseError(requestId string, resp *http.Response, err error) (int, *response.ErrorDetail) {
-	var returnCode = http.StatusInternalServerError
-	var returnError = response.NewErrorDetail(requestId, err.Error())
-
-	//EventStreams Admin API gives us status 403 when provided bearer token is unauthorized
-	//and status 401 when Authorization isn't provided or is nil
-	if resp.StatusCode == http.StatusForbidden {
-		returnCode = http.StatusUnauthorized
-		returnError = response.NewErrorDetail(requestId, eventstreams.UnauthorizedMsg)
-	} else if resp.StatusCode == http.StatusUnauthorized {
-		returnCode = http.StatusUnauthorized
-		returnError = response.NewErrorDetail(requestId, eventstreams.MissingHeaderMsg)
-	}
-	return returnCode, returnError
-}
-
-func GetStreamNames(topics []es.TopicDetail, tenantId string) []map[string]interface{} {
+func GetStreamNames(topics []string, tenantId string) []map[string]interface{} {
 	streamNames := []map[string]interface{}{}
 	seenStreamIds := make(map[string]bool)
-	for _, topic := range topics {
-		topicName := topic.Name
+	for _, topicName := range topics {
 		splits := strings.Split(topicName, ".")
 		if len(splits) >= 4 && validTopicName(topicName) && splits[1] == tenantId {
 			//streamId is between tenantId and suffix, and it includes the dataIntegratorId and optional qualifier (delimited by '.')
-			streamId := strings.TrimPrefix(topicName, eventstreams.TopicPrefix+tenantId+".")
-			streamId = strings.TrimSuffix(streamId, eventstreams.InSuffix)
-			streamId = strings.TrimSuffix(streamId, eventstreams.NotificationSuffix)
-			streamId = strings.TrimSuffix(streamId, eventstreams.OutSuffix)
-			streamId = strings.TrimSuffix(streamId, eventstreams.InvalidSuffix)
+			streamId := strings.TrimPrefix(topicName, kafka.TopicPrefix+tenantId+".")
+			streamId = strings.TrimSuffix(streamId, kafka.InSuffix)
+			streamId = strings.TrimSuffix(streamId, kafka.NotificationSuffix)
+			streamId = strings.TrimSuffix(streamId, kafka.OutSuffix)
+			streamId = strings.TrimSuffix(streamId, kafka.InvalidSuffix)
 
 			//take unique stream names, we don't want duplicates due to a stream's multiple topics (in/notification)
 			if _, seen := seenStreamIds[streamId]; !seen {
@@ -78,8 +60,26 @@ func GetStreamNames(topics []es.TopicDetail, tenantId string) []map[string]inter
 	return streamNames
 }
 
+func listTopics(adminClient kafka.KafkaAdmin) ([]string, error) {
+	// Passing nil and true as first two params returns info on all topics.
+	metadata, err := adminClient.GetMetadata(nil, true, 10000)
+	if err != nil {
+		return nil, fmt.Errorf("error listing Kafka topics: %w", err)
+	}
+
+	// metadata.Topics is a map from topic names to structs with topic info
+	i := 0
+	topics := make([]string, len(metadata.Topics))
+	for key, _ := range metadata.Topics {
+		topics[i] = key
+		i++
+	}
+
+	return topics, nil
+}
+
 func validTopicName(topicName string) bool {
-	return strings.HasPrefix(topicName, eventstreams.TopicPrefix) &&
-		(strings.HasSuffix(topicName, eventstreams.InSuffix) || strings.HasSuffix(topicName, eventstreams.NotificationSuffix) ||
-			strings.HasSuffix(topicName, eventstreams.OutSuffix) || strings.HasSuffix(topicName, eventstreams.InvalidSuffix))
+	return strings.HasPrefix(topicName, kafka.TopicPrefix) &&
+		(strings.HasSuffix(topicName, kafka.InSuffix) || strings.HasSuffix(topicName, kafka.NotificationSuffix) ||
+			strings.HasSuffix(topicName, kafka.OutSuffix) || strings.HasSuffix(topicName, kafka.InvalidSuffix))
 }
