@@ -23,16 +23,17 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
-	numPartitions               int64  = 1
-	retentionMs                 int    = 86400000
-	topicAlreadyExistsMessage   string = "topic already exists"
-	invalidCleanupPolicyMessage string = "invalid cleanup policy"
-	forbiddenMessage            string = "forbidden"
-	unauthorizedMessage         string = "SASL authentication error: SaslAuthenticateRequest failed: Local: Broker handle destroyed"
-	kafkaConnectionMessage      string = "Unable to connect to Kafka"
+	numPartitions                 int64  = 2
+	retentionMs                   int    = 86400000
+	topicAlreadyExistsMsgTemplate string = "Topic '%s' already exists."
+	invalidCleanupPolicyMessage   string = "invalid cleanup policy"
+	forbiddenMessage              string = "forbidden"
+	unauthorizedMessage           string = "SASL authentication error: SaslAuthenticateRequest failed: Local: Broker handle destroyed"
+	kafkaConnectionMessage        string = "Unable to connect to Kafka"
 )
 
 var StatusForbidden = http.Response{StatusCode: 403}
@@ -59,6 +60,10 @@ func TestCreate(t *testing.T) {
 	streamId1 := "data-integrator123.qualifier_123"
 	requestId := "request-id"
 	baseTopicName := strings.Join([]string{tenantId, streamId1}, ".")
+	inTopicName := kafka.TopicPrefix + baseTopicName + kafka.InSuffix
+	notificationTopicName := kafka.TopicPrefix + baseTopicName + kafka.NotificationSuffix
+	outTopicName := kafka.TopicPrefix + baseTopicName + kafka.OutSuffix
+	invalidTopicName := kafka.TopicPrefix + baseTopicName + kafka.InvalidSuffix
 
 	validStreamsRequest := model.CreateStreamsRequest{
 		NumPartitions: getInt64Pointer(numPartitions),
@@ -70,9 +75,10 @@ func TestCreate(t *testing.T) {
 		streamsRequest     model.CreateStreamsRequest
 		tenantId           string
 		streamId           string
+		topic              string
+		createResults      []cfk.TopicResult
+		createError        error
 		validationEnabled  bool
-		mockResponse       *http.Response
-		expectedTopic      string
 		expectedTopics     []string
 		expectedReturnCode int
 		expectedError      error
@@ -82,107 +88,109 @@ func TestCreate(t *testing.T) {
 			streamsRequest:     validStreamsRequest,
 			tenantId:           tenantId,
 			streamId:           streamId1,
-			mockResponse:       &StatusForbidden,
-			expectedError:      fmt.Errorf(kafka.UnauthorizedMsg),
-			expectedReturnCode: http.StatusUnauthorized,
-			expectedTopic:      baseTopicName,
-		},
-		{
-			name:               "missing-auth-header",
-			streamsRequest:     validStreamsRequest,
-			tenantId:           tenantId,
-			streamId:           streamId1,
-			mockResponse:       &StatusUnauthorized,
-			expectedError:      fmt.Errorf(kafka.MissingHeaderMsg),
-			expectedReturnCode: http.StatusUnauthorized,
-			expectedTopic:      baseTopicName,
-		},
-		{
-			name:               "in-topic-already-exists",
-			streamsRequest:     validStreamsRequest,
-			tenantId:           tenantId,
-			streamId:           streamId1,
-			mockResponse:       &StatusUnprocessableEntity,
-			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
-			expectedReturnCode: http.StatusConflict,
-			expectedTopic:      baseTopicName,
-		},
-		{
-			name:               "notification-topic-already-exists",
-			streamsRequest:     validStreamsRequest,
-			tenantId:           tenantId,
-			streamId:           streamId1,
-			mockResponse:       &StatusUnprocessableEntity,
-			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
-			expectedReturnCode: http.StatusConflict,
-			expectedTopic:      baseTopicName,
-			expectedTopics:     []string{kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.InSuffix},
-		},
-		{
-			name:               "out-topic-already-exists",
-			streamsRequest:     validStreamsRequest,
-			tenantId:           tenantId,
-			streamId:           streamId1,
-			validationEnabled:  true,
-			mockResponse:       &StatusUnprocessableEntity,
-			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
-			expectedReturnCode: http.StatusConflict,
-			expectedTopic:      baseTopicName,
-			expectedTopics: []string{
-				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.InSuffix,
-				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.NotificationSuffix,
-			},
-		},
-		{
-			name:               "invalid-topic-already-exists",
-			streamsRequest:     validStreamsRequest,
-			tenantId:           tenantId,
-			streamId:           streamId1,
-			validationEnabled:  true,
-			mockResponse:       &StatusUnprocessableEntity,
-			expectedError:      fmt.Errorf(topicAlreadyExistsMessage),
-			expectedReturnCode: http.StatusConflict,
-			expectedTopic:      baseTopicName,
-			expectedTopics: []string{
-				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.InSuffix,
-				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.NotificationSuffix,
-				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.OutSuffix,
-			},
-		},
-		{
-			name:               "invalid-cleanup-policy",
-			streamsRequest:     validStreamsRequest,
-			tenantId:           tenantId,
-			streamId:           streamId1,
-			mockResponse:       &StatusUnprocessableEntity,
-			expectedReturnCode: http.StatusBadRequest,
-			expectedError:      fmt.Errorf(invalidCleanupPolicyMessage),
-			expectedTopic:      baseTopicName,
-		},
-		{
-			name:               "in-conn-error",
-			streamsRequest:     validStreamsRequest,
-			tenantId:           tenantId,
-			streamId:           streamId1,
-			mockResponse:       &StatusUnprocessableEntity,
+			createResults:      []cfk.TopicResult{},
+			createError:        cfk.NewError(cfk.ErrTimedOut, "Failed while waiting for controller: Local: Timed out", false),
 			expectedReturnCode: http.StatusInternalServerError,
-			expectedError:      fmt.Errorf(kafkaConnectionMessage),
-			expectedTopic:      baseTopicName,
+			expectedError:      fmt.Errorf("unexpected error creating Kafka topics: %w", cfk.NewError(cfk.ErrTimedOut, "Failed while waiting for controller: Local: Timed out", false)),
 		},
 		{
-			name:               "good-request-no-qualifier-with-validation",
-			streamsRequest:     validStreamsRequest,
-			tenantId:           tenantId,
-			streamId:           streamId1,
+			name:           "in-topic-already-exists",
+			streamsRequest: validStreamsRequest,
+			tenantId:       tenantId,
+			streamId:       streamId1,
+			createResults: []cfk.TopicResult{
+				{Topic: inTopicName, Error: cfk.NewError(cfk.ErrTopicAlreadyExists, fmt.Sprintf(topicAlreadyExistsMsgTemplate, inTopicName), false)},
+				{Topic: notificationTopicName},
+			},
+			expectedReturnCode: http.StatusConflict,
+			expectedTopics:     []string{notificationTopicName},
+			expectedError:      cfk.NewError(cfk.ErrTopicAlreadyExists, fmt.Sprintf(topicAlreadyExistsMsgTemplate, inTopicName), false),
+		},
+		{
+			name:           "notification-topic-already-exists",
+			streamsRequest: validStreamsRequest,
+			tenantId:       tenantId,
+			streamId:       streamId1,
+			createResults: []cfk.TopicResult{
+				{Topic: inTopicName},
+				{Topic: notificationTopicName, Error: cfk.NewError(cfk.ErrTopicAlreadyExists, fmt.Sprintf(topicAlreadyExistsMsgTemplate, notificationTopicName), false)},
+			},
+			expectedReturnCode: http.StatusConflict,
+			expectedTopics:     []string{inTopicName},
+			expectedError:      cfk.NewError(cfk.ErrTopicAlreadyExists, fmt.Sprintf(topicAlreadyExistsMsgTemplate, notificationTopicName), false),
+		},
+		{
+			name:              "out-topic-already-exists",
+			streamsRequest:    validStreamsRequest,
+			tenantId:          tenantId,
+			streamId:          streamId1,
+			validationEnabled: true,
+			createResults: []cfk.TopicResult{
+				{Topic: inTopicName},
+				{Topic: notificationTopicName},
+				{Topic: outTopicName, Error: cfk.NewError(cfk.ErrTopicAlreadyExists, fmt.Sprintf(topicAlreadyExistsMsgTemplate, outTopicName), false)},
+				{Topic: invalidTopicName},
+			},
+			expectedReturnCode: http.StatusConflict,
+			expectedTopics:     []string{inTopicName, notificationTopicName, invalidTopicName},
+			expectedError:      cfk.NewError(cfk.ErrTopicAlreadyExists, fmt.Sprintf(topicAlreadyExistsMsgTemplate, outTopicName), false),
+		},
+		{
+			name:              "two-topics-already-exist",
+			streamsRequest:    validStreamsRequest,
+			tenantId:          tenantId,
+			streamId:          streamId1,
+			validationEnabled: true,
+			createResults: []cfk.TopicResult{
+				{Topic: inTopicName},
+				{Topic: notificationTopicName, Error: cfk.NewError(cfk.ErrTopicAlreadyExists, fmt.Sprintf(topicAlreadyExistsMsgTemplate, notificationTopicName), false)},
+				{Topic: outTopicName, Error: cfk.NewError(cfk.ErrTopicAlreadyExists, fmt.Sprintf(topicAlreadyExistsMsgTemplate, outTopicName), false)},
+				{Topic: invalidTopicName},
+			},
+			expectedReturnCode: http.StatusConflict,
+			expectedTopics:     []string{inTopicName, invalidTopicName},
+			expectedError:      cfk.NewError(cfk.ErrTopicAlreadyExists, fmt.Sprintf(topicAlreadyExistsMsgTemplate, notificationTopicName), false),
+		},
+		{
+			name:           "invalid-cleanup-policy",
+			streamsRequest: validStreamsRequest,
+			tenantId:       tenantId,
+			streamId:       streamId1,
+			createResults: []cfk.TopicResult{
+				{Topic: inTopicName, Error: cfk.NewError(cfk.ErrInvalidConfig, "Invalid value abcd for configuration cleanup.policy: String must be one of: compact, delete", false)},
+				{Topic: notificationTopicName},
+			},
+			expectedReturnCode: http.StatusBadRequest,
+			expectedTopics:     []string{notificationTopicName},
+			expectedError:      cfk.NewError(cfk.ErrInvalidConfig, "Invalid value abcd for configuration cleanup.policy: String must be one of: compact, delete", false),
+		},
+		{
+			name:           "invalid-retention-ms",
+			streamsRequest: validStreamsRequest,
+			tenantId:       tenantId,
+			streamId:       streamId1,
+			createResults: []cfk.TopicResult{
+				{Topic: inTopicName, Error: cfk.NewError(cfk.ErrPolicyViolation, "Invalid retention.ms specified. The allowed range is [3600000..2592000000]", false)},
+				{Topic: notificationTopicName},
+			},
+			expectedReturnCode: http.StatusBadRequest,
+			expectedTopics:     []string{notificationTopicName},
+			expectedError:      cfk.NewError(cfk.ErrPolicyViolation, "Invalid retention.ms specified. The allowed range is [3600000..2592000000]", false),
+		},
+		{
+			name:           "good-request-no-qualifier-with-validation",
+			streamsRequest: validStreamsRequest,
+			tenantId:       tenantId,
+			streamId:       streamId1,
+			createResults: []cfk.TopicResult{
+				{Topic: inTopicName},
+				{Topic: notificationTopicName},
+				{Topic: outTopicName},
+				{Topic: invalidTopicName},
+			},
 			validationEnabled:  true,
 			expectedReturnCode: http.StatusCreated,
-			expectedTopic:      baseTopicName,
-			expectedTopics: []string{
-				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.InSuffix,
-				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.NotificationSuffix,
-				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.OutSuffix,
-				kafka.TopicPrefix + tenantId + "." + streamId1 + kafka.InvalidSuffix,
-			},
+			expectedTopics:     []string{inTopicName, notificationTopicName, outTopicName, invalidTopicName},
 		},
 	}
 
@@ -191,28 +199,18 @@ func TestCreate(t *testing.T) {
 		defer controller.Finish()
 		mockService := test.NewMockService(controller)
 
-		mockService.
-			EXPECT().
-			CreateTopics(context.Background(), getTestTopicSpecs(tc.expectedTopics)).
-			Return(nil, tc.mockResponse, tc.expectedError).
-			MaxTimes(1)
+		topicNames := []string{inTopicName, notificationTopicName}
+		if tc.validationEnabled {
+			topicNames = []string{inTopicName, notificationTopicName, outTopicName, invalidTopicName}
+		}
+		partitionCounts := []int{int(numPartitions), 1, int(numPartitions), 1}
+		config := setUpTopicConfig(tc.streamsRequest)
+		topicSpecifications := buildTopicSpecifications(topicNames, partitionCounts, config)
 
 		mockService.
 			EXPECT().
-			CreateTopics(context.Background(), getTestTopicSpecs(tc.expectedTopics)).
-			Return(nil, tc.mockResponse, tc.expectedError).
-			MaxTimes(1)
-
-		mockService.
-			EXPECT().
-			CreateTopics(context.Background(), getTestTopicSpecs(tc.expectedTopics)).
-			Return(nil, tc.mockResponse, tc.expectedError).
-			MaxTimes(1)
-
-		mockService.
-			EXPECT().
-			CreateTopics(context.Background(), getTestTopicSpecs(tc.expectedTopics)).
-			Return(nil, tc.mockResponse, tc.expectedError).
+			CreateTopics(context.Background(), topicSpecifications, cfk.SetAdminRequestTimeout(time.Second*10)).
+			Return(tc.createResults, tc.createError).
 			MaxTimes(1)
 
 		t.Run(tc.name, func(t *testing.T) {
@@ -262,19 +260,6 @@ func TestSetUpTopicConfigs(t *testing.T) {
 	}
 	config := setUpTopicConfig(validArgs)
 	assert.Equal(t, expectedConfig, config)
-}
-
-func getTestTopicSpecs(streamNames []string) []cfk.TopicSpecification {
-
-	topicSpecs := make([]cfk.TopicSpecification, 0, 4)
-	suffixes := []string{kafka.InSuffix, kafka.OutSuffix, kafka.NotificationSuffix, kafka.InvalidSuffix}
-	for i, streamName := range streamNames {
-		topicSpecs[i] = cfk.TopicSpecification{
-			Topic:         kafka.TopicPrefix + streamName + suffixes[i],
-			NumPartitions: 1,
-		}
-	}
-	return topicSpecs
 }
 
 func TestCreateRequestValidation(t *testing.T) {

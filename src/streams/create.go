@@ -7,7 +7,6 @@ package streams
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
@@ -62,7 +61,7 @@ func Create(
 
 	results, err := adminClient.CreateTopics(ctx, topicSpecs, cfk.SetAdminRequestTimeout(time.Second*10))
 	if err != nil {
-		return nil, http.StatusBadRequest, fmt.Errorf("unexpected error creating Kafka topics: %w", err)
+		return make([]string, 0), http.StatusInternalServerError, fmt.Errorf("unexpected error creating Kafka topics: %w", err)
 	}
 
 	createdTopics := make([]string, 0, 4)
@@ -76,11 +75,11 @@ func Create(
 		}
 	}
 
-	returnCode, errMsg := http.StatusCreated, ""
+	returnCode := http.StatusCreated
 	err = nil
 	if len(errs) > 0 {
-		returnCode, errMsg = getResponseCodeAndErrorMessage(errs[0])
-		err = errors.New(errMsg)
+		err = errs[0]
+		returnCode = getResponseCodeAndErrorMessage(errs[0])
 	}
 
 	return createdTopics, returnCode, err
@@ -130,13 +129,16 @@ func setUpTopicConfig(request model.CreateStreamsRequest) map[string]string {
 	return config
 }
 
-func getResponseCodeAndErrorMessage(err cfk.Error) (int, string) {
+func getResponseCodeAndErrorMessage(err cfk.Error) int {
 	code := err.Code()
 	// In confluent-kafka-go library, Auth errors seem to get logged
 	// as auth errors, but returned with very generic error messages so
 	// we can't distinguish them
 	if code == cfk.ErrTopicAlreadyExists {
-		return http.StatusConflict, err.Error()
+		return http.StatusConflict
+	} else if code == cfk.ErrPolicyViolation || code == cfk.ErrInvalidConfig {
+		// invalid int values return policy violation, invalid cleanup policy gives invalid config.
+		return http.StatusBadRequest
 	}
-	return http.StatusInternalServerError, err.Error()
+	return http.StatusInternalServerError
 }

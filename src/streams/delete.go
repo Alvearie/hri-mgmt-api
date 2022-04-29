@@ -13,6 +13,7 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -27,32 +28,42 @@ func Delete(requestId string, topics []string, adminClient kafka.KafkaAdmin) (in
 
 	results, err := adminClient.DeleteTopics(ctx, topics, cfk.SetAdminRequestTimeout(time.Second*10))
 	if err != nil {
-		return http.StatusBadRequest, fmt.Errorf("unexpected error deleting Kafka topics: %w", err)
+		var kafkaErr = &cfk.Error{}
+		if errors.As(err, kafkaErr) {
+			return getDeleteResponseErrorCode(*kafkaErr), fmt.Errorf("unexpected error deleting Kafka topics: %w", *kafkaErr)
+		}
+		// Should never be reached, err should be of type cfk.Error.
+		return http.StatusInternalServerError, fmt.Errorf("unexpected error deleting Kafka topics: %w", err)
 	}
-
-	errs := make([]cfk.Error, 0, 4)
+	returnCode := http.StatusOK
+	var errorMessageBuilder strings.Builder
 	for _, res := range results {
 		if res.Error.Code() != cfk.ErrNoError {
-			logger.Errorf(res.Error.Error())
-			errs = append(errs, res.Error)
+			logger.Errorln(res.Error.Error())
+			if returnCode == http.StatusOK {
+				returnCode = getDeleteResponseErrorCode(res.Error)
+				fmt.Fprintf(&errorMessageBuilder, deleteErrMessageTemplate, res.Topic, res.Error.Error())
+			} else {
+				fmt.Fprintf(&errorMessageBuilder, "\n"+deleteErrMessageTemplate, res.Topic, res.Error.Error())
+			}
 		}
 	}
 
-	if len(errs) > 0 {
-		code, msg := getDeleteResponseError(errs[0])
-		return code, errors.New(msg)
+	if returnCode != http.StatusOK {
+		var err = fmt.Errorf(errorMessageBuilder.String())
+		return returnCode, err
 	}
 
 	return http.StatusOK, nil
 }
 
-func getDeleteResponseError(err cfk.Error) (int, string) {
+func getDeleteResponseErrorCode(err cfk.Error) int {
 	code := err.Code()
 	// In confluent-kafka-go library, Auth errors seem to get logged
 	// as auth errors, but returned with very generic error messages so
 	// we can't distinguish them
 	if code == cfk.ErrUnknownTopic || code == cfk.ErrUnknownTopicOrPart {
-		return http.StatusNotFound, err.Error()
+		return http.StatusNotFound
 	}
-	return http.StatusInternalServerError, err.Error()
+	return http.StatusInternalServerError
 }

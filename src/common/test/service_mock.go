@@ -44,23 +44,23 @@ func (m *MockService) CreateTopics(ctx context.Context, topics []kafka.TopicSpec
 }
 
 // CreateTopic indicates an expected call of CreateTopic.
-func (mr *MockServiceMockRecorder) CreateTopics(ctx, topicCreate interface{}) *gomock.Call {
+func (mr *MockServiceMockRecorder) CreateTopics(ctx context.Context, topics []kafka.TopicSpecification, options ...kafka.CreateTopicsAdminOption) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTopics", reflect.TypeOf((*MockService)(nil).CreateTopics), ctx, topicCreate)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTopics", reflect.TypeOf((*MockService)(nil).CreateTopics), ctx, topics, options)
 }
 
 func (m *MockService) DeleteTopics(ctx context.Context, topics []string, options ...kafka.DeleteTopicsAdminOption) (result []kafka.TopicResult, err error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteTopic", ctx, topics, options)
+	ret := m.ctrl.Call(m, "DeleteTopics", ctx, topics, options)
 	ret0, _ := ret[0].([]kafka.TopicResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// DeleteTopic indicates an expected call of DeleteTopic.
-func (mr *MockServiceMockRecorder) DeleteTopics(ctx, topics interface{}) *gomock.Call {
+// DeleteTopics indicates an expected call of DeleteTopics.
+func (mr *MockServiceMockRecorder) DeleteTopics(ctx context.Context, topics []string, options ...kafka.DeleteTopicsAdminOption) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTopics", reflect.TypeOf((*MockService)(nil).DeleteTopics), ctx, topics)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTopics", reflect.TypeOf((*MockService)(nil).DeleteTopics), ctx, topics, options)
 }
 
 func (m *MockService) GetMetadata(topic *string, allTopics bool, timeoutMs int) (*kafka.Metadata, error) {
