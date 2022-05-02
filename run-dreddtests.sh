@@ -29,7 +29,7 @@ mkdir -p ../test/logs
 ../src/hri -config-path=../test/spec/test_config/valid_config.yml -tls-enabled=false -kafka-properties=security.protocol:sasl_ssl,sasl.mechanism:PLAIN,sasl.username:token,sasl.password:$KAFKA_PASSWORD,ssl.endpoint.identification.algorithm:https > ../test/logs/dredd-output.txt &
 sleep 1
 
-dredd -r xunit -o ../dreddtests.xml management.swagger.yml ${HRI_URL/https/http} --sorted --language=ruby --hookfiles=../test/spec/dredd_hooks.rb --hooks-worker-connect-timeout=5000
+dredd -r xunit -o ../dreddtests.xml management.swagger.yml ${HRI_URL/https/http} --sorted --language=ruby --hookfiles=../test/spec/dredd_hooks.rb --hooks-worker-connect-timeout=5000 --loglevel debug
 
 #Kill the Management API process
 PROCESS_ID=$(lsof -iTCP:1323 -sTCP:LISTEN | grep -o '[0-9]\+' | sed 1q)
