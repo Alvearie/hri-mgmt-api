@@ -128,11 +128,10 @@ func setUpTopicConfig(request model.CreateStreamsRequest) map[string]string {
 
 func getResponseCodeAndErrorMessage(err cfk.Error) int {
 	code := err.Code()
-	// In confluent-kafka-go library, Auth errors seem to get logged
-	// as auth errors, but returned with very generic error messages so
-	// we can't distinguish them
 	if code == cfk.ErrTopicAlreadyExists {
 		return http.StatusConflict
+	} else if code == cfk.ErrTopicAuthorizationFailed || code == cfk.ErrGroupAuthorizationFailed || code == cfk.ErrClusterAuthorizationFailed {
+		return http.StatusUnauthorized
 	} else if code == cfk.ErrPolicyViolation || code == cfk.ErrInvalidConfig {
 		// invalid int values return policy violation, invalid cleanup policy gives invalid config.
 		return http.StatusBadRequest

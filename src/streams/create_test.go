@@ -81,7 +81,18 @@ func TestCreate(t *testing.T) {
 		expectedError      error
 	}{
 		{
-			name:               "not-authorized",
+			name:           "not-authorized",
+			streamsRequest: validStreamsRequest,
+			tenantId:       tenantId,
+			streamId:       streamId1,
+			createResults: []cfk.TopicResult{
+				{Topic: "in", Error: cfk.NewError(cfk.ErrTopicAuthorizationFailed, unauthorizedMessage, false)},
+			},
+			expectedReturnCode: http.StatusUnauthorized,
+			expectedError:      cfk.NewError(cfk.ErrTopicAuthorizationFailed, unauthorizedMessage, false),
+		},
+		{
+			name:               "timed-out",
 			streamsRequest:     validStreamsRequest,
 			tenantId:           tenantId,
 			streamId:           streamId1,

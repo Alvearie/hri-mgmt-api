@@ -19,7 +19,10 @@ import (
 	"time"
 )
 
-const topicNotFoundMessage string = "Broker: Unknown topic or partition"
+const (
+	topicNotFoundMessage string = "Broker: Unknown topic or partition"
+	unauthorizedMessage  string = "Authorization failed."
+)
 
 func TestDelete(t *testing.T) {
 	logwrapper.Initialize("error", os.Stdout)
@@ -45,7 +48,16 @@ func TestDelete(t *testing.T) {
 			expectedReturnCode: http.StatusOK,
 		},
 		{
-			name:               "not-authorized",
+			name:   "not-authorized",
+			topics: []string{"in"},
+			deleteResults: []cfk.TopicResult{
+				{Topic: "in", Error: cfk.NewError(cfk.ErrTopicAuthorizationFailed, unauthorizedMessage, false)},
+			},
+			expectedReturnCode: http.StatusUnauthorized,
+			expectedError:      fmt.Errorf("Unable to delete topic \"in\": " + unauthorizedMessage),
+		},
+		{
+			name:               "timed-out",
 			topics:             []string{"in"},
 			deleteResults:      []cfk.TopicResult{},
 			deleteError:        cfk.NewError(cfk.ErrTimedOut, "Failed while waiting for controller: Local: Timed out", false),

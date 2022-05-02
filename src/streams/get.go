@@ -6,10 +6,12 @@
 package streams
 
 import (
+	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
+	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 	"net/http"
 	"strings"
 )
@@ -28,9 +30,16 @@ func Get(
 	if err != nil {
 		msg := fmt.Sprintf(msgStreamsNotFound, tenantId, err.Error())
 		logger.Errorln(msg)
-		// Only error we'd expect to handle differently is auth. However, confluent-kafka-go behavior
-		// makes those difficult to detect.
-		return http.StatusInternalServerError, err
+
+		returnCode := http.StatusInternalServerError
+		var kafkaErr = &cfk.Error{}
+		if errors.As(err, kafkaErr) {
+			code := kafkaErr.Code()
+			if code == cfk.ErrTopicAuthorizationFailed || code == cfk.ErrGroupAuthorizationFailed || code == cfk.ErrClusterAuthorizationFailed {
+				returnCode = http.StatusUnauthorized
+			}
+		}
+		return returnCode, err
 	}
 
 	streamNames := GetStreamNames(topics, tenantId)

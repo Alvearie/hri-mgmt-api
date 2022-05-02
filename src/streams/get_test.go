@@ -81,7 +81,14 @@ func TestGet(t *testing.T) {
 		expectedBody interface{}
 	}{
 		{
-			name:         "conn-error",
+			name:         "not-authorized",
+			tenantId:     validTenant1,
+			mockError:    cfk.NewError(cfk.ErrTopicAuthorizationFailed, unauthorizedMessage, false),
+			expectedCode: http.StatusUnauthorized,
+			expectedBody: fmt.Errorf("error listing Kafka topics: %w", cfk.NewError(cfk.ErrTopicAuthorizationFailed, unauthorizedMessage, false)),
+		},
+		{
+			name:         "timed-out",
 			tenantId:     validTenant1,
 			mockError:    cfk.NewError(cfk.ErrTimedOut, "Local: Broker transport failure", false),
 			expectedCode: http.StatusInternalServerError,

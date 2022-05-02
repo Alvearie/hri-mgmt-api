@@ -59,11 +59,10 @@ func Delete(requestId string, topics []string, adminClient kafka.KafkaAdmin) (in
 
 func getDeleteResponseErrorCode(err cfk.Error) int {
 	code := err.Code()
-	// In confluent-kafka-go library, Auth errors seem to get logged
-	// as auth errors, but returned with very generic error messages so
-	// we can't distinguish them
 	if code == cfk.ErrUnknownTopic || code == cfk.ErrUnknownTopicOrPart {
 		return http.StatusNotFound
+	} else if code == cfk.ErrTopicAuthorizationFailed || code == cfk.ErrGroupAuthorizationFailed || code == cfk.ErrClusterAuthorizationFailed {
+		return http.StatusUnauthorized
 	}
 	return http.StatusInternalServerError
 }
