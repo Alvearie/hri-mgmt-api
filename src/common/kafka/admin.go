@@ -8,12 +8,6 @@ import (
 	"strings"
 )
 
-const (
-	bearerTokenHeader string = "authorization"
-	MissingHeaderMsg  string = "missing header 'Authorization'"
-	UnauthorizedMsg   string = "Unauthorized to manage resource"
-)
-
 type confluentKafkaAdminClient struct {
 	KafkaAdmin
 }
