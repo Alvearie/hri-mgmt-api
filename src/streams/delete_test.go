@@ -37,10 +37,10 @@ func TestDelete(t *testing.T) {
 			name:   "happy path",
 			topics: []string{"in", "out", "notification", "invalid"},
 			deleteResults: []cfk.TopicResult{
-				cfk.TopicResult{Topic: "in", Error: cfk.NewError(cfk.ErrNoError, "", false)},
-				cfk.TopicResult{Topic: "out", Error: cfk.NewError(cfk.ErrNoError, "", false)},
-				cfk.TopicResult{Topic: "notification", Error: cfk.NewError(cfk.ErrNoError, "", false)},
-				cfk.TopicResult{Topic: "invalid", Error: cfk.NewError(cfk.ErrNoError, "", false)},
+				{Topic: "in", Error: cfk.NewError(cfk.ErrNoError, "", false)},
+				{Topic: "out", Error: cfk.NewError(cfk.ErrNoError, "", false)},
+				{Topic: "notification", Error: cfk.NewError(cfk.ErrNoError, "", false)},
+				{Topic: "invalid", Error: cfk.NewError(cfk.ErrNoError, "", false)},
 			},
 			expectedReturnCode: http.StatusOK,
 		},
@@ -56,7 +56,7 @@ func TestDelete(t *testing.T) {
 			name:   "topic-not-found",
 			topics: []string{"in"},
 			deleteResults: []cfk.TopicResult{
-				cfk.TopicResult{Topic: "in", Error: cfk.NewError(cfk.ErrUnknownTopicOrPart, topicNotFoundMessage, false)},
+				{Topic: "in", Error: cfk.NewError(cfk.ErrUnknownTopicOrPart, topicNotFoundMessage, false)},
 			},
 			expectedReturnCode: http.StatusNotFound,
 			expectedError:      fmt.Errorf("Unable to delete topic \"in\": " + topicNotFoundMessage),

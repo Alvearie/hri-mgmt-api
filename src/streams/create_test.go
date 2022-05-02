@@ -30,10 +30,7 @@ const (
 	numPartitions                 int64  = 2
 	retentionMs                   int    = 86400000
 	topicAlreadyExistsMsgTemplate string = "Topic '%s' already exists."
-	invalidCleanupPolicyMessage   string = "invalid cleanup policy"
-	forbiddenMessage              string = "forbidden"
-	unauthorizedMessage           string = "SASL authentication error: SaslAuthenticateRequest failed: Local: Broker handle destroyed"
-	kafkaConnectionMessage        string = "Unable to connect to Kafka"
+	timedOutMessage               string = "Failed while waiting for controller: Local: Timed out"
 )
 
 var StatusForbidden = http.Response{StatusCode: 403}
@@ -89,9 +86,9 @@ func TestCreate(t *testing.T) {
 			tenantId:           tenantId,
 			streamId:           streamId1,
 			createResults:      []cfk.TopicResult{},
-			createError:        cfk.NewError(cfk.ErrTimedOut, "Failed while waiting for controller: Local: Timed out", false),
+			createError:        cfk.NewError(cfk.ErrTimedOut, timedOutMessage, false),
 			expectedReturnCode: http.StatusInternalServerError,
-			expectedError:      fmt.Errorf("unexpected error creating Kafka topics: %w", cfk.NewError(cfk.ErrTimedOut, "Failed while waiting for controller: Local: Timed out", false)),
+			expectedError:      fmt.Errorf("unexpected error creating Kafka topics: %w", cfk.NewError(cfk.ErrTimedOut, timedOutMessage, false)),
 		},
 		{
 			name:           "in-topic-already-exists",

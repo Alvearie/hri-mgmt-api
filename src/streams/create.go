@@ -18,11 +18,8 @@ import (
 )
 
 const (
-	//error codes returned by the IBM EventStreams Admin API
-	topicAlreadyExists   int32 = 42236
-	invalidCleanupPolicy int32 = 42240
-	onePartition         int   = 1
-	replicationFactor    int   = 2
+	onePartition      int = 1
+	replicationFactor int = 2
 )
 
 func Create(

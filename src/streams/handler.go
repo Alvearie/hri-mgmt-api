@@ -18,10 +18,6 @@ import (
 	"net/http"
 )
 
-const (
-	missingStreamIdParamName = "streamId"
-)
-
 type Handler interface {
 	Create(echo.Context) error
 	Get(echo.Context) error
