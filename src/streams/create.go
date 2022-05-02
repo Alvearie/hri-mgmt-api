@@ -19,7 +19,7 @@ import (
 
 const (
 	onePartition      int = 1
-	replicationFactor int = 2
+	replicationFactor int = 3
 )
 
 func Create(
