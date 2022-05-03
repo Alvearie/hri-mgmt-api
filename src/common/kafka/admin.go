@@ -28,7 +28,7 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 	for key, value := range config.KafkaProperties {
 		kafkaConfig.SetKey(key, value)
 	}
-	kafkaConfig.SetKey("sasl.mechanism", "OAUTHBEARER")
+	kafkaConfig.SetKey("sasl.mechanism", "SASL/OAUTHBEARER")
 
 	admin, err := kafka.NewAdminClient(kafkaConfig)
 	if err != nil {
