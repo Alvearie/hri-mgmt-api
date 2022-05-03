@@ -28,6 +28,8 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 	for key, value := range config.KafkaProperties {
 		kafkaConfig.SetKey(key, value)
 	}
+	kafkaConfig.SetKey("sasl.mechanism", "OAUTHBEARER")
+
 	admin, err := kafka.NewAdminClient(kafkaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing Kafka admin client: %w", err)
@@ -36,6 +38,7 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 	err = admin.SetOAuthBearerToken(kafka.OAuthBearerToken{
 		TokenValue: bearerToken,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("error setting oauth bearer token: %w", err)
 	}
