@@ -23,7 +23,7 @@ type KafkaAdmin interface {
 	DeleteTopics(ctx context.Context, topics []string, options ...kafka.DeleteTopicsAdminOption) (result []kafka.TopicResult, err error)
 }
 
-func NewAdminClientFromConfig(config config.Config) (KafkaAdmin, error) {
+func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAdmin, error) {
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
 	for key, value := range config.KafkaProperties {
 		kafkaConfig.SetKey(key, value)
@@ -31,6 +31,13 @@ func NewAdminClientFromConfig(config config.Config) (KafkaAdmin, error) {
 	admin, err := kafka.NewAdminClient(kafkaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing Kafka admin client: %w", err)
+	}
+
+	err = admin.SetOAuthBearerToken(kafka.OAuthBearerToken{
+		TokenValue: bearerToken,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error setting oauth bearer token: %w", err)
 	}
 
 	return confluentKafkaAdminClient{
