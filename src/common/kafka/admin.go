@@ -27,7 +27,9 @@ type KafkaAdmin interface {
 func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAdmin, error) {
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
 	for key, value := range config.KafkaProperties {
-		kafkaConfig.SetKey(key, value)
+		if !strings.HasPrefix(key, "sasl.") {
+			kafkaConfig.SetKey(key, value)
+		}
 	}
 	kafkaConfig.SetKey("security.protocol", "SASL_SSL")
 	kafkaConfig.SetKey("sasl.mechanism", "OAUTHBEARER")
@@ -39,7 +41,7 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 
 	err = admin.SetOAuthBearerToken(kafka.OAuthBearerToken{
 		TokenValue: bearerToken,
-		Expiration: time.Now().Add(time.Minute * 2),
+		Expiration: time.Now().Add(time.Minute),
 	})
 
 	if err != nil {
