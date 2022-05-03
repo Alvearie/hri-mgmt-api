@@ -11,6 +11,7 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"strings"
+	"time"
 )
 
 type confluentKafkaAdminClient struct {
@@ -28,7 +29,8 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 	for key, value := range config.KafkaProperties {
 		kafkaConfig.SetKey(key, value)
 	}
-	kafkaConfig.SetKey("sasl.mechanism", "SASL/OAUTHBEARER")
+	kafkaConfig.SetKey("security.protocol", "SASL_SSL")
+	kafkaConfig.SetKey("sasl.mechanism", "OAUTHBEARER")
 
 	admin, err := kafka.NewAdminClient(kafkaConfig)
 	if err != nil {
@@ -37,6 +39,7 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 
 	err = admin.SetOAuthBearerToken(kafka.OAuthBearerToken{
 		TokenValue: bearerToken,
+		Expiration: time.Now().Add(time.Minute * 2),
 	})
 
 	if err != nil {
