@@ -7,7 +7,6 @@ package kafka
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -61,12 +60,12 @@ func getExpFromToken(bearerToken string) (time.Time, error) {
 	exp := time.Unix(0, 0)
 	token, _, err := new(jwt.Parser).ParseUnverified(bearerToken, jwt.MapClaims{})
 	if err != nil {
-		return exp, errors.New("unexpected error parsing bearer token, could not parse jwt token")
+		return exp, fmt.Errorf("unexpected error parsing bearer token: %w", err)
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return exp, errors.New("unexpected error parsing bearer token, could not extract claims")
+		return exp, fmt.Errorf("unexpected error parsing bearer token: %w", err)
 	}
 
 	if val, ok := claims["exp"].(float64); ok {
@@ -74,7 +73,7 @@ func getExpFromToken(bearerToken string) (time.Time, error) {
 	} else if val, ok := claims["exp"].(int64); ok {
 		exp = time.Unix(val, 0)
 	} else {
-		return exp, errors.New("unexpected error parsing bearer token, field 'exp' was not of expected type")
+		return exp, fmt.Errorf("unexpected error parsing bearer token: %w", err)
 	}
 
 	return exp, nil
