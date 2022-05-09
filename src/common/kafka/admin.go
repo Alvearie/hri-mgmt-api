@@ -12,6 +12,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/golang-jwt/jwt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -38,13 +39,16 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (adminCl
 		return nil, http.StatusInternalServerError, fmt.Errorf("error constructing Kafka admin client: %w", err)
 	}
 
-	exp, err := getExpFromToken(bearerToken)
+	re := regexp.MustCompile(`(?i)bearer `) // Remove bearer prefix, ignoring case.
+	tokenValue := re.ReplaceAllString(bearerToken, "")
+
+	exp, err := getExpFromToken(tokenValue)
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
 
 	err = admin.SetOAuthBearerToken(kafka.OAuthBearerToken{
-		TokenValue: bearerToken,
+		TokenValue: tokenValue,
 		Expiration: exp,
 	})
 	if err != nil {
