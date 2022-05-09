@@ -48,6 +48,11 @@ func TestDelete(t *testing.T) {
 			expectedReturnCode: http.StatusOK,
 		},
 		{
+			name:               "no topics",
+			topics:             []string{},
+			expectedReturnCode: http.StatusOK,
+		},
+		{
 			name:   "not-authorized",
 			topics: []string{"in"},
 			deleteResults: []cfk.TopicResult{
