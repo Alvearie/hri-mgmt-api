@@ -429,7 +429,7 @@ describe 'HRI Management API Without Validation' do
       response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID)
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['results'][0]['id']).to eql INTEGRATOR_ID
+      expect(parsed_response['results'].map{ |stream| stream['id'] }).to include(INTEGRATOR_ID)
     end
 
     it 'Success With Invalid Topic Only' do
