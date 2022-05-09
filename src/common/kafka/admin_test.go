@@ -20,7 +20,6 @@ const (
 
 	expiredTokenErrMsg = "Must supply an unexpired token:.*"
 	invalidTokenErrMsg = "unexpected error parsing bearer token:.*"
-	noBrokersErrMsg    = "invalid kafka configuration provided, brokers not set"
 )
 
 func TestNewAdminClientFromConfig(t *testing.T) {
@@ -28,8 +27,6 @@ func TestNewAdminClientFromConfig(t *testing.T) {
 	validConfig := config.Config{
 		KafkaBrokers: []string{"broker1", "broker2"},
 	}
-
-	noBrokersConfig := config.Config{}
 
 	testCases := []struct {
 		name              string
@@ -55,12 +52,6 @@ func TestNewAdminClientFromConfig(t *testing.T) {
 			bearerToken:       expiredToken,
 			expectedError:     expiredTokenErrMsg,
 			expectedErrorCode: http.StatusUnauthorized,
-		}, {
-			name:              "kafka brokers not set",
-			config:            noBrokersConfig,
-			bearerToken:       validToken,
-			expectedError:     noBrokersErrMsg,
-			expectedErrorCode: http.StatusInternalServerError,
 		},
 	}
 
