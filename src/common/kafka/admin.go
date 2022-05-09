@@ -7,9 +7,12 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/golang-jwt/jwt"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -24,31 +27,55 @@ type KafkaAdmin interface {
 	DeleteTopics(ctx context.Context, topics []string, options ...kafka.DeleteTopicsAdminOption) (result []kafka.TopicResult, err error)
 }
 
-func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAdmin, error) {
+func NewAdminClientFromConfig(config config.Config, bearerToken string) (adminClient KafkaAdmin, errCode int, err error) {
+
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
-	for key, value := range config.KafkaProperties {
-		if !strings.HasPrefix(key, "sasl.") {
-			kafkaConfig.SetKey(key, value)
-		}
-	}
+	// We use oauthbearer auth for create/delete topic requests.
 	kafkaConfig.SetKey("security.protocol", "SASL_SSL")
 	kafkaConfig.SetKey("sasl.mechanism", "OAUTHBEARER")
 
 	admin, err := kafka.NewAdminClient(kafkaConfig)
 	if err != nil {
-		return nil, fmt.Errorf("error constructing Kafka admin client: %w", err)
+		return nil, http.StatusInternalServerError, fmt.Errorf("error constructing Kafka admin client: %w", err)
+	}
+
+	exp, err := getExpFromToken(bearerToken)
+	if err != nil {
+		return nil, http.StatusUnauthorized, err
 	}
 
 	err = admin.SetOAuthBearerToken(kafka.OAuthBearerToken{
 		TokenValue: bearerToken,
-		Expiration: time.Now().Add(time.Minute),
+		Expiration: exp,
 	})
-
 	if err != nil {
-		return nil, fmt.Errorf("error setting oauth bearer token: %w", err)
+		return nil, http.StatusUnauthorized, err
 	}
 
 	return confluentKafkaAdminClient{
 		admin,
-	}, nil
+	}, -1, nil
+}
+
+func getExpFromToken(bearerToken string) (time.Time, error) {
+	exp := time.Unix(0, 0)
+	token, _, err := new(jwt.Parser).ParseUnverified(bearerToken, jwt.MapClaims{})
+	if err != nil {
+		return exp, errors.New("unexpected error parsing bearer token, could not parse jwt token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return exp, errors.New("unexpected error parsing bearer token, could not extract claims")
+	}
+
+	if val, ok := claims["exp"].(float64); ok {
+		exp = time.Unix(int64(val), 0)
+	} else if val, ok := claims["exp"].(int64); ok {
+		exp = time.Unix(val, 0)
+	} else {
+		return exp, errors.New("unexpected error parsing bearer token, field 'exp' was not of expected type")
+	}
+
+	return exp, nil
 }

@@ -52,10 +52,10 @@ func (h *theHandler) Create(c echo.Context) error {
 	if len(bearerTokens) == 0 {
 		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, "missing header 'Authorization'"))
 	}
-	service, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
+	service, errCode, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
 	if err != nil {
 		logger.Errorln(err.Error())
-		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+		return c.JSON(errCode, response.NewErrorDetail(requestId, err.Error()))
 	}
 
 	// bind & validate request body
@@ -95,10 +95,10 @@ func (h *theHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, "missing header 'Authorization'"))
 	}
 
-	service, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
+	service, errCode, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
 	if err != nil {
 		logger.Errorln(err.Error())
-		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+		return c.JSON(errCode, response.NewErrorDetail(requestId, err.Error()))
 	}
 
 	// bind & validate request body
@@ -139,10 +139,10 @@ func (h *theHandler) Get(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, msg))
 	}
 
-	service, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
+	service, errCode, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
 	if err != nil {
 		logger.Errorln(err.Error())
-		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+		return c.JSON(errCode, response.NewErrorDetail(requestId, err.Error()))
 	}
 
 	// bind & validate request body

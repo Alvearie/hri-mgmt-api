@@ -21,8 +21,18 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
+)
+
+const (
+	validToken           = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjUyMTA4MTQ0LCJleHAiOjI1NTIxMTE3NDR9.XxTTNBtgjX48iCM4FaV_hhhGenzhzrUaTWn6ooepK14" // expires in 2050
+	expiredBearerToken   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNDUyMTA4MTQ0LCJleHAiOjE1NTIxMTE3NDR9.JCYxVQmkSoHtmcpl_AjIH_SD2fDDQvldwYyCU0xQcYw"
+	malformedBearerToken = "WQiOiJJQk1pZC0yNzAwMDdEMEhXIiwiaWQiOiJJQk1pZC0yNzAwMDdEMEhXIiwicmVhbG1pZCI6IklCTWlkIiwic2Vzc2lvbl9pZCI6IkMtYmUxODY1MjUtZWU0Yy00YWU1LWI3NGYtZjMyMTZlYjIxNWRhIiwic2Vzc2lvbl9leHBfbWF4IjoxNjUxODU5NTM2LCJzZXNzaW9uX2V4cF9uZXh0IjoxNjUxNzg0NDQyLCJqdGkiOiJiY2QI6IkJBWFRFUiIsIm5hbWUiOiJEQU4gQkFYVEVSIiwiZW1haWwiOiJkamJheHRlckB1cy5pYm0uY29tIiwic3ViIjoiZGpiYXh0ZXJAdXMuaWJtLmNvbSIsImF1dGhuIjp7InN1YiI6ImRqYmF4dGVyQHVzLmlibS5jb20iLCJpYW1faWQiOiJJQk1pZC0yNzAwMDdEMEhXIiwibmFtZSI6IkRBTiBCQVhURVIiLCJnaXZlbl9uYW1lIjoiREFOIiwiZmFtaWx5X25hbWUiOiJCQVhURVIiLCJlbhbGlkIjp0cnVlLCJic3MiOiI1MjM2NmM5YWIyMTQ0MDJmOWU5NjkxN2IxYjI4NTBlOSIsImltc191c2VyX2lkIjoiOTA1MzM5MiIsImZyb3plbiI6dHJ1ZSwiaW1zIjoiMjI5MzE0MiJ9LCJtZmEiOnsiaW1zIjp0cnVlfSwiaWF0IjoxNjUxNZSI6ImlibSBvcGVuaWQiLCJjbGllbnRfaWQiOiJieCIsImFjciI6MYeLCxvzTzjd9aacHnm6TNjMeMX5U3OVOdC_enTW7WXVUNWcTVRb8"
+
+	expiredTokenErrMsg   = "Must supply an unexpired token:"
+	malformedTokenErrMsg = "unexpected error parsing bearer token, could not parse jwt token"
 )
 
 func TestNewHandler(t *testing.T) {
@@ -64,9 +74,9 @@ func TestHandlerCreate(t *testing.T) {
 		bearerTokens         []string
 		expectedCode         int
 		expectedBody         string
-		expectedDeleteTopics []string
-		deleteErrMessage     string
-		deleteReturnCode     int
+		expectedCreateTopics []string
+		createErrMessage     string
+		createReturnCode     int
 	}{
 		{
 			name: "happy path",
@@ -78,12 +88,12 @@ func TestHandlerCreate(t *testing.T) {
 			},
 			tenantId:     "tenant_id",
 			streamId:     "stream_id",
-			bearerTokens: []string{"token1", "token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusCreated,
 			expectedBody: `{"id":"stream_id"}`,
 		},
 		{
-			name: "failed event streams service create with bad auth token",
+			name: "failed create with no auth token",
 			handler: theHandler{
 				config: config.Config{},
 				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
@@ -97,6 +107,34 @@ func TestHandlerCreate(t *testing.T) {
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"missing header 'Authorization'"}`,
 		},
 		{
+			name: "failed create with expired auth token",
+			handler: theHandler{
+				config: config.Config{},
+				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
+					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
+				},
+			},
+			tenantId:     "tenant_id",
+			streamId:     "stream_id",
+			bearerTokens: []string{expiredBearerToken},
+			expectedCode: http.StatusUnauthorized,
+			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"` + expiredTokenErrMsg + `.*`,
+		},
+		{
+			name: "failed create with malformed auth token",
+			handler: theHandler{
+				config: config.Config{},
+				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
+					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
+				},
+			},
+			tenantId:     "tenant_id",
+			streamId:     "stream_id",
+			bearerTokens: []string{malformedBearerToken},
+			expectedCode: http.StatusUnauthorized,
+			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"` + malformedTokenErrMsg + `"}`,
+		},
+		{
 			name: "failed with bad tenant id",
 			handler: theHandler{
 				config: config.Config{},
@@ -106,9 +144,9 @@ func TestHandlerCreate(t *testing.T) {
 			},
 			tenantId:     "INVALID",
 			streamId:     "stream_id",
-			bearerTokens: []string{"token1", "token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\n- tenantId (url path parameter) may only contain lower-case alpha-numeric chars and the following 2 special chars: '-', '_'"}`,
+			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\\n- tenantId \(url path parameter\) may only contain lower-case alpha-numeric chars and the following 2 special chars: '-', '_'"}`,
 		},
 		{
 			name: "failed with bad stream id",
@@ -120,9 +158,9 @@ func TestHandlerCreate(t *testing.T) {
 			},
 			tenantId:     "tenant_id",
 			streamId:     "INVALID",
-			bearerTokens: []string{"token1", "token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\n- id (url path parameter) may only contain lower-case alpha-numeric characters, no more than one '.', and the following 2 special chars: '-', '_'"}`,
+			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\\n- id \(url path parameter\) may only contain lower-case alpha-numeric characters, no more than one '.', and the following 2 special chars: '-', '_'"}`,
 		},
 		{
 			name: "failed with invalid request fields",
@@ -135,9 +173,9 @@ func TestHandlerCreate(t *testing.T) {
 			request:      `{"cleanupPolicy": "bogus"}`,
 			tenantId:     "tenant_id",
 			streamId:     "stream_id",
-			bearerTokens: []string{"token1", "token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\n- cleanupPolicy (json field in request body) must be one of [delete compact]\n- numPartitions (json field in request body) is a required field\n- retentionMs (json field in request body) is a required field"}`,
+			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\\n- cleanupPolicy \(json field in request body\) must be one of \[delete compact\]\\n- numPartitions \(json field in request body\) is a required field\\n- retentionMs \(json field in request body\) is a required field"}`,
 		},
 		{
 			name: "failed with invalid json",
@@ -150,7 +188,7 @@ func TestHandlerCreate(t *testing.T) {
 			request:      `{`,
 			tenantId:     "tenant_id",
 			streamId:     "stream_id",
-			bearerTokens: []string{"token1", "token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusBadRequest,
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"unable to parse request body due to unexpected EOF"}`,
 		},
@@ -163,11 +201,11 @@ func TestHandlerCreate(t *testing.T) {
 					return []string{"in", "out"}, http.StatusInternalServerError, fmt.Errorf(message)
 				},
 			},
-			expectedDeleteTopics: []string{"in", "out"},
-			deleteReturnCode:     http.StatusOK,
+			expectedCreateTopics: []string{"in", "out"},
+			createReturnCode:     http.StatusOK,
 			tenantId:             "tenant_id",
 			streamId:             "stream_id",
-			bearerTokens:         []string{"token1", "token2"},
+			bearerTokens:         []string{validToken},
 			expectedCode:         http.StatusInternalServerError,
 			expectedBody:         `{"errorEventId":"test-request-id","errorDescription":"create failure message"}`,
 		},
@@ -180,14 +218,14 @@ func TestHandlerCreate(t *testing.T) {
 					return []string{"in", "out"}, http.StatusInternalServerError, fmt.Errorf(message)
 				},
 			},
-			expectedDeleteTopics: []string{"in", "out"},
-			deleteReturnCode:     http.StatusInternalServerError,
-			deleteErrMessage:     "delete failure message",
+			expectedCreateTopics: []string{"in", "out"},
+			createReturnCode:     http.StatusInternalServerError,
+			createErrMessage:     "delete failure message",
 			tenantId:             "tenant_id",
 			streamId:             "stream_id",
-			bearerTokens:         []string{"token1", "token2"},
+			bearerTokens:         []string{validToken},
 			expectedCode:         http.StatusInternalServerError,
-			expectedBody:         `{"errorEventId":"test-request-id","errorDescription":"create failure message\ndelete failure message"}`,
+			expectedBody:         `{"errorEventId":"test-request-id","errorDescription":"create failure message\\ndelete failure message"}`,
 		},
 	}
 
@@ -208,23 +246,27 @@ func TestHandlerCreate(t *testing.T) {
 			context.SetParamValues(tt.tenantId, tt.streamId)
 			context.Response().Header().Add(echo.HeaderXRequestID, "test-request-id")
 
-			if tt.deleteReturnCode != 0 {
-				tt.handler.delete = func(requestId string, topicsToDelete []string, service kafka.KafkaAdmin) (int, error) {
-					if !reflect.DeepEqual(topicsToDelete, tt.expectedDeleteTopics) {
-						t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", tt.expectedDeleteTopics, topicsToDelete))
+			if tt.createReturnCode != 0 {
+				tt.handler.delete = func(requestId string, topicsToCreate []string, service kafka.KafkaAdmin) (int, error) {
+					if !reflect.DeepEqual(topicsToCreate, tt.expectedCreateTopics) {
+						t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", tt.expectedCreateTopics, topicsToCreate))
 					}
 
-					if tt.deleteErrMessage == "" {
-						return tt.deleteReturnCode, nil
+					if tt.createErrMessage == "" {
+						return tt.createReturnCode, nil
 					}
 
-					return tt.deleteReturnCode, fmt.Errorf(tt.deleteErrMessage)
+					return tt.createReturnCode, fmt.Errorf(tt.createErrMessage)
 				}
 			}
 
 			if assert.NoError(t, tt.handler.Create(context)) {
 				assert.Equal(t, tt.expectedCode, recorder.Code)
-				assert.Equal(t, tt.expectedBody, strings.Trim(recorder.Body.String(), "\n"))
+				actualBody := strings.Trim(recorder.Body.String(), "\n")
+				matched, _ := regexp.MatchString(tt.expectedBody, actualBody)
+				if !matched {
+					t.Errorf("Returned body did not match expected.\nExpected: %s, Actual: %s", tt.expectedBody, actualBody)
+				}
 			}
 		})
 	}
@@ -258,7 +300,7 @@ func TestHandlerDelete(t *testing.T) {
 				"ingest.tenant_id.stream_id.out",
 				"ingest.tenant_id.stream_id.invalid",
 			},
-			bearerTokens: []string{"token1", "token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusOK,
 		},
 		{
@@ -274,22 +316,32 @@ func TestHandlerDelete(t *testing.T) {
 				"ingest.tenant_id.stream_id.in",
 				"ingest.tenant_id.stream_id.notification",
 			},
-			bearerTokens: []string{"token1", "token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusOK,
 		},
 		{
-			name: "failed event streams service create with bad auth token",
-			handler: theHandler{
-				config: config.Config{
-					Validation: true,
-				},
-			},
-			tenantId:            "tenant_id",
-			streamId:            "stream_id",
-			expectedStreamNames: []string{},
-			bearerTokens:        []string{},
-			expectedCode:        http.StatusUnauthorized,
-			expectedBody:        `{"errorEventId":"test-request-id","errorDescription":"missing header 'Authorization'"}`,
+			name:         "failed delete with no auth token",
+			tenantId:     "tenant_id",
+			streamId:     "stream_id",
+			bearerTokens: []string{},
+			expectedCode: http.StatusUnauthorized,
+			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"missing header 'Authorization'"}`,
+		},
+		{
+			name:         "failed delete with expired auth token",
+			tenantId:     "tenant_id",
+			streamId:     "stream_id",
+			bearerTokens: []string{expiredBearerToken},
+			expectedCode: http.StatusUnauthorized,
+			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"` + expiredTokenErrMsg + `.*`,
+		},
+		{
+			name:         "failed delete with malformed auth token",
+			tenantId:     "tenant_id",
+			streamId:     "stream_id",
+			bearerTokens: []string{malformedBearerToken},
+			expectedCode: http.StatusUnauthorized,
+			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"` + malformedTokenErrMsg + `"}`,
 		},
 		{
 			name: "failed with empty tenant id",
@@ -301,9 +353,9 @@ func TestHandlerDelete(t *testing.T) {
 			tenantId:            "",
 			streamId:            "stream_id",
 			expectedStreamNames: []string{},
-			bearerTokens:        []string{"token1", "token2"},
+			bearerTokens:        []string{validToken},
 			expectedCode:        http.StatusBadRequest,
-			expectedBody:        `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\n- tenantId (url path parameter) is a required field"}`,
+			expectedBody:        `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\\n- tenantId \(url path parameter\) is a required field"}`,
 		},
 		{
 			name: "failed with empty stream id",
@@ -315,9 +367,9 @@ func TestHandlerDelete(t *testing.T) {
 			tenantId:            "tenant_id",
 			streamId:            "",
 			expectedStreamNames: []string{},
-			bearerTokens:        []string{"token1", "token2"},
+			bearerTokens:        []string{validToken},
 			expectedCode:        http.StatusBadRequest,
-			expectedBody:        `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\n- id (url path parameter) is a required field"}`,
+			expectedBody:        `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\\n- id \(url path parameter\) is a required field"}`,
 		},
 		{
 			name: "delete failed",
@@ -332,7 +384,7 @@ func TestHandlerDelete(t *testing.T) {
 			},
 			tenantId:     "tenant_id",
 			streamId:     "stream_id",
-			bearerTokens: []string{"token1", "token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"delete failure message"}`,
 		},
@@ -356,6 +408,7 @@ func TestHandlerDelete(t *testing.T) {
 				// the delete handler and return a 200.
 				tt.handler.delete = func(requestId string, actualStreamNames []string, service kafka.KafkaAdmin) (int, error) {
 					assert.NotNil(t, service)
+
 					if !reflect.DeepEqual(actualStreamNames, tt.expectedStreamNames) {
 						t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", tt.expectedStreamNames, actualStreamNames))
 					}
@@ -366,7 +419,11 @@ func TestHandlerDelete(t *testing.T) {
 
 			if assert.NoError(t, tt.handler.Delete(context)) {
 				assert.Equal(t, tt.expectedCode, recorder.Code)
-				assert.Equal(t, tt.expectedBody, strings.Trim(recorder.Body.String(), "\n"))
+				actualBody := strings.Trim(recorder.Body.String(), "\n")
+				matched, _ := regexp.MatchString(tt.expectedBody, actualBody)
+				if !matched {
+					t.Errorf("Returned body did not match expected.\nExpected: %s, Actual: %s", tt.expectedBody, actualBody)
+				}
 			}
 		})
 	}
@@ -403,9 +460,9 @@ func TestHandlerGet(t *testing.T) {
 				},
 			},
 			tenantId:     validTenantId,
-			bearerTokens: []string{"valid-token1", "valid-token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusOK,
-			expectedBody: `[{"id":"CountChocula.qualifier330"},{"id":"PorcupinePaul"},{"id":"dataIntegrator887"}]`,
+			expectedBody: `\[{"id":"CountChocula.qualifier330"},{"id":"PorcupinePaul"},{"id":"dataIntegrator887"}\]`,
 		},
 		{
 			name: "list streams returns no results",
@@ -416,22 +473,30 @@ func TestHandlerGet(t *testing.T) {
 				},
 			},
 			tenantId:     validTenantId,
-			bearerTokens: []string{"valid-token1", "valid-token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusOK,
-			expectedBody: `[]`,
+			expectedBody: `\[\]`,
 		},
 		{
-			name: "List streams fails with bad auth token",
-			handler: theHandler{
-				config: config.Config{},
-				get: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
-					return http.StatusForbidden, map[string]interface{}{"NO_CALL": "This Function Should Never Get Called"}
-				},
-			},
-			tenantId:     validTenantId,
+			name:         "failed delete with no auth token",
+			tenantId:     "tenant_id",
 			bearerTokens: []string{},
 			expectedCode: http.StatusUnauthorized,
 			expectedBody: `{"errorEventId":"req42","errorDescription":"missing header 'Authorization'"}`,
+		},
+		{
+			name:         "failed delete with expired auth token",
+			tenantId:     "tenant_id",
+			bearerTokens: []string{expiredBearerToken},
+			expectedCode: http.StatusUnauthorized,
+			expectedBody: `{"errorEventId":"req42","errorDescription":"` + expiredTokenErrMsg + `.*`,
+		},
+		{
+			name:         "failed delete with malformed auth token",
+			tenantId:     "tenant_id",
+			bearerTokens: []string{malformedBearerToken},
+			expectedCode: http.StatusUnauthorized,
+			expectedBody: `{"errorEventId":"req42","errorDescription":"` + malformedTokenErrMsg + `"}`,
 		},
 		{
 			name: "Return Bad Request for missing TenantId Param ",
@@ -441,9 +506,9 @@ func TestHandlerGet(t *testing.T) {
 					return http.StatusForbidden, map[string]interface{}{"NO_CALL": "This Function Should Never Get Called"}
 				},
 			},
-			bearerTokens: []string{"valid-token1", "valid-token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"errorEventId":"req42","errorDescription":"invalid request arguments:\n- tenantId (url path parameter) is a required field"}`,
+			expectedBody: `{"errorEventId":"req42","errorDescription":"invalid request arguments:\\n- tenantId \(url path parameter\) is a required field"}`,
 		},
 		{
 			name: "List streams function call fails",
@@ -455,7 +520,7 @@ func TestHandlerGet(t *testing.T) {
 				},
 			},
 			tenantId:     validTenantId,
-			bearerTokens: []string{"valid-token1", "valid-token2"},
+			bearerTokens: []string{validToken},
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: `{"errorEventId":"req42","errorDescription":"Error List Streams: Unable to connect to Kafka"}`,
 		},
@@ -476,7 +541,11 @@ func TestHandlerGet(t *testing.T) {
 
 			if assert.NoError(t, tt.handler.Get(context)) {
 				assert.Equal(t, tt.expectedCode, recorder.Code)
-				assert.Equal(t, tt.expectedBody, strings.Trim(recorder.Body.String(), "\n"))
+				actualBody := strings.Trim(recorder.Body.String(), "\n")
+				matched, _ := regexp.MatchString(tt.expectedBody, actualBody)
+				if !matched {
+					t.Errorf("Returned body did not match expected.\nExpected: %s, Actual: %s", tt.expectedBody, actualBody)
+				}
 			}
 		})
 	}
