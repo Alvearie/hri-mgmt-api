@@ -7,6 +7,7 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -29,6 +30,9 @@ type KafkaAdmin interface {
 
 func NewAdminClientFromConfig(config config.Config, bearerToken string) (adminClient KafkaAdmin, errCode int, err error) {
 
+	if config.KafkaBrokers == nil {
+		return nil, http.StatusInternalServerError, errors.New("invalid kafka configuration provided, brokers not set")
+	}
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
 	// We use oauthbearer auth for create/delete topic requests.
 	kafkaConfig.SetKey("security.protocol", "SASL_SSL")

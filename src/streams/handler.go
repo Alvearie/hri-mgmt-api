@@ -18,6 +18,10 @@ import (
 	"net/http"
 )
 
+const (
+	MissingHeaderMsg = "missing header 'Authorization'"
+)
+
 type Handler interface {
 	Create(echo.Context) error
 	Get(echo.Context) error
@@ -50,7 +54,7 @@ func (h *theHandler) Create(c echo.Context) error {
 
 	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
 	if len(bearerTokens) == 0 {
-		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, "missing header 'Authorization'"))
+		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, MissingHeaderMsg))
 	}
 	service, errCode, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
 	if err != nil {
@@ -92,7 +96,7 @@ func (h *theHandler) Delete(c echo.Context) error {
 
 	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
 	if len(bearerTokens) == 0 {
-		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, "missing header 'Authorization'"))
+		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, MissingHeaderMsg))
 	}
 
 	service, errCode, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
@@ -134,9 +138,8 @@ func (h *theHandler) Get(c echo.Context) error {
 
 	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
 	if len(bearerTokens) == 0 {
-		msg := "missing header 'Authorization'"
-		logger.Errorln(msg)
-		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, msg))
+		logger.Errorln(MissingHeaderMsg)
+		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, MissingHeaderMsg))
 	}
 
 	service, errCode, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])

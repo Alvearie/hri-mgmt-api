@@ -27,12 +27,7 @@ import (
 )
 
 const (
-	validToken           = "BEaRer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjUyMTA4MTQ0LCJleHAiOjI1NTIxMTE3NDR9.XxTTNBtgjX48iCM4FaV_hhhGenzhzrUaTWn6ooepK14" // expires in 2050
-	expiredBearerToken   = "bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNDUyMTA4MTQ0LCJleHAiOjE1NTIxMTE3NDR9.JCYxVQmkSoHtmcpl_AjIH_SD2fDDQvldwYyCU0xQcYw"
-	malformedBearerToken = "bearer WQiOiJJQk1pZC0yNzAwMDdEMEhXIiwiaWQiOiJJQk1pZC0yNzAwMDdEMEhXIiwicmVhbG1pZCI6IklCTWlkIiwic2Vzc2lvbl9pZCI6IkMtYmUxODY1MjUtZWU0Yy00YWU1LWI3NGYtZjMyMTZlYjIxNWRhIiwic2Vzc2lvbl9leHBfbWF4IjoxNjUxODU5NTM2LCJzZXNzaW9uX2V4cF9uZXh0IjoxNjUxNzg0NDQyLCJqdGkiOiJiY2QI6IkJBWFRFUiIsIm5hbWUiOiJEQU4gQkFYVEVSIiwiZW1haWwiOiJkamJheHRlckB1cy5pYm0uY29tIiwic3ViIjoiZGpiYXh0ZXJAdXMuaWJtLmNvbSIsImF1dGhuIjp7InN1YiI6ImRqYmF4dGVyQHVzLmlibS5jb20iLCJpYW1faWQiOiJJQk1pZC0yNzAwMDdEMEhXIiwibmFtZSI6IkRBTiBCQVhURVIiLCJnaXZlbl9uYW1lIjoiREFOIiwiZmFtaWx5X25hbWUiOiJCQVhURVIiLCJlbhbGlkIjp0cnVlLCJic3MiOiI1MjM2NmM5YWIyMTQ0MDJmOWU5NjkxN2IxYjI4NTBlOSIsImltc191c2VyX2lkIjoiOTA1MzM5MiIsImZyb3plbiI6dHJ1ZSwiaW1zIjoiMjI5MzE0MiJ9LCJtZmEiOnsiaW1zIjp0cnVlfSwiaWF0IjoxNjUxNZSI6ImlibSBvcGVuaWQiLCJjbGllbnRfaWQiOiJieCIsImFjciI6MYeLCxvzTzjd9aacHnm6TNjMeMX5U3OVOdC_enTW7WXVUNWcTVRb8"
-
-	expiredTokenErrMsg   = "Must supply an unexpired token:.*"
-	malformedTokenErrMsg = "unexpected error parsing bearer token:.*"
+	validToken = "BEaRer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjUyMTA4MTQ0LCJleHAiOjI1NTIxMTE3NDR9.XxTTNBtgjX48iCM4FaV_hhhGenzhzrUaTWn6ooepK14" // expires in 2050
 )
 
 func TestNewHandler(t *testing.T) {
@@ -105,34 +100,6 @@ func TestHandlerCreate(t *testing.T) {
 			bearerTokens: []string{},
 			expectedCode: http.StatusUnauthorized,
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"missing header 'Authorization'"}`,
-		},
-		{
-			name: "failed create with expired auth token",
-			handler: theHandler{
-				config: config.Config{},
-				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
-					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
-				},
-			},
-			tenantId:     "tenant_id",
-			streamId:     "stream_id",
-			bearerTokens: []string{expiredBearerToken},
-			expectedCode: http.StatusUnauthorized,
-			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"` + expiredTokenErrMsg,
-		},
-		{
-			name: "failed create with malformed auth token",
-			handler: theHandler{
-				config: config.Config{},
-				create: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
-					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
-				},
-			},
-			tenantId:     "tenant_id",
-			streamId:     "stream_id",
-			bearerTokens: []string{malformedBearerToken},
-			expectedCode: http.StatusUnauthorized,
-			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"` + malformedTokenErrMsg,
 		},
 		{
 			name: "failed with bad tenant id",
@@ -328,22 +295,6 @@ func TestHandlerDelete(t *testing.T) {
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"missing header 'Authorization'"}`,
 		},
 		{
-			name:         "failed delete with expired auth token",
-			tenantId:     "tenant_id",
-			streamId:     "stream_id",
-			bearerTokens: []string{expiredBearerToken},
-			expectedCode: http.StatusUnauthorized,
-			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"` + expiredTokenErrMsg,
-		},
-		{
-			name:         "failed delete with malformed auth token",
-			tenantId:     "tenant_id",
-			streamId:     "stream_id",
-			bearerTokens: []string{malformedBearerToken},
-			expectedCode: http.StatusUnauthorized,
-			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"` + malformedTokenErrMsg,
-		},
-		{
 			name: "failed with empty tenant id",
 			handler: theHandler{
 				config: config.Config{
@@ -483,20 +434,6 @@ func TestHandlerGet(t *testing.T) {
 			bearerTokens: []string{},
 			expectedCode: http.StatusUnauthorized,
 			expectedBody: `{"errorEventId":"req42","errorDescription":"missing header 'Authorization'"}`,
-		},
-		{
-			name:         "failed delete with expired auth token",
-			tenantId:     "tenant_id",
-			bearerTokens: []string{expiredBearerToken},
-			expectedCode: http.StatusUnauthorized,
-			expectedBody: `{"errorEventId":"req42","errorDescription":"` + expiredTokenErrMsg,
-		},
-		{
-			name:         "failed delete with malformed auth token",
-			tenantId:     "tenant_id",
-			bearerTokens: []string{malformedBearerToken},
-			expectedCode: http.StatusUnauthorized,
-			expectedBody: `{"errorEventId":"req42","errorDescription":"` + malformedTokenErrMsg,
 		},
 		{
 			name: "Return Bad Request for missing TenantId Param ",
