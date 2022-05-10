@@ -264,6 +264,13 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Missing Authorization' do
+      response = @mgmt_api_helper.hri_post_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, @stream_info.to_json, {}, true)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "missing header 'Authorization'"
+    end
+
+    it 'Blank Authorization' do
       response = @mgmt_api_helper.hri_post_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, @stream_info.to_json, {'Authorization' => nil})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
@@ -338,6 +345,13 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Missing Authorization' do
+      response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, {}, true)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "missing header 'Authorization'"
+    end
+
+    it 'Blank Authorization' do
       response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, {'Authorization' => nil})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
@@ -466,6 +480,13 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Missing Authorization' do
+      response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID, {}, true)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "missing header 'Authorization'"
+    end
+
+    it 'Blank Authorization' do
       response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID, {'Authorization' => nil})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
