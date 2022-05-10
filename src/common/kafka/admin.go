@@ -74,8 +74,6 @@ func getExpFromToken(bearerToken string) (time.Time, error) {
 
 	if val, ok := claims["exp"].(float64); ok {
 		exp = time.Unix(int64(val), 0)
-	} else if val, ok := claims["exp"].(int64); ok {
-		exp = time.Unix(val, 0)
 	} else {
 		return exp, fmt.Errorf("unexpected error parsing bearer token: %w", err)
 	}
