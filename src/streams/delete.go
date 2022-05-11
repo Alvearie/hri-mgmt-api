@@ -23,11 +23,6 @@ func Delete(requestId string, topics []string, adminClient kafka.KafkaAdmin) (in
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Streams Delete")
 
-	// Calling confluent kafka delete method with empty array throws exception
-	if len(topics) == 0 {
-		return http.StatusOK, nil
-	}
-
 	ctx := context.Background()
 
 	results, err := adminClient.DeleteTopics(ctx, topics, cfk.SetAdminRequestTimeout(kafka.AdminTimeout))

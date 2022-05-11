@@ -75,12 +75,14 @@ func (h *theHandler) Create(c echo.Context) error {
 
 	createdTopics, returnCode, createError := h.create(request, request.TenantId, request.StreamId, h.config.Validation, requestId, service)
 	if returnCode != http.StatusCreated {
-		_, deleteError := h.delete(requestId, createdTopics, service)
-		if deleteError != nil {
-			msg := fmt.Sprintf("%s\n%s", createError.Error(), deleteError)
-			return c.JSON(returnCode, response.NewErrorDetail(requestId, msg))
-		} else {
-			return c.JSON(returnCode, response.NewErrorDetail(requestId, createError.Error()))
+		if len(createdTopics) > 0 {
+			_, deleteError := h.delete(requestId, createdTopics, service)
+			if deleteError != nil {
+				msg := fmt.Sprintf("%s\n%s", createError.Error(), deleteError)
+				return c.JSON(returnCode, response.NewErrorDetail(requestId, msg))
+			} else {
+				return c.JSON(returnCode, response.NewErrorDetail(requestId, createError.Error()))
+			}
 		}
 	}
 
