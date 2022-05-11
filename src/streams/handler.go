@@ -56,10 +56,10 @@ func (h *theHandler) Create(c echo.Context) error {
 	if len(bearerTokens) == 0 {
 		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, MissingHeaderMsg))
 	}
-	service, errCode, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
-	if err != nil {
-		logger.Errorln(err.Error())
-		return c.JSON(errCode, response.NewErrorDetail(requestId, err.Error()))
+	service, errDetail := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
+	if errDetail != nil {
+		logger.Errorln(errDetail.Body.ErrorDescription)
+		return c.JSON(errDetail.Code, response.NewErrorDetail(requestId, errDetail.Body.ErrorDescription))
 	}
 
 	// bind & validate request body
@@ -99,10 +99,10 @@ func (h *theHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, MissingHeaderMsg))
 	}
 
-	service, errCode, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
-	if err != nil {
-		logger.Errorln(err.Error())
-		return c.JSON(errCode, response.NewErrorDetail(requestId, err.Error()))
+	service, errDetail := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
+	if errDetail != nil {
+		logger.Errorln(errDetail.Body.ErrorDescription)
+		return c.JSON(errDetail.Code, response.NewErrorDetail(requestId, errDetail.Body.ErrorDescription))
 	}
 
 	// bind & validate request body
@@ -142,10 +142,10 @@ func (h *theHandler) Get(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, MissingHeaderMsg))
 	}
 
-	service, errCode, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
+	service, err := kafka.NewAdminClientFromConfig(h.config, bearerTokens[0])
 	if err != nil {
-		logger.Errorln(err.Error())
-		return c.JSON(errCode, response.NewErrorDetail(requestId, err.Error()))
+		logger.Errorln(err.Body.ErrorDescription)
+		return c.JSON(err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription))
 	}
 
 	// bind & validate request body

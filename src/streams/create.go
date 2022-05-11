@@ -14,7 +14,6 @@ import (
 	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 const (
@@ -42,7 +41,8 @@ func Create(
 
 	// Build up topic names and partition counts arrays. Orders are:
 	// { inTopicName, notificationTopicName, outTopicName, invalidTopicName }
-	// { <fromRequest>, 1, <fromRequest>, 1 }
+	// { <fromCreateRequest>, 1, <fromCreateRequest>, 1 }
+	// create notification and invalid topics with only 1 Partition b/c of the small expected msg volume for these topics
 	topicNames := make([]string, 0, 4)
 	partitionCounts := make([]int, 0, 4)
 
@@ -56,7 +56,7 @@ func Create(
 
 	ctx := context.Background()
 
-	results, err := adminClient.CreateTopics(ctx, topicSpecs, cfk.SetAdminRequestTimeout(time.Second*10))
+	results, err := adminClient.CreateTopics(ctx, topicSpecs, cfk.SetAdminRequestTimeout(kafka.AdminTimeout))
 	if err != nil {
 		return make([]string, 0), http.StatusInternalServerError, fmt.Errorf("unexpected error creating Kafka topics: %w", err)
 	}

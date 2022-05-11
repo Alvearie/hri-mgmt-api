@@ -14,7 +14,6 @@ import (
 	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 	"net/http"
 	"strings"
-	"time"
 )
 
 const deleteErrMessageTemplate = "Unable to delete topic \"%s\": %s"
@@ -31,7 +30,7 @@ func Delete(requestId string, topics []string, adminClient kafka.KafkaAdmin) (in
 
 	ctx := context.Background()
 
-	results, err := adminClient.DeleteTopics(ctx, topics, cfk.SetAdminRequestTimeout(time.Second*10))
+	results, err := adminClient.DeleteTopics(ctx, topics, cfk.SetAdminRequestTimeout(kafka.AdminTimeout))
 	if err != nil {
 		var kafkaErr = &cfk.Error{}
 		if errors.As(err, kafkaErr) {

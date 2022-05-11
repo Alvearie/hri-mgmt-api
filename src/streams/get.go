@@ -71,7 +71,7 @@ func GetStreamNames(topics []string, tenantId string) []map[string]interface{} {
 
 func listTopics(adminClient kafka.KafkaAdmin) ([]string, error) {
 	// Passing nil and true as first two params returns info on all topics.
-	metadata, err := adminClient.GetMetadata(nil, true, 10000)
+	metadata, err := adminClient.GetMetadata(nil, true, int(kafka.AdminTimeout.Milliseconds()))
 	if err != nil {
 		return nil, fmt.Errorf("error listing Kafka topics: %w", err)
 	}

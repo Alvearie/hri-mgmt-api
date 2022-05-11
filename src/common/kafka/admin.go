@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
+	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/golang-jwt/jwt"
 	"net/http"
@@ -17,9 +18,9 @@ import (
 	"time"
 )
 
-type confluentKafkaAdminClient struct {
-	KafkaAdmin
-}
+const (
+	AdminTimeout = time.Second * 45
+)
 
 type KafkaAdmin interface {
 	GetMetadata(topic *string, allTopics bool, timeoutMs int) (*kafka.Metadata, error)
@@ -27,7 +28,7 @@ type KafkaAdmin interface {
 	DeleteTopics(ctx context.Context, topics []string, options ...kafka.DeleteTopicsAdminOption) (result []kafka.TopicResult, err error)
 }
 
-func NewAdminClientFromConfig(config config.Config, bearerToken string) (adminClient KafkaAdmin, errCode int, err error) {
+func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAdmin, *response.ErrorDetailResponse) {
 
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
 	// We use oauthbearer auth for create/delete topic requests.
@@ -36,7 +37,7 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (adminCl
 
 	admin, err := kafka.NewAdminClient(kafkaConfig)
 	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("error constructing Kafka admin client: %w", err)
+		return nil, response.NewErrorDetailResponse(http.StatusInternalServerError, "n/a", fmt.Sprintf("error constructing Kafka admin client: %s", err.Error()))
 	}
 
 	re := regexp.MustCompile(`(?i)bearer `) // Remove bearer prefix, ignoring case.
@@ -44,7 +45,7 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (adminCl
 
 	exp, err := getExpFromToken(tokenValue)
 	if err != nil {
-		return nil, http.StatusUnauthorized, err
+		return nil, response.NewErrorDetailResponse(http.StatusInternalServerError, "n/a", err.Error())
 	}
 
 	err = admin.SetOAuthBearerToken(kafka.OAuthBearerToken{
@@ -52,14 +53,15 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (adminCl
 		Expiration: exp,
 	})
 	if err != nil {
-		return nil, http.StatusUnauthorized, err
+		return nil, response.NewErrorDetailResponse(http.StatusInternalServerError, "n/a", err.Error())
 	}
 
-	return confluentKafkaAdminClient{
-		admin,
-	}, -1, nil
+	return admin, nil
 }
 
+// To use OAuth bearer authentication in the confluent-kafka-go library, we need to create an OAuthBearerToken object.
+// Creating this object requires providing the actual expiration ("exp") value encoded in the jwt token. We therefore
+// must decode the token that was passed in and extract the "exp" field to create the confluent token object.
 func getExpFromToken(bearerToken string) (time.Time, error) {
 	exp := time.Unix(0, 0)
 	token, _, err := new(jwt.Parser).ParseUnverified(bearerToken, jwt.MapClaims{})
