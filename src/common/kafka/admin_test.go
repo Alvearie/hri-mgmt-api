@@ -27,7 +27,8 @@ const (
 func TestNewAdminClientFromConfig(t *testing.T) {
 
 	validConfig := config.Config{
-		KafkaBrokers: []string{"broker1", "broker2"},
+		KafkaBrokers:    []string{"broker1", "broker2"},
+		KafkaProperties: map[string]string{"security.protocol": "sasl_ssl"},
 	}
 
 	testCases := []struct {
@@ -65,16 +66,16 @@ func TestNewAdminClientFromConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			adminClient, errCode, err := NewAdminClientFromConfig(tc.config, tc.bearerToken)
+			adminClient, err := NewAdminClientFromConfig(tc.config, tc.bearerToken)
 
 			if len(tc.expectedError) == 0 {
 				assert.NotNil(t, adminClient)
 			} else {
-				matched, _ := regexp.MatchString(tc.expectedError, err.Error())
+				matched, _ := regexp.MatchString(tc.expectedError, err.Body.ErrorDescription)
 				if !matched {
-					t.Errorf("Returned error did not match expected.\nExpected: %s, Actual: %s", tc.expectedError, err.Error())
+					t.Errorf("Returned error did not match expected.\nExpected: %s, Actual: %s", tc.expectedError, err.Body.ErrorDescription)
 				}
-				assert.Equal(t, tc.expectedErrorCode, errCode)
+				assert.Equal(t, tc.expectedErrorCode, err.Code)
 			}
 		})
 	}

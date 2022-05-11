@@ -117,7 +117,7 @@ func TestGet(t *testing.T) {
 
 		mockService.
 			EXPECT().
-			GetMetadata(nil, true, 10000).
+			GetMetadata(nil, true, int(kafka.AdminTimeout.Milliseconds())).
 			Return(tc.mockReturn, tc.mockError).
 			MaxTimes(1)
 

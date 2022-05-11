@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
 
 const (
@@ -217,7 +216,7 @@ func TestCreate(t *testing.T) {
 
 		mockService.
 			EXPECT().
-			CreateTopics(context.Background(), topicSpecifications, cfk.SetAdminRequestTimeout(time.Second*10)).
+			CreateTopics(context.Background(), topicSpecifications, cfk.SetAdminRequestTimeout(kafka.AdminTimeout)).
 			Return(tc.createResults, tc.createError).
 			MaxTimes(1)
 

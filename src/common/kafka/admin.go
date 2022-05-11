@@ -32,7 +32,7 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
 	// We use oauthbearer auth for create/delete topic requests.
-	kafkaConfig.SetKey("security.protocol", "SASL_SSL")
+	kafkaConfig.SetKey("security.protocol", config.KafkaProperties["security.protocol"])
 	kafkaConfig.SetKey("sasl.mechanism", "OAUTHBEARER")
 
 	admin, err := kafka.NewAdminClient(kafkaConfig)
@@ -45,7 +45,7 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 
 	exp, err := getExpFromToken(tokenValue)
 	if err != nil {
-		return nil, response.NewErrorDetailResponse(http.StatusInternalServerError, "n/a", err.Error())
+		return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, "n/a", err.Error())
 	}
 
 	err = admin.SetOAuthBearerToken(kafka.OAuthBearerToken{
@@ -53,7 +53,7 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 		Expiration: exp,
 	})
 	if err != nil {
-		return nil, response.NewErrorDetailResponse(http.StatusInternalServerError, "n/a", err.Error())
+		return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, "n/a", err.Error())
 	}
 
 	return admin, nil

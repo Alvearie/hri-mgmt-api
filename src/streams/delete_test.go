@@ -8,6 +8,7 @@ package streams
 import (
 	"context"
 	"fmt"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
 	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
@@ -16,7 +17,6 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"time"
 )
 
 const (
@@ -101,7 +101,7 @@ func TestDelete(t *testing.T) {
 
 		mockService.
 			EXPECT().
-			DeleteTopics(context.Background(), tc.topics, cfk.SetAdminRequestTimeout(time.Second*10)).
+			DeleteTopics(context.Background(), tc.topics, cfk.SetAdminRequestTimeout(kafka.AdminTimeout)).
 			Return(tc.deleteResults, tc.deleteError).
 			MaxTimes(1)
 
