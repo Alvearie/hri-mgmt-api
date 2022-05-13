@@ -80,10 +80,9 @@ func (h *theHandler) Create(c echo.Context) error {
 			if deleteError != nil {
 				msg := fmt.Sprintf("%s\n%s", createError.Error(), deleteError)
 				return c.JSON(returnCode, response.NewErrorDetail(requestId, msg))
-			} else {
-				return c.JSON(returnCode, response.NewErrorDetail(requestId, createError.Error()))
 			}
 		}
+		return c.JSON(returnCode, response.NewErrorDetail(requestId, createError.Error()))
 	}
 
 	respBody := map[string]interface{}{param.StreamId: request.StreamId}
