@@ -7,12 +7,11 @@ package streams
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
-	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
+	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/golang/mock/gomock"
 	"net/http"
 	"os"
@@ -20,78 +19,78 @@ import (
 	"testing"
 )
 
-const topicNotFoundMessage string = "Topic not found"
+const (
+	topicNotFoundMessage string = "Broker: Unknown topic or partition"
+	unauthorizedMessage  string = "Authorization failed."
+)
 
 func TestDelete(t *testing.T) {
 	logwrapper.Initialize("error", os.Stdout)
 	var requestId = "reqIdZz05"
-	StatusNotFound := http.Response{StatusCode: 404}
-	var NotFoundError = es.ModelError{
-		Message: topicNotFoundMessage,
-	}
 
 	testCases := []struct {
-		name                string
-		topics              []string
-		mockDeleteResponses map[string]*http.Response
-		deleteErrors        map[string]*es.ModelError
-		expectedReturnCode  int
-		expectedError       error
+		name               string
+		topics             []string
+		deleteResults      []cfk.TopicResult
+		deleteError        error
+		expectedReturnCode int
+		expectedError      error
 	}{
 		{
-			name:               "happy path",
-			topics:             []string{"in", "out", "notification", "invalid"},
+			name:   "happy path",
+			topics: []string{"in", "out", "notification", "invalid"},
+			deleteResults: []cfk.TopicResult{
+				{Topic: "in", Error: cfk.NewError(cfk.ErrNoError, "", false)},
+				{Topic: "out", Error: cfk.NewError(cfk.ErrNoError, "", false)},
+				{Topic: "notification", Error: cfk.NewError(cfk.ErrNoError, "", false)},
+				{Topic: "invalid", Error: cfk.NewError(cfk.ErrNoError, "", false)},
+			},
 			expectedReturnCode: http.StatusOK,
 		},
 		{
-			name:                "not-authorized",
-			topics:              []string{"in"},
-			deleteErrors:        map[string]*es.ModelError{"in": {}},
-			mockDeleteResponses: map[string]*http.Response{"in": &StatusForbidden},
-			expectedReturnCode:  http.StatusUnauthorized,
-			expectedError:       fmt.Errorf(`Unable to delete topic "in": ` + eventstreams.UnauthorizedMsg),
+			name:               "no topics",
+			topics:             []string{},
+			expectedReturnCode: http.StatusOK,
 		},
 		{
-			name:                "not-authorized",
-			topics:              []string{"in"},
-			deleteErrors:        map[string]*es.ModelError{"in": {}},
-			mockDeleteResponses: map[string]*http.Response{"in": &StatusUnauthorized},
-			expectedReturnCode:  http.StatusUnauthorized,
-			expectedError:       fmt.Errorf(`Unable to delete topic "in": ` + eventstreams.MissingHeaderMsg),
+			name:   "not-authorized",
+			topics: []string{"in"},
+			deleteResults: []cfk.TopicResult{
+				{Topic: "in", Error: cfk.NewError(cfk.ErrTopicAuthorizationFailed, unauthorizedMessage, false)},
+			},
+			expectedReturnCode: http.StatusUnauthorized,
+			expectedError:      fmt.Errorf("Unable to delete topic \"in\": " + unauthorizedMessage),
 		},
 		{
-			name:                "topic-not-found",
-			topics:              []string{"in"},
-			deleteErrors:        map[string]*es.ModelError{"in": &NotFoundError},
-			mockDeleteResponses: map[string]*http.Response{"in": &StatusNotFound},
-			expectedReturnCode:  http.StatusNotFound,
-			expectedError:       fmt.Errorf(`Unable to delete topic "in": ` + topicNotFoundMessage),
+			name:               "timed-out",
+			topics:             []string{"in"},
+			deleteResults:      []cfk.TopicResult{},
+			deleteError:        cfk.NewError(cfk.ErrTimedOut, "Failed while waiting for controller: Local: Timed out", false),
+			expectedReturnCode: http.StatusInternalServerError,
+			expectedError:      fmt.Errorf("unexpected error deleting Kafka topics: %w", cfk.NewError(cfk.ErrTimedOut, "Failed while waiting for controller: Local: Timed out", false)),
 		},
 		{
-			name:                "conn-error",
-			topics:              []string{"in"},
-			deleteErrors:        map[string]*es.ModelError{"in": &OtherError},
-			mockDeleteResponses: map[string]*http.Response{"in": &StatusUnprocessableEntity},
-			expectedReturnCode:  http.StatusInternalServerError,
-			expectedError:       fmt.Errorf(`Unable to delete topic "in": ` + kafkaConnectionMessage),
+			name:   "topic-not-found",
+			topics: []string{"in"},
+			deleteResults: []cfk.TopicResult{
+				{Topic: "in", Error: cfk.NewError(cfk.ErrUnknownTopicOrPart, topicNotFoundMessage, false)},
+			},
+			expectedReturnCode: http.StatusNotFound,
+			expectedError:      fmt.Errorf("Unable to delete topic \"in\": " + topicNotFoundMessage),
 		},
 		{
 			name:   "multiple-delete-errors",
 			topics: []string{"in", "out", "notification", "invalid"},
-			deleteErrors: map[string]*es.ModelError{
-				"out":          &OtherError,
-				"notification": &NotFoundError,
-				"invalid":      {},
-			},
-			mockDeleteResponses: map[string]*http.Response{
-				"out":          &StatusUnprocessableEntity,
-				"notification": &StatusNotFound,
-				"invalid":      &StatusUnauthorized,
+			deleteResults: []cfk.TopicResult{
+				{Topic: "in"},
+				{Topic: "out", Error: cfk.NewError(cfk.ErrTimedOut, "Failed while waiting for controller: Local: Timed out", false)},
+				{Topic: "notification", Error: cfk.NewError(cfk.ErrUnknownTopicOrPart, topicNotFoundMessage, false)},
+				{Topic: "invalid", Error: cfk.NewError(cfk.ErrTimedOut, "Failed while waiting for controller: Local: Timed out", false)},
 			},
 			expectedReturnCode: http.StatusInternalServerError,
-			expectedError: fmt.Errorf(`Unable to delete topic "out": ` + kafkaConnectionMessage + "\n" +
+			expectedError: fmt.Errorf(`Unable to delete topic "out": Failed while waiting for controller: Local: Timed out` + "\n" +
 				`Unable to delete topic "notification": ` + topicNotFoundMessage + "\n" +
-				`Unable to delete topic "invalid": ` + eventstreams.MissingHeaderMsg),
+				`Unable to delete topic "invalid": Failed while waiting for controller: Local: Timed out`),
 		},
 	}
 
@@ -100,29 +99,11 @@ func TestDelete(t *testing.T) {
 		defer controller.Finish()
 		mockService := test.NewMockService(controller)
 
-		for _, topic := range tc.topics {
-			if tc.deleteErrors[topic] == nil {
-				mockService.
-					EXPECT().
-					DeleteTopic(context.Background(), topic).
-					Return(nil, nil, nil).
-					MaxTimes(1)
-			} else {
-				mockErr := errors.New(tc.deleteErrors[topic].Message)
-
-				mockService.
-					EXPECT().
-					DeleteTopic(context.Background(), topic).
-					Return(nil, tc.mockDeleteResponses[topic], mockErr).
-					MaxTimes(1)
-
-				mockService.
-					EXPECT().
-					HandleModelError(mockErr).
-					Return(tc.deleteErrors[topic]).
-					MaxTimes(1)
-			}
-		}
+		mockService.
+			EXPECT().
+			DeleteTopics(context.Background(), tc.topics, cfk.SetAdminRequestTimeout(kafka.AdminTimeout)).
+			Return(tc.deleteResults, tc.deleteError).
+			MaxTimes(1)
 
 		actualCode, actualErrMsg := Delete(requestId, tc.topics, mockService)
 

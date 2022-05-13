@@ -7,58 +7,61 @@ package streams
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
+	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 	"net/http"
 	"strings"
 )
 
 const deleteErrMessageTemplate = "Unable to delete topic \"%s\": %s"
 
-func Delete(requestId string, topics []string, service eventstreams.Service) (int, error) {
+func Delete(requestId string, topics []string, adminClient kafka.KafkaAdmin) (int, error) {
 	prefix := "streams/Delete"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Streams Delete")
 
+	ctx := context.Background()
+
+	results, err := adminClient.DeleteTopics(ctx, topics, cfk.SetAdminRequestTimeout(kafka.AdminTimeout))
+	if err != nil {
+		var kafkaErr = &cfk.Error{}
+		if errors.As(err, kafkaErr) {
+			return getDeleteResponseErrorCode(*kafkaErr), fmt.Errorf("unexpected error deleting Kafka topics: %w", *kafkaErr)
+		}
+		// Should never be reached, err should be of type cfk.Error.
+		return http.StatusInternalServerError, fmt.Errorf("unexpected error deleting Kafka topics: %w", err)
+	}
 	returnCode := http.StatusOK
 	var errorMessageBuilder strings.Builder
-
-	for _, topic := range topics {
-		logger.Debugln("Delete Stream: " + topic)
-		_, deleteResp, err := service.DeleteTopic(context.Background(), topic)
-		if err != nil {
-			deleteReturnCode, deleteErrMessage := getDeleteResponseError(deleteResp, service.HandleModelError(err))
+	for _, res := range results {
+		if res.Error.Code() != cfk.ErrNoError {
+			logger.Errorln(res.Error.Error())
 			if returnCode == http.StatusOK {
-				// Save the first error's code to return later. Initialize the error message
-				returnCode = deleteReturnCode
-				fmt.Fprintf(&errorMessageBuilder, deleteErrMessageTemplate, topic, deleteErrMessage)
+				returnCode = getDeleteResponseErrorCode(res.Error)
+				fmt.Fprintf(&errorMessageBuilder, deleteErrMessageTemplate, res.Topic, res.Error.Error())
 			} else {
-				fmt.Fprintf(&errorMessageBuilder, "\n"+deleteErrMessageTemplate, topic, deleteErrMessage)
+				fmt.Fprintf(&errorMessageBuilder, "\n"+deleteErrMessageTemplate, res.Topic, res.Error.Error())
 			}
 		}
 	}
 
 	if returnCode != http.StatusOK {
 		var err = fmt.Errorf(errorMessageBuilder.String())
-		logger.Errorln(err.Error())
 		return returnCode, err
 	}
 
-	return returnCode, nil
+	return http.StatusOK, nil
 }
 
-func getDeleteResponseError(resp *http.Response, err *es.ModelError) (int, string) {
-	//EventStreams Admin API gives us status 403 when provided bearer token is unauthorized
-	//and status 401 when Authorization isn't provided or is nil
-	if resp.StatusCode == http.StatusForbidden {
-		return http.StatusUnauthorized, eventstreams.UnauthorizedMsg
-	} else if resp.StatusCode == http.StatusUnauthorized {
-		return http.StatusUnauthorized, eventstreams.MissingHeaderMsg
-	} else if resp.StatusCode == http.StatusNotFound {
-		return http.StatusNotFound, err.Message
+func getDeleteResponseErrorCode(err cfk.Error) int {
+	code := err.Code()
+	if code == cfk.ErrUnknownTopic || code == cfk.ErrUnknownTopicOrPart {
+		return http.StatusNotFound
+	} else if code == cfk.ErrTopicAuthorizationFailed || code == cfk.ErrGroupAuthorizationFailed || code == cfk.ErrClusterAuthorizationFailed {
+		return http.StatusUnauthorized
 	}
-
-	return http.StatusInternalServerError, err.Message
+	return http.StatusInternalServerError
 }

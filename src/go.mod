@@ -1,7 +1,6 @@
 module github.com/Alvearie/hri-mgmt-api
 
 require (
-	github.com/IBM/event-streams-go-sdk-generator v1.0.0
 	github.com/IBM/resource-controller-go-sdk-generator v1.0.1
 	github.com/confluentinc/confluent-kafka-go v1.8.2
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -9,6 +8,7 @@ require (
 	github.com/go-playground/locales v0.14.0
 	github.com/go-playground/universal-translator v0.18.0
 	github.com/go-playground/validator/v10 v10.10.1
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/labstack/echo/v4 v4.7.2
 	github.com/newrelic/go-agent/v3 v3.15.2
@@ -21,7 +21,6 @@ require (
 require (
 	github.com/antihax/optional v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/labstack/gommon v0.3.1 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
