@@ -16,6 +16,7 @@ func Get(requestId string, client *elasticsearch.Client) (int, interface{}) {
 	prefix := "tenants/Get"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Tenants Get (All)")
+	logger.Infof("Start Tenants Get (All)")
 
 	//Use elastic to return the list of indices
 	res, err := client.Cat.Indices(client.Cat.Indices.WithH("index"), client.Cat.Indices.WithFormat("json"))
@@ -28,6 +29,6 @@ func Get(requestId string, client *elasticsearch.Client) (int, interface{}) {
 
 	//sort through result for tenantIds and add to an array
 	tenantsMap := elastic.TenantsFromIndices(body)
-
+	logger.Infof("End Tenants Get (All)")
 	return http.StatusOK, tenantsMap
 }

@@ -21,7 +21,7 @@ func Create(
 
 	prefix := "tenants/Create"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
-
+	logger.Infof("Start Create Tenant ")
 	//create new index
 	indexRes, err := esClient.Indices.Create(elastic.IndexFromTenantId(tenantId))
 
@@ -34,5 +34,7 @@ func Create(
 
 	// return the ID of the newly created tenant
 	respBody := map[string]interface{}{param.TenantId: tenantId}
+	logger.Infof("TenantId [%s] ", tenantId)
+	logger.Infof("End Create Tenant ")
 	return http.StatusCreated, respBody
 }

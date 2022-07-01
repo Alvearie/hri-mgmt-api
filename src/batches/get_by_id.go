@@ -25,6 +25,7 @@ func GetById(requestId string, batch model.GetByIdBatch, claims auth.HriClaims, 
 	prefix := "batches/getById"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch GetById")
+	logger.Infoln("Start of Batch GetById")
 
 	if !claims.HasScope(auth.HriIntegrator) && !claims.HasScope(auth.HriConsumer) {
 		errMsg := auth.MsgAccessTokenMissingScopes
@@ -34,6 +35,7 @@ func GetById(requestId string, batch model.GetByIdBatch, claims auth.HriClaims, 
 
 	logger.Debugf("params_tenantID: %v, batchID: %v", batch.TenantId, batch.BatchId)
 
+	logger.Infoln("End of Batch GetById")
 	var noAuthFlag = false
 	return getById(requestId, batch, noAuthFlag, logger, &claims, client)
 }

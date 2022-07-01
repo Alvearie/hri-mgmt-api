@@ -27,6 +27,7 @@ func Get(requestId string, params model.GetBatch, claims auth.HriClaims, client 
 	prefix := "batches/get"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Get")
+	logger.Infoln("Start Batch Get")
 
 	// Data Integrators and Consumers can use this endpoint, so either scope allows access
 	if !claims.HasScope(auth.HriConsumer) && !claims.HasScope(auth.HriIntegrator) {
@@ -34,6 +35,7 @@ func Get(requestId string, params model.GetBatch, claims auth.HriClaims, client 
 		logger.Errorln(errMsg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, errMsg)
 	}
+	logger.Infoln("End of Batch Get")
 
 	return get(requestId, params, false, &claims, client, logger)
 }
