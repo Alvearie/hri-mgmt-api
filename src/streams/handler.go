@@ -51,6 +51,7 @@ func (h *theHandler) Create(c echo.Context) error {
 	prefix := "streams/create/handler"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debug("Start Handler-Create")
+	logger.Infoln("Start Handler Create stream")
 
 	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
 	if len(bearerTokens) == 0 {
@@ -80,6 +81,7 @@ func (h *theHandler) Create(c echo.Context) error {
 		}
 	}
 
+	logger.Infoln("End Handler Create stream")
 	respBody := map[string]interface{}{param.StreamId: request.StreamId}
 	return c.JSON(returnCode, respBody)
 }
@@ -89,6 +91,7 @@ func (h *theHandler) Delete(c echo.Context) error {
 	prefix := "streams/delete/handler"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debug("Start Handler Delete")
+	logger.Infoln("Start Handler Delete stream")
 
 	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
 	if len(bearerTokens) == 0 {
@@ -117,7 +120,8 @@ func (h *theHandler) Delete(c echo.Context) error {
 	if err != nil {
 		return c.JSON(returnCode, response.NewErrorDetail(requestId, err.Error()))
 	}
-
+	
+	logger.Infoln("End Handler Delete stream")
 	return c.NoContent(returnCode)
 }
 
@@ -126,7 +130,8 @@ func (h *theHandler) Get(c echo.Context) error {
 	prefix := "streams/list/handler"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debug("Start Handler List Streams")
-
+	logger.Infoln("Start Handler List Streams")
+	
 	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
 	if len(bearerTokens) == 0 {
 		msg := eventstreams.MissingHeaderMsg
@@ -145,6 +150,7 @@ func (h *theHandler) Get(c echo.Context) error {
 		logger.Errorln(err.Error())
 		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
 	}
-
+	
+	logger.Infoln("End Handler List Streams")
 	return c.JSON(h.get(requestId, request.TenantId, service))
 }
