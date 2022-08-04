@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 
-#ruby=ruby-2.6.5
-ruby '2.6.5'
+#ruby=ruby-3.0.0
+ruby '3.0.0'
 
 gem 'rspec'
 gem 'rest-client'
