@@ -13,7 +13,7 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
     env:
-      API_SPEC_DEV_BRANCH: develop
+      API_SPEC_DEV_BRANCH: testQA
       API_SPEC_TAG:
       APPID_TENANT: 0f389ea4-778e-4831-9b29-6156c4c1df1e
       APPID_URL: https://us-east.appid.cloud.ibm.com
@@ -28,13 +28,13 @@ jobs:
       TENANT_ID: test
       COS_URL: https://s3.us-east.cloud-object-storage.appdomain.cloud
 
-      CLOUD_API_KEY: ${{ secrets.CLOUD_API_KEY }}
-      ELASTIC_PASSWORD: ${{ secrets.ELASTIC_PASSWORD }}
-      ELASTIC_USERNAME: ${{ secrets.ELASTIC_USERNAME }}
-      KAFKA_PASSWORD: ${{ secrets.KAFKA_PASSWORD }}
+      CLOUD_API_KEY: $eyJraWQiOiIyMDIyMDcxNTA4MjYiLCJhbGciOiJSUzI1NiJ9.eyJpYW1faWQiOiJJQk1pZC02NjEwMDNPRTRFIiwiaWQiOiJJQk1pZC02NjEwMDNPRTRFIiwicmVhbG1pZCI6IklCTWlkIiwic2Vzc2lvbl9pZCI6IkMtYTVkYzMzOTctNGVmNy00M2ViLWJmZjAtN2M4ZGUyMTU1NzM3Iiwic2Vzc2lvbl9leHBfbWF4IjoxNjYwMjk4ODY1LCJzZXNzaW9uX2V4cF9uZXh0IjoxNjYwMjE5NjkzLCJqdGkiOiJkNTkxOWIxMC1lODg4LTRjOTUtYWM5Yi0wMjc5NWUxY2M1MzYiLCJpZGVudGlmaWVyIjoiNjYxMDAzT0U0RSIsImdpdmVuX25hbWUiOiJMYXRoYSIsImZhbWlseV9uYW1lIjoiR2FuamkiLCJuYW1lIjoiTGF0aGEgR2FuamkiLCJlbWFpbCI6ImxnYW5qaUBtZXJhdGl2ZS5jb20iLCJzdWIiOiJsZ2FuamlAbWVyYXRpdmUuY29tIiwiYXV0aG4iOnsic3ViIjoibGdhbmppQG1lcmF0aXZlLmNvbSIsImlhbV9pZCI6IklCTWlkLTY2MTAwM09FNEUiLCJuYW1lIjoiTGF0aGEgR2FuamkiLCJnaXZlbl9uYW1lIjoiTGF0aGEiLCJmYW1pbHlfbmFtZSI6IkdhbmppIiwiZW1haWwiOiJsZ2FuamlAbWVyYXRpdmUuY29tIn0sImFjY291bnQiOnsiYm91bmRhcnkiOiJnbG9iYWwiLCJ2YWxpZCI6dHJ1ZSwiYnNzIjoiNTIzNjZjOWFiMjE0NDAyZjllOTY5MTdiMWIyODUwZTkiLCJpbXNfdXNlcl9pZCI6IjEwMTE1MDcwIiwiaW1zIjoiMjI5MzE0MiJ9LCJpYXQiOjE2NjAyMTI0OTMsImV4cCI6MTY2MDIxMzY5MywiaXNzIjoiaHR0cHM6Ly9pYW0uY2xvdWQuaWJtLmNvbS9pZGVudGl0eSIsImdyYW50X3R5cGUiOiJ1cm46aWJtOnBhcmFtczpvYXV0aDpncmFudC10eXBlOnBhc3Njb2RlIiwic2NvcGUiOiJpYm0gb3BlbmlkIiwiY2xpZW50X2lkIjoiYngiLCJhY3IiOjEsImFtciI6WyJwd2QiXX0.aISWQllfsQGSYwglDP_pSM5RAo2ed7CDb1nQu11mo_mq1ahfRSgZsGSi450pYrStIHck_9IRbtNyTPBuNX8gtuFGww21qB0pJ0hXdrNQpWErADTqD6PmqVFiqwM3qAngl33kfbe4w0DJmEyAvIH9rgUMFA6DQkb2v-_tvj1B91K1ZhPI-kXq4qKIXHzo0KWkgQnC2gDRWjScLvxAadJMIGi3WstFyOQvn2Oe4QGjXCTxbmrSJa27oaUD6cVHvjJ7fXSaFv5HUyyyKLvxBHV0ZIln3xmcoEoxtyTCU_83Vp-sRwt4Kowse3xeIq1tGCsF85bnhnP8aKcKdUTVXifucQ
+      ELASTIC_PASSWORD: $a7ec2c89db5274978307b603f6b6d132825fbac81e9e71122d2b59ab259fea68
+      ELASTIC_USERNAME: $ibm_cloud_1a27be2f_c7eb_4395_9cc4_71940b7f75d8
+      KAFKA_PASSWORD: $dOarCwEG8iyPwmc5f2Ywj4TvjGrSCyE0pKDW_bGFomfC
 
     steps:
-      - name: Set Branch Name
+      - name: Set testQA
         uses: nelonoel/branch-name@v1.0.1
 
       - name: Install Go 1.17
@@ -54,7 +54,7 @@ jobs:
       - name: Run Smoke Tests
         run: ./run-smoketests.sh
 
-      - name: Install Ruby 2.6.5
+      - name: Install Ruby 3.0.0
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.0.0
