@@ -36,7 +36,7 @@ describe 'HRI Management API With Validation' do
     @config_path = File.absolute_path(File.join(File.dirname(__FILE__), "test_config"))
     @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "../logs"))
 
-    Logger.new(STDOUT).info("Dir.exists?(@log_path): ", Dir.exists?(@log_path))
+    Logger.new(STDOUT).info("Dir.exists?(@log_path): , #{@log_path}")
     Dir.mkdir(@log_path) unless Dir.exists?(@log_path)
     Logger.new(STDOUT).info("exe_path ,config path, @log_path : #{@exe_path},#{@config_path},#{@log_path}")
     @hri_deploy_helper.deploy_hri(@log_path, "#{@config_path}/valid_config.yml", @log_path, 'validation-', '-validation=true')
