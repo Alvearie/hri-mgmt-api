@@ -40,8 +40,10 @@ describe 'HRI Management API With Validation' do
     Dir.mkdir(@log_path) unless Dir.exists?(@log_path)
 
     Logger.new(STDOUT).info("exe_path ,config path, @log_path : #{@exe_path},#{@config_path},#{@log_path}")
-    #@hri_deploy_helper.deploy_hri(@log_path, "#{@config_path}/valid_config.yml", @log_path, 'validation-', '-validation=true')
+    @hri_deploy_helper.deploy_hri(@log_path, "#{@config_path}/valid_config.yml", @log_path, 'validation-', '-validation=true')
+    Logger.new(STDOUT).info("deployed hri , #{@hri_base_url}")
     response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
+    Logger.new(STDOUT).info("response.code , #{response.code}")
     unless response.code == 200
       raise "Health check failed: #{response.body}"
     end
