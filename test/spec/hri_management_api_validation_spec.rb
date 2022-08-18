@@ -48,7 +48,7 @@ describe 'HRI Management API With Validation' do
     end
     #Initialize Kafka Consumer
     #@kafka = Kafka.new(ENV['KAFKA_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['KAFKA_PASSWORD'], ssl_ca_certs_from_system: true)
-    @kafka = Kafka.new(http://localhost:9092)
+    @kafka = Kafka.new(localhost:9092)
     @kafka_consumer = @kafka.consumer(group_id: 'rspec-mgmt-api-consumer')
     @kafka_consumer.subscribe("ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.notification")
 
