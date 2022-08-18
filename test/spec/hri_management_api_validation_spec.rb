@@ -35,7 +35,6 @@ describe 'HRI Management API With Validation' do
     @exe_path = File.absolute_path(File.join(File.dirname(__FILE__), "../../src/hri"))
     @config_path = File.absolute_path(File.join(File.dirname(__FILE__), "test_config"))
     @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "../logs"))
-
     Logger.new(STDOUT).info("Dir.exists?(@log_path): , #{@log_path}")
     Dir.mkdir(@log_path) unless Dir.exists?(@log_path)
 
