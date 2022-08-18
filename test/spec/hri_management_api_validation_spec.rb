@@ -40,6 +40,7 @@ describe 'HRI Management API With Validation' do
 
     Logger.new(STDOUT).info("exe_path ,config path, @log_path : #{@exe_path},#{@config_path},#{@log_path}")
     @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'validation-', '-validation=true')
+    Logger.new(STDOUT).info("response.code: #{response.code}")
     response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
     unless response.code == 200
       raise "Health check failed: #{response.body}"
