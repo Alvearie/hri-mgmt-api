@@ -41,13 +41,10 @@ describe 'HRI Management API With Validation' do
 
     Logger.new(STDOUT).info("exe_path ,config path, @log_path : #{@exe_path},#{@config_path},#{@log_path}")
     @hri_deploy_helper.deploy_hri(@log_path, "#{@config_path}/valid_config.yml", @log_path, 'validation-', '-validation=true')
-    Logger.new(STDOUT).info("deployed hri , #{@hri_base_url}")
     response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
-    Logger.new(STDOUT).info("response.code , #{response.code}")
     unless response.code == 200
       raise "Health check failed: #{response.body}"
     end
-
     #Initialize Kafka Consumer
     @kafka = Kafka.new(ENV['KAFKA_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['KAFKA_PASSWORD'], ssl_ca_certs_from_system: true)
     @kafka_consumer = @kafka.consumer(group_id: 'rspec-mgmt-api-consumer')
