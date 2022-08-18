@@ -39,7 +39,7 @@ describe 'HRI Management API With Validation' do
     Dir.mkdir(@log_path) unless Dir.exists?(@log_path)
 
     Logger.new(STDOUT).info("exe_path ,config path, @log_path : #{@exe_path},#{@config_path},#{@log_path}")
-    @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'validation-', '-validation=true')
+    #@hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'validation-', '-validation=true')
 
     response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
     Logger.new(STDOUT).info("response.code: #{response.code}")
