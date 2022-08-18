@@ -2,8 +2,8 @@ oidc-issuer: "https://us-east.appid.cloud.ibm.com/oauth/v4/0f389ea4-778e-4831-9b
 jwt-audience-id: "21e7d376-9cdb-4a9d-a11f-9b76c007244d"
 validation: false
 elastic-url: "https://c9acb36a-0feb-4b6e-aac1-6651c71d19e4.2adb0220806343e3ae11df79c89b377f.databases.appdomain.cloud:32085"
-elastic-username: "elasticUsername"
-elastic-password: "elasticPassword"
+elastic-username: "ibm_cloud_1a27be2f_c7eb_4395_9cc4_71940b7f75d8"
+elastic-password: "a7ec2c89db5274978307b603f6b6d132825fbac81e9e71122d2b59ab259fea68"
 elastic-crn: "crn:v1:bluemix:public:databases-for-elasticsearch:us-east:a/52366c9ab214402f9e96917b1b2850e9:c9acb36a-0feb-4b6e-aac1-6651c71d19e4::"
 elastic-cert: |
   -----BEGIN CERTIFICATE-----
@@ -37,7 +37,7 @@ kafka-properties:
   - "security.protocol:sasl_ssl"
   - "sasl.mechanism:PLAIN"
   - "sasl.username:token"
-  - "sasl.password:kafkaPassword"
+  - "sasl.password:dOarCwEG8iyPwmc5f2Ywj4TvjGrSCyE0pKDW_bGFomfC"
   - "ssl.endpoint.identification.algorithm:https"
 new-relic-enabled: false
 tls-enabled: true
