@@ -5,6 +5,8 @@
  */
 package model
 
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
 type CreateBatch struct {
 	TenantId         string                 `param:"tenantId" validate:"required,tenantid-validator"`
 	Name             string                 `json:"name" validate:"required,injection-check-validator"`
@@ -81,4 +83,10 @@ type DeleteStreamRequest struct {
 
 type CreateTenant struct {
 	TenantId string `param:"tenantId" validate:"required,tenantid-validator"`
+}
+
+type CreateTenantRequest struct {
+	ID            primitive.ObjectID `json:"_id"`
+	Test_shard_id string             `json:"test_shard_id" `
+	TenantId      string             `json:"tenantId" `
 }

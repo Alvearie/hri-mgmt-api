@@ -8,12 +8,16 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+
 	"github.com/Alvearie/hri-mgmt-api/batches"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/healthcheck"
+	mongo "github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/Alvearie/hri-mgmt-api/streams"
 	"github.com/Alvearie/hri-mgmt-api/tenants"
 	"github.com/labstack/echo/v4"
@@ -21,8 +25,6 @@ import (
 	"github.com/newrelic/go-agent/v3/integrations/nrecho-v4"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/sirupsen/logrus"
-	"net/http"
-	"os"
 )
 
 func main() {
@@ -37,7 +39,7 @@ func main() {
 }
 
 func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
-	configPath := "./config.yml"
+	configPath := "C:/hri-mgmnt-api/hri-mgmt-api/config.yml"
 	config, err := config.GetConfig(configPath, args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR CREATING CONFIG: %v\n", err)
@@ -122,6 +124,13 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	}
 	e.Validator = customValidator
 
+	//connect to mongo API
+	err = mongo.ConnectFromConfig(config)
+	if err != nil {
+		e.Logger.Fatal(err)
+		os.Exit(2)
+	}
+
 	// Prepare the server start function
 	startFunc := func() {
 		err := error(nil)
@@ -136,6 +145,7 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 			e.Logger.Fatal(err)
 			os.Exit(2)
 		}
+
 	}
 
 	// Configure the endpoint routes
@@ -155,6 +165,8 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	e.GET(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.GetById)
 	e.POST(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Create)
 	e.DELETE(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Delete)
+	//Added as part of Azure porting
+	e.POST(fmt.Sprintf("/hri/az/tenants/:%s", param.TenantId), tenantsHandler.CreateTenant)
 
 	// Batches routing
 	batchesHandler := batches.NewHandler(config)

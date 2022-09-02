@@ -7,15 +7,18 @@
 package tenants
 
 import (
+	"net/http"
+
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
+	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/labstack/echo/v4"
-	"net/http"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Handler interface {
@@ -23,6 +26,8 @@ type Handler interface {
 	Get(echo.Context) error
 	GetById(echo.Context) error
 	Delete(echo.Context) error
+	//Added as part of Azure porting
+	CreateTenant(echo.Context) error
 }
 
 // This struct is designed to make unit testing easier. It has function references for the calls to backend
@@ -36,6 +41,8 @@ type theHandler struct {
 	get     func(string, *elasticsearch.Client) (int, interface{})
 	getById func(string, string, *elasticsearch.Client) (int, interface{})
 	delete  func(string, string, *elasticsearch.Client) (int, interface{})
+	//Added as part of Azure porting
+	createTenant func(string, string, *mongo.Collection) (int, interface{})
 }
 
 func NewHandler(config config.Config) Handler {
@@ -46,6 +53,7 @@ func NewHandler(config config.Config) Handler {
 		get:             Get,
 		getById:         GetById,
 		delete:          Delete,
+		createTenant:    CreateTenant,
 	}
 }
 
@@ -167,4 +175,23 @@ func (h *theHandler) Delete(c echo.Context) error {
 	} else {
 		return c.JSON(code, body)
 	}
+}
+func (h *theHandler) CreateTenant(c echo.Context) error {
+	requestId := c.Request().Header.Get(echo.HeaderXRequestID)
+	//authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+	prefix := "tenants/handler/create"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+
+	// bind & validate request body
+	var request model.CreateTenant
+	if err := c.Bind(&request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+	if err := c.Validate(request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+
+	return c.JSON(h.createTenant(requestId, request.TenantId, mongoApi.GetMongoCollection()))
 }

@@ -10,10 +10,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/peterbourgon/ff/v3"
-	"github.com/peterbourgon/ff/v3/ffyaml"
 	"net/url"
 	"strings"
+
+	"github.com/peterbourgon/ff/v3"
+	"github.com/peterbourgon/ff/v3/ffyaml"
 )
 
 // Config Final config struct returned to be passed around
@@ -38,6 +39,10 @@ type Config struct {
 	TlsEnabled         bool
 	TlsCertPath        string
 	TlsKeyPath         string
+	MongoDBUri         string
+	MongoDBName        string
+	AzOidcIssuer       string
+	AzJwtAudienceId    string
 }
 
 // StringSlice is a flag.Value that collects each Set string into a slice, allowing for repeated flags.
@@ -135,7 +140,16 @@ func ValidateConfig(config Config) error {
 			errorBuilder.WriteString("\n\tTLS is enabled but a path to a TLS key for the server was not specified")
 		}
 	}
-
+	//Added as part of Azure porting
+	if config.MongoDBUri == "" {
+		errorBuilder.WriteString("\n\tMongoDB uri was not specified")
+	}
+	if config.MongoDBName == "" {
+		errorBuilder.WriteString("\n\tMongoDB name was not specified")
+	}
+	if !config.AuthDisabled && !isValidUrl(config.AzOidcIssuer) {
+		errorBuilder.WriteString("\n\tAz AD OIDC Issuer is an invalid URL:  " + config.AzOidcIssuer)
+	}
 	errorMsg := errorBuilder.String()
 	if len(errorMsg) > len(errorHeader) {
 		return errors.New(errorMsg)
@@ -173,6 +187,11 @@ func GetConfig(configPath string, commandLineFlags []string) (Config, error) {
 	fs.BoolVar(&config.TlsEnabled, "tls-enabled", false, "(Optional) Toggle enabling an encrypted connection via TLS")
 	fs.StringVar(&config.TlsCertPath, "tls-cert-path", "", "(Optional) path of TLS certificate signed by the Kubernetes CA")
 	fs.StringVar(&config.TlsKeyPath, "tls-key-path", "", "(Optional) path of key from TLS certificate signed by the Kubernetes CA")
+	//Added as part of Azure porting
+	fs.StringVar(&config.MongoDBUri, "mongoDb-uri", "", "(Optional) Azure cosmosDB Mongo API uri")
+	fs.StringVar(&config.MongoDBName, "mongoDb-name", "", "(Optional) Azure cosmosDB Mongo Database name")
+	fs.StringVar(&config.AzOidcIssuer, "az-oidc-issuer", "", "(Optional) The base URL of the Azure AD OIDC issuer to use for OAuth authentication (e.g. https://sts.windows.net/<tenantId>)")
+	fs.StringVar(&config.AzJwtAudienceId, "az-jwt-audience-id", "", "(Optional) The azure AD ID of the HRI Management API within your  authorization service.")
 
 	err := ff.Parse(fs, commandLineFlags,
 		ff.WithIgnoreUndefined(true),
