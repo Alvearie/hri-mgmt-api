@@ -29,6 +29,7 @@ type Handler interface {
 	Delete(echo.Context) error
 	//Added as part of Azure porting
 	CreateTenant(echo.Context) error
+	GetTenantById(echo.Context) error
 }
 
 // This struct is designed to make unit testing easier. It has function references for the calls to backend
@@ -43,7 +44,8 @@ type theHandler struct {
 	getById func(string, string, *elasticsearch.Client) (int, interface{})
 	delete  func(string, string, *elasticsearch.Client) (int, interface{})
 	//Added as part of Azure porting
-	createTenant func(string, string, *mongo.Collection) (int, interface{})
+	createTenant  func(string, string, *mongo.Collection) (int, interface{})
+	getTenantById func(string, string, *mongo.Collection) (int, interface{})
 	//jwtValidator auth.Validator
 }
 
@@ -56,7 +58,8 @@ func NewHandler(config config.Config) Handler {
 		getById:         GetById,
 		delete:          Delete,
 		//Added as part of Azure porting
-		createTenant: CreateTenant,
+		createTenant:  CreateTenant,
+		getTenantById: GetTenantById,
 	}
 }
 
@@ -175,6 +178,26 @@ func (h *theHandler) GetById(c echo.Context) error {
 	}
 
 	return c.JSON(h.getById(requestId, tenantId, esClient))
+}
+
+func (h *theHandler) GetTenantById(c echo.Context) error {
+	requestId := c.Request().Header.Get(echo.HeaderXRequestID)
+	prefix := "az/tenants/handler/GetTenantById"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+
+	logger.Debugln("Start Tenant_GetTenantById Handler")
+	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+
+	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
+
+	//Add JWT Token validation
+	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+	tenantId := c.Param(param.TenantId)
+	if errResp != nil {
+		return c.JSON(errResp.Code, errResp.Body)
+	}
+
+	return c.JSON(h.getTenantById(requestId, tenantId, mongoApi.GetMongoCollection(h.config.MongoColName)))
 }
 
 func (h *theHandler) Delete(c echo.Context) error {

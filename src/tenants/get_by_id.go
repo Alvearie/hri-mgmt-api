@@ -6,13 +6,20 @@
 package tenants
 
 import (
+	"context"
 	"fmt"
+
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
+	"github.com/Alvearie/hri-mgmt-api/mongoApi"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	// "fmt"
+	"net/http"
+
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/elastic/go-elasticsearch/v7"
-	"net/http"
 )
 
 func GetById(requestId string, tenantId string, client *elasticsearch.Client) (int, interface{}) {
@@ -37,4 +44,38 @@ func GetById(requestId string, tenantId string, client *elasticsearch.Client) (i
 	}
 
 	return http.StatusOK, resultBody[0]
+}
+
+func GetTenantById(
+	requestId string,
+	tenantId string,
+	mongoClient *mongo.Collection) (int, interface{}) {
+
+	prefix := "tenants/GetTenantById"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	var ctx = context.Background()
+	var filter = bson.M{"tenantid": mongoApi.IndexFromTenantId(tenantId)}
+	var returnTenetResult model.GetTenantDetail
+	var tenantResponse model.TenatGetResponse
+
+	//check if tenantId Exists
+	mongoClient.FindOne(ctx, filter).Decode(&returnTenetResult)
+	if returnTenetResult.TenantId == "" {
+		msg := "Tenant: " + tenantId + " not found"
+		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, msg)
+	}
+	tenantResponse.Index = returnTenetResult.TenantId
+	tenantResponse.Uuid = returnTenetResult.Uuid
+	tenantResponse.DocsCount = returnTenetResult.Docs_count
+	tenantResponse.DocsDeleted = returnTenetResult.Docs_deleted
+	healthOk := mongoApi.DatabaseHealthCheck(mongoClient)
+	if healthOk == "1" {
+		tenantResponse.Health = "green"
+		tenantResponse.Status = "open"
+	} else {
+		tenantResponse.Health = "red"
+		tenantResponse.Status = "close"
+	}
+
+	return http.StatusOK, tenantResponse
 }

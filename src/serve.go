@@ -39,7 +39,7 @@ func main() {
 }
 
 func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
-	configPath := "C:/hri-mgmnt-api/hri-mgmt-api/config.yml"
+	configPath := "C:/Users/AVVPKL744/Documents/WorkSpace/CreateTenetWithAuth/hri-mgmt-api/config.yml"
 	config, err := config.GetConfig(configPath, args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR CREATING CONFIG: %v\n", err)
@@ -162,11 +162,12 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	// Tenants routing
 	tenantsHandler := tenants.NewHandler(config)
 	e.GET("/hri/tenants", tenantsHandler.Get)
-	e.GET(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.GetById)
+	//e.GET(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.GetById)
 	//e.POST(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Create)
 	e.DELETE(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Delete)
 	//Added as part of Azure porting
 	e.POST(fmt.Sprintf("/hri/tenants/az/:%s", param.TenantId), tenantsHandler.CreateTenant)
+	e.GET(fmt.Sprintf("/hri/tenants/az/:%s", param.TenantId), tenantsHandler.GetTenantById)
 
 	// Batches routing
 	batchesHandler := batches.NewHandler(config)
