@@ -41,6 +41,7 @@ type Config struct {
 	TlsKeyPath         string
 	MongoDBUri         string
 	MongoDBName        string
+	MongoColName       string
 	AzOidcIssuer       string
 	AzJwtAudienceId    string
 }
@@ -147,6 +148,9 @@ func ValidateConfig(config Config) error {
 	if config.MongoDBName == "" {
 		errorBuilder.WriteString("\n\tMongoDB name was not specified")
 	}
+	if config.MongoColName == "" {
+		errorBuilder.WriteString("\n\tMongoDB collection name was not specified")
+	}
 	if !config.AuthDisabled && !isValidUrl(config.AzOidcIssuer) {
 		errorBuilder.WriteString("\n\tAz AD OIDC Issuer is an invalid URL:  " + config.AzOidcIssuer)
 	}
@@ -190,6 +194,7 @@ func GetConfig(configPath string, commandLineFlags []string) (Config, error) {
 	//Added as part of Azure porting
 	fs.StringVar(&config.MongoDBUri, "mongoDb-uri", "", "(Optional) Azure cosmosDB Mongo API uri")
 	fs.StringVar(&config.MongoDBName, "mongoDb-name", "", "(Optional) Azure cosmosDB Mongo Database name")
+	fs.StringVar(&config.MongoColName, "mongoCol-name", "", "(Optional) Azure cosmosDB Mongo Database Collection name")
 	fs.StringVar(&config.AzOidcIssuer, "az-oidc-issuer", "", "(Optional) The base URL of the Azure AD OIDC issuer to use for OAuth authentication (e.g. https://sts.windows.net/<tenantId>)")
 	fs.StringVar(&config.AzJwtAudienceId, "az-jwt-audience-id", "", "(Optional) The azure AD ID of the HRI Management API within your  authorization service.")
 

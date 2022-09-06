@@ -8,20 +8,34 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/coreos/go-oidc"
-	"net/http"
-	"strings"
 )
 
 // Validator Public interface
 type Validator interface {
 	GetValidatedClaims(requestId string, authorization string, tenant string) (HriClaims, *response.ErrorDetailResponse)
+	//GetValidatedClaimsForTenant(requestId string, authorization string) (HriClaims, *response.ErrorDetailResponse)
+}
+
+type TenantValidator interface {
+	//GetValidatedClaims(requestId string, authorization string, tenant string) (HriClaims, *response.ErrorDetailResponse)
+	GetValidatedClaimsForTenant(requestId string, authorization string) *response.ErrorDetailResponse
 }
 
 // struct that implements the Validator interface
 type theValidator struct {
+	issuer      string
+	audienceId  string
+	providerNew newOidcProvider // this enables unit tests to use a mocked oidcProvider
+}
+
+// Added  as part of Azure parting
+type theTenantValidator struct {
 	issuer      string
 	audienceId  string
 	providerNew newOidcProvider // this enables unit tests to use a mocked oidcProvider
@@ -74,8 +88,44 @@ func NewValidator(issuer string, audienceId string) Validator {
 	}
 }
 
+// NewValidator Public default constructor
+func NewTenantValidator(issuer string, audienceId string) TenantValidator {
+	return theTenantValidator{
+		issuer:      issuer,
+		audienceId:  audienceId,
+		providerNew: newProvider,
+	}
+}
+
 // Ensures the request has a valid OAuth JWT OIDC compliant access token.
 func (v theValidator) getSignedToken(requestId string, authorization string) (ClaimsHolder, *response.ErrorDetailResponse) {
+	rawToken := strings.ReplaceAll(strings.ReplaceAll(authorization, "Bearer ", ""), "bearer ", "")
+
+	ctx := context.Background()
+	prefix := "auth/validate"
+	logger := logwrapper.GetMyLogger(requestId, prefix)
+
+	provider, err := v.providerNew(ctx, v.issuer)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to create OIDC provider: %s", err.Error())
+		logger.Errorln(msg)
+		return nil, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, msg)
+	}
+
+	// This verifies the `aud` claim equals the configured audienceId
+	verifier := provider.Verifier(&oidc.Config{ClientID: v.audienceId})
+
+	token, err := verifier.Verify(ctx, rawToken)
+	if err != nil {
+		msg := fmt.Sprintf("Authorization token validation failed: %s", err.Error())
+		logger.Errorln(msg)
+		return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, msg)
+	}
+
+	return token, nil
+}
+
+func (v theTenantValidator) getSignedToken(requestId string, authorization string) (ClaimsHolder, *response.ErrorDetailResponse) {
 	rawToken := strings.ReplaceAll(strings.ReplaceAll(authorization, "Bearer ", ""), "bearer ", "")
 
 	ctx := context.Background()
@@ -142,4 +192,25 @@ func (v theValidator) GetValidatedClaims(requestId string, authorization string,
 	}
 
 	return claims, nil
+}
+
+func (v theTenantValidator) GetValidatedClaimsForTenant(requestId string, authorization string) *response.ErrorDetailResponse {
+	//claims := HriAzClaims{}
+
+	//prefix := "auth/GetValidatedClaimsForTenant"
+	//logger := logwrapper.GetMyLogger(requestId, prefix)
+
+	// verify that request has a signed OAuth JWT OIDC-compliant access token
+	_, errResp := v.getSignedToken(requestId, authorization)
+	if errResp != nil {
+		return errResp
+	}
+
+	// extract HRI-related claims from JWT access token
+	// if err := token.Claims(&claims); err != nil {
+	// 	logger.Errorln(err.Error())
+	// 	return claims, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, err.Error())
+	// }
+
+	return nil
 }

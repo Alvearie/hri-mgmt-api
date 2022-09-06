@@ -12,9 +12,11 @@ import (
 
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/elastic/go-elasticsearch/v7"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -50,9 +52,21 @@ func CreateTenant(
 	prefix := "tenants/CreateTenant"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	var ctx = context.Background()
+	var filter = bson.M{"tenantid": mongoApi.IndexFromTenantId(tenantId)}
+	var returnResult model.CreateTenantRequest
 
 	//create new tenant In azure cosmos- mongo API
-	createTenantRequest := mongoApi.ConvertToJSON(tenantId, mongoApi.IndexFromTenantId(tenantId))
+	//As it is a new tenant creation passing docCount and docDeleted as 0
+	createTenantRequest := mongoApi.ConvertToJSON(mongoApi.IndexFromTenantId(tenantId), "0", "0")
+
+	//check if duplicate tenantId or not
+	res := mongoClient.FindOne(ctx, filter).Decode(&returnResult)
+	fmt.Println("find by id result ", res)
+
+	if (model.CreateTenantRequest{}) != returnResult {
+		return http.StatusBadRequest, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusBadRequest, logger,
+			fmt.Sprintf("Unable to create new tenant as it is already exists[%s]", tenantId))
+	}
 
 	// Insert one
 	_, mongoErr := mongoClient.InsertOne(ctx, createTenantRequest)

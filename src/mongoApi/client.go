@@ -8,12 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-const (
-	collectionName = "test_sharding"
-)
-
-// EmployeeCol ...
-func GetMongoCollection() *mongo.Collection {
+func GetMongoCollection(collectionName string) *mongo.Collection {
 	return db.Collection(collectionName)
 }
 
