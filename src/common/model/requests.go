@@ -101,8 +101,9 @@ type GetTenantDetail struct {
 type TenatGetResponse struct {
 	Health      string             `json:"health"`
 	Status      string             `json:"status"`
-	Index       string             `json:"index"`
-	Uuid        primitive.ObjectID `json:"uuid"`
+	Index       string             `json:"tenatid"`
+	Uuid        primitive.ObjectID `json:"_id"`
+	Size        string             `json:"size"`
 	DocsCount   string             `json:"docs.count"`
 	DocsDeleted string             `json:"docs.deleted"`
 }

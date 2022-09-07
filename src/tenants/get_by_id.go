@@ -58,17 +58,19 @@ func GetTenantById(
 	var returnTenetResult model.GetTenantDetail
 	var tenantResponse model.TenatGetResponse
 
-	//check if tenantId Exists
 	mongoClient.FindOne(ctx, filter).Decode(&returnTenetResult)
-	if returnTenetResult.TenantId == "" {
+
+	if (model.GetTenantDetail{}) == returnTenetResult {
 		msg := "Tenant: " + tenantId + " not found"
 		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, msg)
 	}
+
+	healthOk, datasize := mongoApi.DatabaseHealthCheck(mongoClient)
 	tenantResponse.Index = returnTenetResult.TenantId
 	tenantResponse.Uuid = returnTenetResult.Uuid
 	tenantResponse.DocsCount = returnTenetResult.Docs_count
 	tenantResponse.DocsDeleted = returnTenetResult.Docs_deleted
-	healthOk := mongoApi.DatabaseHealthCheck(mongoClient)
+	tenantResponse.Size = datasize
 	if healthOk == "1" {
 		tenantResponse.Health = "green"
 		tenantResponse.Status = "open"
