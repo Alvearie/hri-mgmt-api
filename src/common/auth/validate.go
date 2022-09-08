@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
@@ -146,7 +147,14 @@ func (v theTenantValidator) getSignedToken(requestId string, authorization strin
 	if err != nil {
 		msg := fmt.Sprintf("Authorization token validation failed: %s", err.Error())
 		logger.Errorln(msg)
+		errmsg := "Azure AD authentication returned " + strconv.Itoa(http.StatusUnauthorized)
+
+		if strings.Contains(msg, "JWS format must have three parts") {
+			return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errmsg)
+		}
+
 		return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, msg)
+
 	}
 
 	return token, nil
@@ -195,22 +203,11 @@ func (v theValidator) GetValidatedClaims(requestId string, authorization string,
 }
 
 func (v theTenantValidator) GetValidatedClaimsForTenant(requestId string, authorization string) *response.ErrorDetailResponse {
-	//claims := HriAzClaims{}
-
-	//prefix := "auth/GetValidatedClaimsForTenant"
-	//logger := logwrapper.GetMyLogger(requestId, prefix)
 
 	// verify that request has a signed OAuth JWT OIDC-compliant access token
 	_, errResp := v.getSignedToken(requestId, authorization)
 	if errResp != nil {
 		return errResp
 	}
-
-	// extract HRI-related claims from JWT access token
-	// if err := token.Claims(&claims); err != nil {
-	// 	logger.Errorln(err.Error())
-	// 	return claims, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, err.Error())
-	// }
-
 	return nil
 }
