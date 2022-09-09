@@ -8,16 +8,17 @@ package test
 import (
 	"flag"
 	"fmt"
+	"testing"
+
 	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffyaml"
-	"testing"
 )
 
 // FindConfigPath The path to the config may vary depending on which directory the tests are run from, so we have
 // to figure out which one it's supposed to be.
 func FindConfigPath(t *testing.T) string {
 	possiblePaths := []string{
-		"./src/common/config/goodConfig.yml",
+		"C:/hri-mgmnt-api/hri-mgmt-api/src/common/config/goodConfig.yml",
 		"../config/goodConfig.yml",
 		"./goodConfig.yml",
 		"common/config/goodConfig.yml",

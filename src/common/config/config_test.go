@@ -8,11 +8,12 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/common/test"
+	"github.com/stretchr/testify/assert"
 )
 
 const testCert = `-----BEGIN CERTIFICATE-----
@@ -65,6 +66,11 @@ func TestValidateConfig(t *testing.T) {
 				TlsEnabled:         true,
 				TlsCertPath:        "./server-cert.pem",
 				TlsKeyPath:         "./server-key.pem",
+				MongoDBUri:         "mongoDbUri",
+				MongoDBName:        "HRI-DEV",
+				MongoColName:       "HRI-Mgmt",
+				AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
+				AzJwtAudienceId:    "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
 			},
 		},
 		{
@@ -83,7 +89,11 @@ func TestValidateConfig(t *testing.T) {
 				"\n\tAn Elasticsearch service CRN was not specified" +
 				"\n\tThe Kafka administration url was not specified" + "\n\tNo Kafka brokers were defined" +
 				"\n\tTLS is enabled but a path to a TLS certificate for the server was not specified" +
-				"\n\tTLS is enabled but a path to a TLS key for the server was not specified",
+				"\n\tTLS is enabled but a path to a TLS key for the server was not specified" +
+				"\n\tMongoDB uri was not specified" +
+				"\n\tMongoDB name was not specified" +
+				"\n\tMongoDB collection name was not specified" +
+				"\n\tAz AD OIDC Issuer is an invalid URL:  ",
 		},
 		{
 			name: "invalid oidc issuer url",
@@ -104,6 +114,11 @@ func TestValidateConfig(t *testing.T) {
 				NewRelicEnabled:    true,
 				NewRelicAppName:    "nrAppName",
 				NewRelicLicenseKey: "nrLicenseKey",
+				MongoDBUri:         "mongoDbUri",
+				MongoDBName:        "HRI-DEV",
+				MongoColName:       "HRI-Mgmt",
+				AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
+				AzJwtAudienceId:    "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
 			},
 			expectedErrMsg: "Configuration errors:\n\tOIDC Issuer is an invalid URL:  invalidUrl.gov",
 		},
@@ -124,6 +139,11 @@ func TestValidateConfig(t *testing.T) {
 				KafkaBrokers:      StringSlice{"broker 1", "broker 2"},
 				LogLevel:          "info",
 				NewRelicEnabled:   true,
+				MongoDBUri:        "mongoDbUri",
+				MongoDBName:       "HRI-DEV",
+				MongoColName:      "HRI-Mgmt",
+				AzOidcIssuer:      "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
+				AzJwtAudienceId:   "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
 			},
 			expectedErrMsg: "Configuration errors:\n\tNew Relic monitoring enabled, but the New Relic app name was not specified\n\tNew Relic monitoring enabled, but the New Relic license key was not specified",
 		},
@@ -148,6 +168,11 @@ func TestValidateConfig(t *testing.T) {
 				TlsEnabled:         true,
 				TlsCertPath:        "./server-cert.pem",
 				TlsKeyPath:         "./server-key.pem",
+				MongoDBUri:         "mongoDbUri",
+				MongoDBName:        "HRI-DEV",
+				MongoColName:       "HRI-Mgmt",
+				AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
+				AzJwtAudienceId:    "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
 			},
 		},
 		{
@@ -169,6 +194,11 @@ func TestValidateConfig(t *testing.T) {
 				NewRelicEnabled:    true,
 				NewRelicAppName:    "nrAppName",
 				NewRelicLicenseKey: "nrLicenseKey",
+				MongoDBUri:         "mongoDbUri",
+				MongoDBName:        "HRI-DEV",
+				MongoColName:       "HRI-Mgmt",
+				AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
+				AzJwtAudienceId:    "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
 			},
 			expectedErrMsg: "Configuration errors:\n\tThe Elasticsearch certificate is invalid",
 		},
@@ -207,17 +237,20 @@ func TestGetConfig(t *testing.T) {
 			name:                    "invalid config path passed in directly",
 			passAlternateConfigPath: true,
 			configPath:              "invalid config path",
-			expectedErrMsg:          "open invalid config path: no such file or directory",
+			//expectedErrMsg:          "open invalid config path: no such file or directory",
+			expectedErrMsg: "open invalid config path: The system cannot find the file specified.",
 		},
 		{
-			name:           "invalid config path passed in through env var",
-			envVars:        [][2]string{{"CONFIG_PATH", "invalid config path"}},
-			expectedErrMsg: "open invalid config path: no such file or directory",
+			name:    "invalid config path passed in through env var",
+			envVars: [][2]string{{"CONFIG_PATH", "invalid config path"}},
+			//expectedErrMsg: "open invalid config path: no such file or directory",
+			expectedErrMsg: "open invalid config path: The system cannot find the file specified.",
 		},
 		{
 			name:             "invalid config path passed in through flag",
 			commandLineFlags: []string{"-config-path=invalid config path"},
-			expectedErrMsg:   "open invalid config path: no such file or directory",
+			//expectedErrMsg:   "open invalid config path: no such file or directory",
+			expectedErrMsg: "open invalid config path: The system cannot find the file specified.",
 		},
 		{
 			name:           "send incorrect type var from env (string instead of bool)",
@@ -254,6 +287,11 @@ func TestGetConfig(t *testing.T) {
 				TlsEnabled:         true,
 				TlsCertPath:        "./server-cert.pem",
 				TlsKeyPath:         "./server-key.pem",
+				MongoDBUri:         "mongodburi",
+				MongoDBName:        "HRI-DEV",
+				MongoColName:       "HRI-Mgmt",
+				AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
+				AzJwtAudienceId:    "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
 			},
 		},
 	} {

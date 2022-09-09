@@ -40,3 +40,8 @@ new-relic-license-key: "nrLicenseKey0000000000000000000000000000"
 tls-enabled: true
 tls-cert-path: "./server-cert.pem"
 tls-key-path: "./server-key.pem"
+mongoDb-uri: "mongodburi"
+mongoDb-name: "HRI-DEV"
+mongoCol-name: "HRI-Mgmt"
+az-oidc-issuer: https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/
+az-jwt-audience-id: "c33ac4da-21c6-426b-abcc-27e24ff1ccf9"
