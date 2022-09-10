@@ -287,7 +287,7 @@ func TestGetConfig(t *testing.T) {
 				TlsEnabled:         true,
 				TlsCertPath:        "./server-cert.pem",
 				TlsKeyPath:         "./server-key.pem",
-				MongoDBUri:         "mongodburi",
+				MongoDBUri:         "mongodb://hi",
 				MongoDBName:        "HRI-DEV",
 				MongoColName:       "HRI-Mgmt",
 				AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
