@@ -18,7 +18,7 @@ import (
 // to figure out which one it's supposed to be.
 func FindConfigPath(t *testing.T) string {
 	possiblePaths := []string{
-		"C:/hri-mgmnt-api/hri-mgmt-api/src/common/config/goodConfig.yml",
+		"./src/common/config/goodConfig.yml",
 		"../config/goodConfig.yml",
 		"./goodConfig.yml",
 		"common/config/goodConfig.yml",
