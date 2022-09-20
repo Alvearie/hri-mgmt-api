@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	configPkg "github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
@@ -29,6 +30,7 @@ type Handler interface {
 	Delete(echo.Context) error
 	//Azure porting
 	CreateStream(echo.Context) error
+	DeleteStream(echo.Context) error
 }
 
 // This struct is designed to make unit testing easier. It has function references for the calls to backend
@@ -39,6 +41,7 @@ type theHandler struct {
 	delete       func(string, []string, kafka.KafkaAdmin) (int, error)
 	get          func(string, string, kafka.KafkaAdmin) (int, interface{})
 	createStream func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error)
+	deleteStream func(string, []string, kafka.KafkaAdmin) (int, error)
 }
 
 func NewHandler(config configPkg.Config) Handler {
@@ -48,6 +51,7 @@ func NewHandler(config configPkg.Config) Handler {
 		get:          Get,
 		delete:       Delete,
 		createStream: CreateStream,
+		deleteStream: DeleteStream,
 	}
 }
 
@@ -104,6 +108,18 @@ func (h *theHandler) CreateStream(c echo.Context) error {
 	if len(bearerTokens) == 0 {
 		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, MissingHeaderMsg))
 	}
+
+	//TODO - remove after SASL
+	//Add JWT Token validation
+	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
+	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+
+	if errResp != nil {
+		return c.JSON(errResp.Code, errResp.Body)
+	}
+	//END
+
 	service, errDetail := kafka.AzNewAdminClientFromConfig(h.config, bearerTokens[0])
 	if errDetail != nil {
 		logger.Errorln(errDetail.Body.ErrorDescription)
@@ -124,7 +140,7 @@ func (h *theHandler) CreateStream(c echo.Context) error {
 	createdTopics, returnCode, createError := h.create(request, request.TenantId, request.StreamId, h.config.Validation, requestId, service)
 	if returnCode != http.StatusCreated {
 		if len(createdTopics) > 0 {
-			_, deleteError := h.delete(requestId, createdTopics, service)
+			_, deleteError := h.deleteStream(requestId, createdTopics, service)
 			if deleteError != nil {
 				msg := fmt.Sprintf("%s\n%s", createError.Error(), deleteError)
 				return c.JSON(returnCode, response.NewErrorDetail(requestId, msg))
@@ -172,6 +188,58 @@ func (h *theHandler) Delete(c echo.Context) error {
 	}
 
 	returnCode, err := h.delete(requestId, streamNames, service)
+	if err != nil {
+		return c.JSON(returnCode, response.NewErrorDetail(requestId, err.Error()))
+	}
+
+	return c.NoContent(returnCode)
+}
+
+func (h *theHandler) DeleteStream(c echo.Context) error {
+	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
+	prefix := "streams/delete/handler"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debug("Start Handler Delete")
+
+	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
+	if len(bearerTokens) == 0 {
+		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, MissingHeaderMsg))
+	}
+
+	service, errDetail := kafka.AzNewAdminClientFromConfig(h.config, bearerTokens[0])
+	if errDetail != nil {
+		logger.Errorln(errDetail.Body.ErrorDescription)
+		return c.JSON(errDetail.Code, response.NewErrorDetail(requestId, errDetail.Body.ErrorDescription))
+	}
+
+	// bind & validate request body
+	var request model.DeleteStreamRequest
+	if err := c.Bind(&request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+	if err := c.Validate(request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+
+	//TODO - remove after SASL
+	//Add JWT Token validation
+	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
+	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+
+	if errResp != nil {
+		return c.JSON(errResp.Code, errResp.Body)
+	}
+	//END
+	inTopicName, notificationTopicName, outTopicName, invalidTopicName := kafka.CreateTopicNames(request.TenantId, request.StreamId)
+	streamNames := []string{inTopicName, notificationTopicName}
+	if h.config.Validation {
+		streamNames = append(streamNames, outTopicName, invalidTopicName)
+	}
+
+	returnCode, err := h.deleteStream(requestId, streamNames, service)
 	if err != nil {
 		return c.JSON(returnCode, response.NewErrorDetail(requestId, err.Error()))
 	}
