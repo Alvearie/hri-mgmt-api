@@ -39,7 +39,7 @@ func main() {
 }
 
 func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
-	//configPath := "C:/hri-mgmnt-api/hri-mgmt-api/config.yml"
+	//configPath := "C:/hri-mgmnt-api/WFHRI-822/hri-mgmt-api/config.yml"
 	configPath := "./config.yml"
 	config, err := config.GetConfig(configPath, args)
 	if err != nil {
@@ -186,9 +186,11 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 
 	// Streams routing
 	streamsHandler := streams.NewHandler(config)
-	e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Create)
+	//e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Create)
 	e.DELETE(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Delete)
 	e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.Get)
+	//As part of Azure porting
+	e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.CreateStream)
 
 	return 0, startFunc, nil
 }

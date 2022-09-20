@@ -41,3 +41,11 @@ kafka-brokers:
   - "broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
   - "broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
   - "broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
+mongoDb-uri: mongo-uri
+mongoDb-name: "HRI-DEV"
+mongoCol-name: "HRI-Mgmt"
+az-kafka-brokers:
+- "wn3-tst-ea.luiuer1npb0uhpa3hpish513wd.bx.internal.cloudapp.net"
+- "wn2-tst-ea.luiuer1npb0uhpa3hpish513wd.bx.internal.cloudapp.net"
+- "wn1-tst-ea.luiuer1npb0uhpa3hpish513wd.bx.internal.cloudapp.net"
+- "wn0-tst-ea.luiuer1npb0uhpa3hpish513wd.bx.internal.cloudapp.net"

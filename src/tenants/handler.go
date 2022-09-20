@@ -182,7 +182,7 @@ func (h *theHandler) GetById(c echo.Context) error {
 
 func (h *theHandler) GetTenantById(c echo.Context) error {
 	requestId := c.Request().Header.Get(echo.HeaderXRequestID)
-	prefix := "az/tenants/handler/GetTenantById"
+	prefix := "tenants/handler/GetTenantById"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
 	logger.Debugln("Start Tenant_GetTenantById Handler")
