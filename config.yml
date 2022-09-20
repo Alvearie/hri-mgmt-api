@@ -44,6 +44,8 @@ kafka-brokers:
 mongoDb-uri: mongo-uri
 mongoDb-name: "HRI-DEV"
 mongoCol-name: "HRI-Mgmt"
+az-oidc-issuer: https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/
+az-jwt-audience-id: "c33ac4da-21c6-426b-abcc-27e24ff1ccf9"
 az-kafka-brokers:
 - "wn3-tst-ea.luiuer1npb0uhpa3hpish513wd.bx.internal.cloudapp.net"
 - "wn2-tst-ea.luiuer1npb0uhpa3hpish513wd.bx.internal.cloudapp.net"
