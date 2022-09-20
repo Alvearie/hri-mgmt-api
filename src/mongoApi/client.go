@@ -3,6 +3,7 @@ package mongoApi
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/sirupsen/logrus"
@@ -31,4 +32,8 @@ func DatabaseHealthCheck(client *mongo.Collection) (string, string) {
 	client.Database().RunCommand(context.TODO(), command).Decode(&result)
 	fmt.Println(result)
 	return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value)
+}
+
+func TenantIdFromIndex(tenantIndex string) string {
+	return strings.TrimSuffix(tenantIndex, "-batches")
 }

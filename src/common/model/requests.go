@@ -107,3 +107,7 @@ type TenatGetResponse struct {
 	DocsCount   string             `json:"docs.count"`
 	DocsDeleted string             `json:"docs.deleted"`
 }
+
+type GetTenantId struct {
+	TenantId string `json:"id" `
+}

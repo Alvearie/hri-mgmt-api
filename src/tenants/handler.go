@@ -30,6 +30,7 @@ type Handler interface {
 	//Added as part of Azure porting
 	CreateTenant(echo.Context) error
 	GetTenantById(echo.Context) error
+	GetTenants(echo.Context) error
 	DeleteTenant(echo.Context) error
 }
 
@@ -47,6 +48,7 @@ type theHandler struct {
 	//Added as part of Azure porting
 	createTenant  func(string, string, *mongo.Collection) (int, interface{})
 	getTenantById func(string, string, *mongo.Collection) (int, interface{})
+	getTenants    func(string, *mongo.Collection) (int, interface{})
 	deleteTenant  func(string, string, *mongo.Collection) (int, interface{})
 	//jwtValidator auth.Validator
 }
@@ -62,6 +64,7 @@ func NewHandler(config config.Config) Handler {
 		//Added as part of Azure porting
 		createTenant:  CreateTenant,
 		getTenantById: GetTenantById,
+		getTenants:    GetTenants,
 		deleteTenant:  DeleteTenant,
 	}
 }
@@ -181,6 +184,25 @@ func (h *theHandler) GetById(c echo.Context) error {
 	}
 
 	return c.JSON(h.getById(requestId, tenantId, esClient))
+}
+
+func (h *theHandler) GetTenants(c echo.Context) error {
+	requestId := c.Request().Header.Get(echo.HeaderXRequestID)
+	prefix := "tenant/handler/GetTenants"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+
+	logger.Debugln("Start Tenant_List Handler")
+	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+
+	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
+
+	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+	if errResp != nil {
+		return c.JSON(errResp.Code, response.NewErrorDetail(requestId, errResp.Body.ErrorDescription))
+	}
+
+	return c.JSON(h.getTenants(requestId, mongoApi.GetMongoCollection(h.config.MongoColName)))
+
 }
 
 func (h *theHandler) GetTenantById(c echo.Context) error {
