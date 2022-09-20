@@ -8,14 +8,15 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/config"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/golang-jwt/jwt"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/Alvearie/hri-mgmt-api/common/config"
+	"github.com/Alvearie/hri-mgmt-api/common/response"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/golang-jwt/jwt"
 )
 
 const (
@@ -55,6 +56,36 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 	if err != nil {
 		return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, "n/a", err.Error())
 	}
+
+	return admin, nil
+}
+func AzNewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAdmin, *response.ErrorDetailResponse) {
+
+	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.AzKafkaBrokers, ",")}
+	// We use oauthbearer auth for create/delete topic requests.
+	//kafkaConfig.SetKey("security.protocol", config.KafkaProperties["security.protocol"])
+	//kafkaConfig.SetKey("sasl.mechanism", "OAUTHBEARER")
+
+	admin, err := kafka.NewAdminClient(kafkaConfig)
+	if err != nil {
+		return nil, response.NewErrorDetailResponse(http.StatusInternalServerError, "n/a", fmt.Sprintf("error constructing Kafka admin client: %s", err.Error()))
+	}
+
+	/*re := regexp.MustCompile(`(?i)bearer `) // Remove bearer prefix, ignoring case.
+	tokenValue := re.ReplaceAllString(bearerToken, "")
+
+	exp, err := getExpFromToken(tokenValue)
+	if err != nil {
+		return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, "n/a", err.Error())
+	}
+
+	err = admin.SetOAuthBearerToken(kafka.OAuthBearerToken{
+		TokenValue: tokenValue,
+		Expiration: exp,
+	})
+	if err != nil {
+		return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, "n/a", err.Error())
+	}*/
 
 	return admin, nil
 }
