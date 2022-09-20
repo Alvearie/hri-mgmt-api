@@ -165,11 +165,12 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	// e.GET("/hri/tenants", tenantsHandler.Get)
 	//e.GET(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.GetById)
 	//e.POST(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Create)
-	e.DELETE(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Delete)
+	//e.DELETE(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Delete)
 	//Added as part of Azure porting
 	e.POST(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.CreateTenant)
 	e.GET(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.GetTenantById)
 	e.GET("/hri/tenants", tenantsHandler.GetTenants)
+	e.DELETE(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.DeleteTenant)
 
 	// Batches routing
 	batchesHandler := batches.NewHandler(config)
@@ -187,9 +188,11 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 
 	// Streams routing
 	streamsHandler := streams.NewHandler(config)
-	e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Create)
+	//e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Create)
 	e.DELETE(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Delete)
 	e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.Get)
+	//As part of Azure porting
+	e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.CreateStream)
 
 	return 0, startFunc, nil
 }

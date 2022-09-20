@@ -44,6 +44,7 @@ type Config struct {
 	MongoColName       string
 	AzOidcIssuer       string
 	AzJwtAudienceId    string
+	AzKafkaBrokers     StringSlice
 }
 
 // StringSlice is a flag.Value that collects each Set string into a slice, allowing for repeated flags.
@@ -154,6 +155,9 @@ func ValidateConfig(config Config) error {
 	if !config.AuthDisabled && !isValidUrl(config.AzOidcIssuer) {
 		errorBuilder.WriteString("\n\tAz AD OIDC Issuer is an invalid URL:  " + config.AzOidcIssuer)
 	}
+	if len(config.AzKafkaBrokers) == 0 {
+		errorBuilder.WriteString("\n\tNo Azure HdInsight Kafka brokers were defined")
+	}
 	errorMsg := errorBuilder.String()
 	if len(errorMsg) > len(errorHeader) {
 		return errors.New(errorMsg)
@@ -197,6 +201,7 @@ func GetConfig(configPath string, commandLineFlags []string) (Config, error) {
 	fs.StringVar(&config.MongoColName, "mongoCol-name", "", "(Optional) Azure cosmosDB Mongo Database Collection name")
 	fs.StringVar(&config.AzOidcIssuer, "az-oidc-issuer", "", "(Optional) The base URL of the Azure AD OIDC issuer to use for OAuth authentication (e.g. https://sts.windows.net/<tenantId>)")
 	fs.StringVar(&config.AzJwtAudienceId, "az-jwt-audience-id", "", "(Optional) The azure AD ID of the HRI Management API within your  authorization service.")
+	fs.Var(&config.AzKafkaBrokers, "az-kafka-brokers", "(Optional) A list of azure hdinsights Kafka brokers, separated by \",\"")
 
 	err := ff.Parse(fs, commandLineFlags,
 		ff.WithIgnoreUndefined(true),
