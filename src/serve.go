@@ -39,8 +39,8 @@ func main() {
 }
 
 func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
-	configPath := "C:/hri-mgmnt-api/WFHRI-822/hri-mgmt-api/config.yml"
-	//configPath := "./config.yml"
+	//configPath := "C:/hri-mgmnt-api/WFHRI-822/hri-mgmt-api/config.yml"
+	configPath := "./config.yml"
 	config, err := config.GetConfig(configPath, args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR CREATING CONFIG: %v\n", err)
