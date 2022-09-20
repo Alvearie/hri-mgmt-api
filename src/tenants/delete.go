@@ -58,7 +58,7 @@ func DeleteTenant(requestId string, tenantId string, mongoClient *mongo.Collecti
 
 	if result.DeletedCount == 0 {
 		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound,
-			logger, fmt.Sprintf("index_not_found_exception: no such index [%s]", tenantId+"-batches"))
+			logger, fmt.Sprintf("Could not delete tenant [%s]", tenantId+"-batches"))
 	}
 
 	return http.StatusOK, nil

@@ -238,7 +238,7 @@ func (h *theHandler) Delete(c echo.Context) error {
 
 func (h *theHandler) DeleteTenant(c echo.Context) error {
 	requestId := c.Request().Header.Get(echo.HeaderXRequestID)
-	prefix := "tenant/handler/delete"
+	prefix := "tenant/handler/deleteTenant"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
