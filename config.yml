@@ -1,12 +1,10 @@
 log-level: info
-oidc-issuer: https://us-east.appid.cloud.ibm.com/oauth/v4/0f389ea4-778e-4831-9b29-6156c4c1df1e
+oidc-issuer: "https://us-east.appid.cloud.ibm.com/oauth/v4/0f389ea4-778e-4831-9b29-6156c4c1df1e"
 jwt-audience-id: 21e7d376-9cdb-4a9d-a11f-9b76c007244d
-az-oidc-issuer: https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/
-az-jwt-audience-id: "c33ac4da-21c6-426b-abcc-27e24ff1ccf9"
 validation: true
 elastic-url: https://c9acb36a-0feb-4b6e-aac1-6651c71d19e4.2adb0220806343e3ae11df79c89b377f.databases.appdomain.cloud:32085
-elastic-username: ibm_cloud_1a27be2f_c7eb_4395_9cc4_71940b7f75d8
-elastic-password: a7ec2c89db5274978307b603f6b6d132825fbac81e9e71122d2b59ab259fea68
+elastic-username: a-username
+elastic-password: a-password
 elastic-cert: |
   -----BEGIN CERTIFICATE-----
   MIIDHTCCAgWgAwIBAgIUL5g6t1HmNOt8OOqUWyuQZeWsrUAwDQYJKoZIhvcNAQEL
@@ -27,16 +25,13 @@ elastic-cert: |
   pZKK8wWNUwgWQ66MNh8Ckq732JZ+so6RAfb4BbNj45I3s9fuZSYlvjkc5/+da3Ck
   Rp6anX5N6yIrzhVmAgefjQdBztYzdfPhsJBkS/TDnRmk
   -----END CERTIFICATE-----
-mongoDb-uri: "mongodb://hi-dp-tst-eastus-cosmos-mongo-api-hri:Jl6rN2wUFpROlr4Cxse61ET51TB1qwZTZXfD1IwotXQKUBUaEGjBXr8DqKAKonhBkhwSxdLIkJitZUE9X2liSg==@hi-dp-tst-eastus-cosmos-mongo-api-hri.mongo.cosmos.azure.com:10255/?ssl=true&replicaSet=globaldb&retrywrites=false&maxIdleTimeMS=120000&appName=@hi-dp-tst-eastus-cosmos-mongo-api-hri@"
-mongoDb-name: "HRI-DEV"
-mongoCol-name: "HRI-Mgmt"
 elastic-crn: "crn:v1:bluemix:public:databases-for-elasticsearch:us-east:a/52366c9ab214402f9e96917b1b2850e9:c9acb36a-0feb-4b6e-aac1-6651c71d19e4::"
 kafka-admin-url: https://twvyj4m0kft5j0mh.svc01.us-east.eventstreams.cloud.ibm.com
 kafka-properties:
   - "security.protocol:sasl_ssl"
   - "sasl.mechanism:PLAIN"
   - "sasl.username:token"
-  - "sasl.password:dOarCwEG8iyPwmc5f2Ywj4TvjGrSCyE0pKDW_bGFomfC"
+  - "sasl.password:a-password"
   - "ssl.endpoint.identification.algorithm:https"
 
 kafka-brokers:
@@ -46,3 +41,11 @@ kafka-brokers:
   - "broker-5-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
   - "broker-1-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
   - "broker-0-twvyj4m0kft5j0mh.kafka.svc01.us-east.eventstreams.cloud.ibm.com:9093"
+mongoDb-uri: mongo-uri
+mongoDb-name: "HRI-DEV"
+mongoCol-name: "HRI-Mgmt"
+az-kafka-brokers:
+- "wn3-tst-ea.luiuer1npb0uhpa3hpish513wd.bx.internal.cloudapp.net"
+- "wn2-tst-ea.luiuer1npb0uhpa3hpish513wd.bx.internal.cloudapp.net"
+- "wn1-tst-ea.luiuer1npb0uhpa3hpish513wd.bx.internal.cloudapp.net"
+- "wn0-tst-ea.luiuer1npb0uhpa3hpish513wd.bx.internal.cloudapp.net"
