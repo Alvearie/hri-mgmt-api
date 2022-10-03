@@ -30,6 +30,7 @@ type Handler interface {
 	Delete(echo.Context) error
 	//Azure porting
 	CreateStream(echo.Context) error
+	GetStream(echo.Context) error
 	DeleteStream(echo.Context) error
 }
 
@@ -41,6 +42,7 @@ type theHandler struct {
 	delete       func(string, []string, kafka.KafkaAdmin) (int, error)
 	get          func(string, string, kafka.KafkaAdmin) (int, interface{})
 	createStream func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error)
+	getStream    func(string, string, kafka.KafkaAdmin) (int, interface{})
 	deleteStream func(string, []string, kafka.KafkaAdmin) (int, error)
 }
 
@@ -51,6 +53,7 @@ func NewHandler(config configPkg.Config) Handler {
 		get:          Get,
 		delete:       Delete,
 		createStream: CreateStream,
+		getStream:    GetStream,
 		deleteStream: DeleteStream,
 	}
 }
@@ -82,7 +85,7 @@ func (h *theHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
 	}
 
-	createdTopics, returnCode, createError := h.createStream(request, request.TenantId, request.StreamId, h.config.Validation, requestId, service)
+	createdTopics, returnCode, createError := h.create(request, request.TenantId, request.StreamId, h.config.Validation, requestId, service)
 	if returnCode != http.StatusCreated {
 		if len(createdTopics) > 0 {
 			_, deleteError := h.delete(requestId, createdTopics, service)
@@ -137,7 +140,7 @@ func (h *theHandler) CreateStream(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
 	}
 
-	createdTopics, returnCode, createError := h.create(request, request.TenantId, request.StreamId, h.config.Validation, requestId, service)
+	createdTopics, returnCode, createError := h.createStream(request, request.TenantId, request.StreamId, h.config.Validation, requestId, service)
 	if returnCode != http.StatusCreated {
 		if len(createdTopics) > 0 {
 			_, deleteError := h.deleteStream(requestId, createdTopics, service)
@@ -277,4 +280,47 @@ func (h *theHandler) Get(c echo.Context) error {
 	}
 
 	return c.JSON(h.get(requestId, request.TenantId, service))
+}
+
+func (h *theHandler) GetStream(c echo.Context) error {
+	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
+	prefix := "streams/list/handler"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debug("Start Handler List Streams")
+
+	bearerTokens := c.Request().Header[echo.HeaderAuthorization]
+	if len(bearerTokens) == 0 {
+		logger.Errorln(MissingHeaderMsg)
+		return c.JSON(http.StatusUnauthorized, response.NewErrorDetail(requestId, MissingHeaderMsg))
+	}
+
+	service, err := kafka.AzNewAdminClientFromConfig(h.config, bearerTokens[0])
+	if err != nil {
+		logger.Errorln(err.Body.ErrorDescription)
+		return c.JSON(err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription))
+	}
+
+	// bind & validate request body
+	var request model.GetStreamRequest
+	if err := c.Bind(&request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+	if err := c.Validate(request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+
+	//TODO - remove after SASL
+	//Add JWT Token validation
+	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
+	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+
+	if errResp != nil {
+		return c.JSON(errResp.Code, errResp.Body)
+	}
+	//END
+
+	return c.JSON(h.getStream(requestId, request.TenantId, service))
 }

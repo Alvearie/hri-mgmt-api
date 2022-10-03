@@ -40,7 +40,7 @@ func main() {
 
 func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	//configPath := "C:/hri-mgmnt-api/WFHRI-822/hri-mgmt-api/config.yml"
-	configPath := "./config.yml"
+	configPath := "C:/Users/AVVPKL744/Documents/WorkSpace/WH-610/hri-mgmt-api/config.yml"
 	config, err := config.GetConfig(configPath, args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR CREATING CONFIG: %v\n", err)
@@ -190,10 +190,11 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	streamsHandler := streams.NewHandler(config)
 	//e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Create)
 	//e.DELETE(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Delete)
-	e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.Get)
+	//e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.Get)
 	//As part of Azure porting
 	e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.CreateStream)
 	e.DELETE(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.DeleteStream)
+	e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.GetStream)
 
 	return 0, startFunc, nil
 }
