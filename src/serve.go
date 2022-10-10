@@ -190,10 +190,11 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	streamsHandler := streams.NewHandler(config)
 	//e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Create)
 	//e.DELETE(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Delete)
-	e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.Get)
+	//e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.Get)
 	//As part of Azure porting
 	e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.CreateStream)
 	e.DELETE(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.DeleteStream)
+	e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.GetStream)
 
 	return 0, startFunc, nil
 }

@@ -8,12 +8,13 @@ package streams
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
-	"net/http"
-	"strings"
 )
 
 const msgStreamsNotFound = "Unable to get stream names for tenant [%s]. %s"
@@ -91,4 +92,32 @@ func validTopicName(topicName string) bool {
 	return strings.HasPrefix(topicName, kafka.TopicPrefix) &&
 		(strings.HasSuffix(topicName, kafka.InSuffix) || strings.HasSuffix(topicName, kafka.NotificationSuffix) ||
 			strings.HasSuffix(topicName, kafka.OutSuffix) || strings.HasSuffix(topicName, kafka.InvalidSuffix))
+}
+
+func GetStream(
+	requestId string, tenantId string,
+	adminClient kafka.KafkaAdmin) (int, interface{}) {
+	prefix := "streams/Get"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("List streams for: " + tenantId)
+
+	// get all topics for the kafka connection, then take only the streams for the given tenantId
+	topics, err := listTopics(adminClient)
+	if err != nil {
+		msg := fmt.Sprintf(msgStreamsNotFound, tenantId, err.Error())
+		logger.Errorln(msg)
+
+		returnCode := http.StatusInternalServerError
+		var kafkaErr = &cfk.Error{}
+		if errors.As(err, kafkaErr) {
+			code := kafkaErr.Code()
+			if code == cfk.ErrTopicAuthorizationFailed || code == cfk.ErrGroupAuthorizationFailed || code == cfk.ErrClusterAuthorizationFailed {
+				returnCode = http.StatusUnauthorized
+			}
+		}
+		return returnCode, err
+	}
+
+	streamNames := GetStreamNames(topics, tenantId)
+	return http.StatusOK, map[string]interface{}{"results": streamNames}
 }
