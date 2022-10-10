@@ -8,9 +8,10 @@ package test
 import (
 	"flag"
 	"fmt"
+	"testing"
+
 	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffyaml"
-	"testing"
 )
 
 // FindConfigPath The path to the config may vary depending on which directory the tests are run from, so we have

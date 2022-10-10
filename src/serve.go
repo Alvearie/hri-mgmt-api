@@ -8,12 +8,16 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+
 	"github.com/Alvearie/hri-mgmt-api/batches"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/healthcheck"
+	mongo "github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/Alvearie/hri-mgmt-api/streams"
 	"github.com/Alvearie/hri-mgmt-api/tenants"
 	"github.com/labstack/echo/v4"
@@ -21,8 +25,6 @@ import (
 	"github.com/newrelic/go-agent/v3/integrations/nrecho-v4"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/sirupsen/logrus"
-	"net/http"
-	"os"
 )
 
 func main() {
@@ -37,6 +39,7 @@ func main() {
 }
 
 func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
+	//configPath := "C:/hri-mgmnt-api/WFHRI-822/hri-mgmt-api/config.yml"
 	configPath := "./config.yml"
 	config, err := config.GetConfig(configPath, args)
 	if err != nil {
@@ -122,6 +125,13 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	}
 	e.Validator = customValidator
 
+	//connect to mongo API
+	err = mongo.ConnectFromConfig(config)
+	if err != nil {
+		e.Logger.Fatal(err)
+		os.Exit(2)
+	}
+
 	// Prepare the server start function
 	startFunc := func() {
 		err := error(nil)
@@ -136,6 +146,7 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 			e.Logger.Fatal(err)
 			os.Exit(2)
 		}
+
 	}
 
 	// Configure the endpoint routes
@@ -151,10 +162,15 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 
 	// Tenants routing
 	tenantsHandler := tenants.NewHandler(config)
-	e.GET("/hri/tenants", tenantsHandler.Get)
-	e.GET(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.GetById)
-	e.POST(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Create)
-	e.DELETE(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Delete)
+	// e.GET("/hri/tenants", tenantsHandler.Get)
+	//e.GET(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.GetById)
+	//e.POST(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Create)
+	//e.DELETE(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.Delete)
+	//Added as part of Azure porting
+	e.POST(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.CreateTenant)
+	e.GET(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.GetTenantById)
+	e.GET("/hri/tenants", tenantsHandler.GetTenants)
+	e.DELETE(fmt.Sprintf("/hri/tenants/:%s", param.TenantId), tenantsHandler.DeleteTenant)
 
 	// Batches routing
 	batchesHandler := batches.NewHandler(config)
@@ -172,9 +188,13 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 
 	// Streams routing
 	streamsHandler := streams.NewHandler(config)
-	e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Create)
-	e.DELETE(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Delete)
-	e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.Get)
+	//e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Create)
+	//e.DELETE(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.Delete)
+	//e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.Get)
+	//As part of Azure porting
+	e.POST(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.CreateStream)
+	e.DELETE(fmt.Sprintf("hri/tenants/:%s/streams/:%s", param.TenantId, param.StreamId), streamsHandler.DeleteStream)
+	e.GET(fmt.Sprintf("/hri/tenants/:%s/streams", param.TenantId), streamsHandler.GetStream)
 
 	return 0, startFunc, nil
 }
