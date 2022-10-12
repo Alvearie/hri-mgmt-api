@@ -8,9 +8,10 @@ package kafka
 import (
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"strings"
 )
 
 // HealthChecker Public interface
@@ -43,7 +44,19 @@ func NewHealthChecker(config config.Config) (HealthChecker, error) {
 
 	return confluentHealthChecker{client}, nil
 }
+func HriHealthChecker(config config.Config) (HealthChecker, error) {
+	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.AzKafkaBrokers, ",")}
+	// for key, value := range config.KafkaProperties {
+	// 	kafkaConfig.SetKey(key, value)
+	// }
+	kafkaClient, err := kafka.NewAdminClient(kafkaConfig)
 
+	if err != nil {
+		return nil, fmt.Errorf("error constructing Kafka admin client: %w", err)
+	}
+	return confluentHealthChecker{kafkaClient}, nil
+
+}
 func (chc confluentHealthChecker) Check() error {
 	metadata, err := chc.GetMetadata(nil, true, 1000)
 	if err != nil {

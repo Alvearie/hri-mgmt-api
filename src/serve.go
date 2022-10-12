@@ -157,7 +157,8 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 
 	// Healthcheck routing
 	healthcheckHandler := healthcheck.NewHandler(config)
-	e.GET("/hri/healthcheck", healthcheckHandler.Healthcheck)
+	// e.GET("/hri/healthcheck", healthcheckHandler.Healthcheck)
+	e.GET("/hri/healthcheck", healthcheckHandler.HriHealthcheck)
 
 	// Tenants routing
 	tenantsHandler := tenants.NewHandler(config)

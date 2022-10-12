@@ -34,6 +34,13 @@ func DatabaseHealthCheck(client *mongo.Collection) (string, string) {
 	return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value)
 }
 
+func HriDatabaseHealthCheck(client *mongo.Collection) (string, string, error) {
+	command := bson.D{{"dbStats", 1}}
+	var result bson.D
+	err := client.Database().RunCommand(context.TODO(), command).Decode(&result)
+	return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value), err
+}
+
 func TenantIdFromIndex(tenantIndex string) string {
 	return strings.TrimSuffix(tenantIndex, "-batches")
 }
