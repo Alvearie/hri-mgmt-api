@@ -132,8 +132,8 @@ func (h *theHandler) CreateTenant(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, errMessage))
 		}
 	}
-	//Add JWT Token validation
 
+//Add JWT Token validation
 	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 
 	if errResp != nil {
