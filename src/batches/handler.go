@@ -8,6 +8,8 @@ package batches
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
@@ -16,10 +18,11 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
+	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	"net/http"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const msgElasticErr string = "error getting Elastic client: %s"
@@ -33,6 +36,7 @@ type Handler interface {
 	Terminate(ctx echo.Context) error
 	ProcessingComplete(ctx echo.Context) error
 	Fail(ctx echo.Context) error
+	CreateBatch(echo.Context) error
 }
 
 type theHandler struct {
@@ -46,6 +50,9 @@ type theHandler struct {
 	terminate          func(string, *model.TerminateRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
 	processingComplete func(string, *model.ProcessingCompleteRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
 	fail               func(string, *model.FailRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
+	//Azure porting
+	createBatch       func(string, model.CreateBatch, auth.HriAzClaims, *mongo.Collection, kafka.Writer) (int, interface{})
+	jwtBatchValidator auth.BatchValidator
 }
 
 // NewHandler This struct is designed to make unit testing easier. It has function references for the calls to backend
@@ -64,12 +71,14 @@ func NewHandler(config config.Config) Handler {
 			terminate:          TerminateNoAuth,
 			processingComplete: ProcessingCompleteNoAuth,
 			fail:               FailNoAuth,
+			createBatch:        CreateBatchNoAuth,
 		}
 
 	} else {
 		newHandler = &theHandler{
-			config:       config,
-			jwtValidator: auth.NewValidator(config.OidcIssuer, config.JwtAudienceId),
+			config:            config,
+			jwtValidator:      auth.NewValidator(config.OidcIssuer, config.JwtAudienceId),
+			jwtBatchValidator: auth.NewBatchValidator(config.AzOidcIssuer, config.AzJwtAudienceId),
 
 			// The Elastic Client & Kafka Writer creation don't have method references, because they do not reach out to the
 			// service until they're used. So, we don't need to mock it for unit testing.
@@ -81,8 +90,10 @@ func NewHandler(config config.Config) Handler {
 			terminate:          Terminate,
 			processingComplete: ProcessingComplete,
 			fail:               Fail,
+			createBatch:        CreateBatch,
 		}
 	}
+
 	return newHandler
 }
 
@@ -490,4 +501,43 @@ func getCurrentBatchStatus(h *theHandler, requestId string, getBatchRequest mode
 		return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
 	}
 	return currentStatus, nil
+}
+
+//Added as part of Azure porting
+func (h *theHandler) CreateBatch(c echo.Context) error {
+	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
+	prefix := "batches/handler/create"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+
+	// bind & validate request body
+	var batch model.CreateBatch
+	if err := c.Bind(&batch); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+	if err := c.Validate(batch); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+
+	kafkaWriter, err := kafka.NewWriterFromAzConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
+	defer kafkaWriter.Close()
+
+	if h.config.AuthDisabled == false { //Auth Enabled
+		//JWT claims validation
+		claims, errResp := h.jwtBatchValidator.GetValidatedRoles(requestId,
+			c.Request().Header.Get(echo.HeaderAuthorization), batch.TenantId)
+		if errResp != nil {
+			return c.JSON(errResp.Code, errResp.Body)
+		}
+
+		return c.JSON(h.createBatch(requestId, batch, claims, mongoApi.GetMongoCollection(h.config.MongoColName), kafkaWriter))
+	} else {
+		logger.Debugln("Auth Disabled - calling CreateBatchNoAuth()")
+		return c.JSON(h.createBatch(requestId, batch, auth.HriAzClaims{}, mongoApi.GetMongoCollection(h.config.MongoColName), kafkaWriter))
+	}
 }

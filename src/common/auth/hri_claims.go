@@ -50,7 +50,7 @@ func (c HriClaims) HasScope(claim string) bool {
 	return false
 }
 
-func (c HriAzClaims) HasAzADScope(claim string) bool {
+func (c HriAzClaims) HasRole(claim string) bool {
 	// split space-delimited scope string into an array
 	scopes := strings.Fields(c.Scope)
 

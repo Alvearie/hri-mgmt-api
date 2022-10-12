@@ -14,6 +14,10 @@ type CreateBatch struct {
 	DataType         string                 `json:"dataType" validate:"required,injection-check-validator"`
 	InvalidThreshold int                    `json:"invalidThreshold"`
 	Metadata         map[string]interface{} `json:"metadata"`
+	BatchId          string                 `json:"batchId"`
+	IntegratorId     string                 `json:"integratorId"`
+	Status           string                 `json:"status"`
+	StartDate        string                 `json:"startDate"`
 }
 
 type GetBatch struct {
@@ -89,6 +93,15 @@ type CreateTenantRequest struct {
 	TenantId     string `json:"tenantId" `
 	Docs_count   string `json:"docs.count"`
 	Docs_deleted string `json:"docs.deleted" `
+	//Batch        []CreateBatch `json:"batch"`
+}
+
+type CreateBatchRequestForTenant struct {
+	Uuid         primitive.ObjectID `bson:"_id"`
+	TenantId     string             `json:"tenantId" `
+	Docs_count   string             `json:"docs.count"`
+	Docs_deleted string             `json:"docs.deleted" `
+	Batch        []CreateBatch      `json:"batch"`
 }
 
 type GetTenantDetail struct {

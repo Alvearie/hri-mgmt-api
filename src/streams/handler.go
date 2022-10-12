@@ -82,7 +82,7 @@ func (h *theHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
 	}
 
-	createdTopics, returnCode, createError := h.createStream(request, request.TenantId, request.StreamId, h.config.Validation, requestId, service)
+	createdTopics, returnCode, createError := h.create(request, request.TenantId, request.StreamId, h.config.Validation, requestId, service)
 	if returnCode != http.StatusCreated {
 		if len(createdTopics) > 0 {
 			_, deleteError := h.delete(requestId, createdTopics, service)
@@ -137,7 +137,7 @@ func (h *theHandler) CreateStream(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
 	}
 
-	createdTopics, returnCode, createError := h.create(request, request.TenantId, request.StreamId, h.config.Validation, requestId, service)
+	createdTopics, returnCode, createError := h.createStream(request, request.TenantId, request.StreamId, h.config.Validation, requestId, service)
 	if returnCode != http.StatusCreated {
 		if len(createdTopics) > 0 {
 			_, deleteError := h.deleteStream(requestId, createdTopics, service)
