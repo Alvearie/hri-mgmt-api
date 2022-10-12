@@ -111,3 +111,15 @@ type TenatGetResponse struct {
 type GetTenantId struct {
 	TenantId string `json:"id" `
 }
+
+type GetBatchMetaDataResponse struct {
+	DataType         string                 `json:"dataType"`
+	Id               string                 `json:"id"`
+	IntegratorId     string                 `json:"integratorId"`
+	InvalidThreshold int32                  `json:"invalidThreshold"`
+	Metadata         map[string]interface{} `json:"metadata"`
+	Name             string                 `json:"name"`
+	StartDate        string                 `json:"startDate"`
+	Status           string                 `json:"status"`
+	Topic            string                 `json:"topic"`
+}

@@ -39,7 +39,7 @@ func main() {
 }
 
 func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
-	//configPath := "C:/hri-mgmnt-api/WFHRI-822/hri-mgmt-api/config.yml"
+	// configPath := "C:/Dev/WHFHRI-1100/hri-mgmt-api/config.yml"
 	configPath := "./config.yml"
 	config, err := config.GetConfig(configPath, args)
 	if err != nil {
@@ -174,7 +174,9 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 
 	// Batches routing
 	batchesHandler := batches.NewHandler(config)
-	e.GET(fmt.Sprintf("/hri/tenants/:%s/batches/:%s", param.TenantId, param.BatchId), batchesHandler.GetById)
+	// e.GET(fmt.Sprintf("/hri/tenants/:%s/batches/:%s", param.TenantId, param.BatchId), batchesHandler.GetById)
+	e.GET(fmt.Sprintf("/hri/tenants/:%s/batches/:%s", param.TenantId, param.BatchId), batchesHandler.GetByBatchId)
+
 	e.POST(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.Create)
 	e.GET(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.Get)
 	e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/sendComplete",

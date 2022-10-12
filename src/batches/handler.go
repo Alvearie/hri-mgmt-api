@@ -8,6 +8,8 @@ package batches
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
@@ -16,10 +18,11 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
+	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	"net/http"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const msgElasticErr string = "error getting Elastic client: %s"
@@ -33,19 +36,24 @@ type Handler interface {
 	Terminate(ctx echo.Context) error
 	ProcessingComplete(ctx echo.Context) error
 	Fail(ctx echo.Context) error
+	GetByBatchId(echo.Context) error
 }
 
 type theHandler struct {
-	config             config.Config
-	jwtValidator       auth.Validator
-	create             func(string, model.CreateBatch, auth.HriClaims, *elasticsearch.Client, kafka.Writer) (int, interface{})
-	get                func(string, model.GetBatch, auth.HriClaims, *elasticsearch.Client) (int, interface{})
-	getById            func(string, model.GetByIdBatch, auth.HriClaims, *elasticsearch.Client) (int, interface{})
-	getByIdNoAuth      func(string, model.GetByIdBatch, auth.HriClaims, *elasticsearch.Client) (int, interface{})
-	sendComplete       func(string, *model.SendCompleteRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
-	terminate          func(string, *model.TerminateRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
-	processingComplete func(string, *model.ProcessingCompleteRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
-	fail               func(string, *model.FailRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
+	config       config.Config
+	jwtValidator auth.Validator
+
+	create              func(string, model.CreateBatch, auth.HriClaims, *elasticsearch.Client, kafka.Writer) (int, interface{})
+	get                 func(string, model.GetBatch, auth.HriClaims, *elasticsearch.Client) (int, interface{})
+	getById             func(string, model.GetByIdBatch, auth.HriClaims, *elasticsearch.Client) (int, interface{})
+	getByIdNoAuth       func(string, model.GetByIdBatch, auth.HriClaims, *elasticsearch.Client) (int, interface{})
+	sendComplete        func(string, *model.SendCompleteRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
+	terminate           func(string, *model.TerminateRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
+	processingComplete  func(string, *model.ProcessingCompleteRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
+	fail                func(string, *model.FailRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
+	jwtBatchValidator   auth.BatchValidator
+	getByBatchId        func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
+	getTenantByIdNoAuth func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
 }
 
 // NewHandler This struct is designed to make unit testing easier. It has function references for the calls to backend
@@ -55,15 +63,17 @@ func NewHandler(config config.Config) Handler {
 
 	if config.AuthDisabled {
 		newHandler = &theHandler{
-			config:             config,
-			create:             CreateNoAuth,
-			get:                GetNoAuth,
-			getById:            GetByIdNoAuth,
-			getByIdNoAuth:      GetByIdNoAuth,
-			sendComplete:       SendCompleteNoAuth,
-			terminate:          TerminateNoAuth,
-			processingComplete: ProcessingCompleteNoAuth,
-			fail:               FailNoAuth,
+			config:              config,
+			create:              CreateNoAuth,
+			get:                 GetNoAuth,
+			getById:             GetByIdNoAuth,
+			getByIdNoAuth:       GetByIdNoAuth,
+			sendComplete:        SendCompleteNoAuth,
+			terminate:           TerminateNoAuth,
+			processingComplete:  ProcessingCompleteNoAuth,
+			fail:                FailNoAuth,
+			getByBatchId:        GetByBatchIdNoAuth,
+			getTenantByIdNoAuth: GetByBatchIdNoAuth,
 		}
 
 	} else {
@@ -81,11 +91,47 @@ func NewHandler(config config.Config) Handler {
 			terminate:          Terminate,
 			processingComplete: ProcessingComplete,
 			fail:               Fail,
+			jwtBatchValidator:  auth.NewBatchValidator(config.AzOidcIssuer, config.AzJwtAudienceId),
+
+			getByBatchId:        GetByBatchId,
+			getTenantByIdNoAuth: GetByBatchIdNoAuth,
 		}
 	}
 	return newHandler
 }
+func (h *theHandler) GetByBatchId(c echo.Context) error {
+	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
+	prefix := "batches/handler/getById"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
+	// bind & validate request body
+	var request model.GetByIdBatch
+	if err := c.Bind(&request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+	if err := c.Validate(request); err != nil {
+		logger.Printf(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+
+	mongoClient := mongoApi.GetMongoCollection(h.config.MongoColName)
+	if h.config.AuthDisabled == false { //Auth Enabled
+		//JWT claims validation
+
+		claims, errResp := h.jwtBatchValidator.GetValidatedRoles(requestId,
+			c.Request().Header.Get(echo.HeaderAuthorization), request.TenantId)
+		if errResp != nil {
+			return c.JSON(errResp.Code, errResp.Body)
+		}
+
+		return c.JSON(h.getByBatchId(requestId, request, claims, mongoClient))
+	} else {
+		logger.Debugln("Auth Disabled - calling GetByBatchIdNoAuth()")
+		var emptyClaims = auth.HriAzClaims{}
+		return c.JSON(h.getTenantByIdNoAuth(requestId, request, emptyClaims, mongoClient))
+	}
+}
 func (h *theHandler) Create(c echo.Context) error {
 	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
 	prefix := "batches/handler/create"
@@ -469,8 +515,8 @@ func (h *theHandler) Fail(c echo.Context) error {
 	return c.NoContent(code)
 }
 
-//get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateStatus()
-//Note: this call will Always use the empty claims (NoAuth) option for calling GetById()
+// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateStatus()
+// Note: this call will Always use the empty claims (NoAuth) option for calling GetById()
 func getCurrentBatchStatus(h *theHandler, requestId string, getBatchRequest model.GetByIdBatch, esClient *elasticsearch.Client, logger logrus.FieldLogger) (status.BatchStatus, *response.ErrorDetailResponse) {
 
 	var claims = auth.HriClaims{} //Always use the empty claims (NoAuth) option
