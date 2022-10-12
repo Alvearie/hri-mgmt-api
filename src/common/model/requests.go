@@ -5,6 +5,8 @@
  */
 package model
 
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
 type CreateBatch struct {
 	TenantId         string                 `param:"tenantId" validate:"required,tenantid-validator"`
 	Name             string                 `json:"name" validate:"required,injection-check-validator"`
@@ -12,6 +14,10 @@ type CreateBatch struct {
 	DataType         string                 `json:"dataType" validate:"required,injection-check-validator"`
 	InvalidThreshold int                    `json:"invalidThreshold"`
 	Metadata         map[string]interface{} `json:"metadata"`
+	BatchId          string                 `json:"batchId"`
+	IntegratorId     string                 `json:"integratorId"`
+	Status           string                 `json:"status"`
+	StartDate        string                 `json:"startDate"`
 }
 
 type GetBatch struct {
@@ -81,4 +87,40 @@ type DeleteStreamRequest struct {
 
 type CreateTenant struct {
 	TenantId string `param:"tenantId" validate:"required,tenantid-validator"`
+}
+
+type CreateTenantRequest struct {
+	TenantId     string `json:"tenantId" `
+	Docs_count   string `json:"docs.count"`
+	Docs_deleted string `json:"docs.deleted" `
+	//Batch        []CreateBatch `json:"batch"`
+}
+
+type CreateBatchRequestForTenant struct {
+	Uuid         primitive.ObjectID `bson:"_id"`
+	TenantId     string             `json:"tenantId" `
+	Docs_count   string             `json:"docs.count"`
+	Docs_deleted string             `json:"docs.deleted" `
+	Batch        []CreateBatch      `json:"batch"`
+}
+
+type GetTenantDetail struct {
+	Uuid         primitive.ObjectID `bson:"_id"`
+	TenantId     string             `bson:"tenantid" `
+	Docs_count   string             `bson:"docs_count"`
+	Docs_deleted string             `bson:"docs_deleted" `
+}
+
+type TenatGetResponse struct {
+	Health      string             `json:"health"`
+	Status      string             `json:"status"`
+	Index       string             `json:"tenatid"`
+	Uuid        primitive.ObjectID `json:"_id"`
+	Size        string             `json:"size"`
+	DocsCount   string             `json:"docs.count"`
+	DocsDeleted string             `json:"docs.deleted"`
+}
+
+type GetTenantId struct {
+	TenantId string `json:"id" `
 }

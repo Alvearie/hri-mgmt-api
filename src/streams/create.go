@@ -8,19 +8,18 @@ package streams
 import (
 	"context"
 	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/eventstreams"
-	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	"github.com/Alvearie/hri-mgmt-api/common/model"
-	es "github.com/IBM/event-streams-go-sdk-generator/build/generated"
 	"net/http"
 	"strconv"
+
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
+	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
 const (
-	//error codes returned by the IBM EventStreams Admin API
-	topicAlreadyExists   int32 = 42236
-	invalidCleanupPolicy int32 = 42240
-	onePartition         int64 = 1
+	onePartition      int = 1
+	replicationFactor int = 3
 )
 
 func Create(
@@ -29,146 +28,175 @@ func Create(
 	streamId string,
 	validationEnabled bool,
 	requestId string,
-	service eventstreams.Service) ([]string, int, error) {
+	adminClient kafka.KafkaAdmin) ([]string, int, error) {
 
 	prefix := "streams/create"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Streams Create")
 
-	inTopicName, notificationTopicName, outTopicName, invalidTopicName := eventstreams.CreateTopicNames(
+	inTopicName, notificationTopicName, outTopicName, invalidTopicName := kafka.CreateTopicNames(
 		tenantId, streamId)
 
 	//numPartitions and retentionTime configs are required, the rest are optional
-	topicConfigs := setUpTopicConfigs(request)
+	topicConfig := setUpTopicConfig(request)
 
-	inTopicRequest := es.TopicCreateRequest{
-		Name:           inTopicName,
-		PartitionCount: *request.NumPartitions,
-		Configs:        topicConfigs,
+	// Build up topic names and partition counts arrays. Orders are:
+	// { inTopicName, notificationTopicName, outTopicName, invalidTopicName }
+	// { <fromCreateRequest>, 1, <fromCreateRequest>, 1 }
+	// create notification and invalid topics with only 1 Partition b/c of the small expected msg volume for these topics
+	topicNames := make([]string, 0, 4)
+	partitionCounts := make([]int, 0, 4)
+
+	topicNames = append(topicNames, inTopicName, notificationTopicName)
+	partitionCounts = append(partitionCounts, int(*request.NumPartitions), onePartition)
+	if validationEnabled {
+		topicNames = append(topicNames, outTopicName, invalidTopicName)
+		partitionCounts = append(partitionCounts, int(*request.NumPartitions), onePartition)
 	}
+	topicSpecs := buildTopicSpecifications(topicNames, partitionCounts, topicConfig)
 
-	//create notification topic with only 1 Partition b/c of the small expected msg volume for this topic
-	notificationTopicRequest := es.TopicCreateRequest{
-		Name:           notificationTopicName,
-		PartitionCount: onePartition,
-		Configs:        topicConfigs,
+	ctx := context.Background()
+
+	results, err := adminClient.CreateTopics(ctx, topicSpecs, cfk.SetAdminRequestTimeout(kafka.AdminTimeout))
+	if err != nil {
+		return make([]string, 0), http.StatusInternalServerError, fmt.Errorf("unexpected error creating Kafka topics: %w", err)
 	}
 
 	createdTopics := make([]string, 0, 4)
-
-	// create the input and notification topics for the given tenant and stream pairing
-	_, inResponse, inErr := service.CreateTopic(context.Background(), inTopicRequest)
-	if inErr != nil {
-		logger.Errorf("Unable to create new topic [%s]. %s", inTopicName, inErr.Error())
-		responseCode, errorMessage := getResponseCodeAndErrorMessage(inResponse, service.HandleModelError(inErr))
-		return createdTopics, responseCode, fmt.Errorf(errorMessage)
-	}
-	createdTopics = append(createdTopics, inTopicName)
-
-	_, notificationResponse, notificationErr := service.CreateTopic(context.Background(), notificationTopicRequest)
-	if notificationErr != nil {
-		logger.Errorf("Unable to create new topic [%s]. %s", notificationTopicName, notificationErr.Error())
-		responseCode, errorMessage := getResponseCodeAndErrorMessage(notificationResponse, service.HandleModelError(notificationErr))
-		return createdTopics, responseCode, fmt.Errorf(errorMessage)
-	}
-	createdTopics = append(createdTopics, notificationTopicName)
-
-	// if validation is enabled, create the out and invalid topics for the given tenant and stream pairing
-	if validationEnabled {
-		outTopicRequest := es.TopicCreateRequest{
-			Name:           outTopicName,
-			PartitionCount: *request.NumPartitions,
-			Configs:        topicConfigs,
+	errs := make([]cfk.Error, 0, 4)
+	for _, res := range results {
+		if res.Error.Code() != cfk.ErrNoError {
+			logger.Errorf(res.Error.Error())
+			errs = append(errs, res.Error)
+		} else {
+			createdTopics = append(createdTopics, res.Topic)
 		}
-
-		//create invalid topic with only 1 Partition b/c of the small expected msg volume for this topic
-		invalidTopicRequest := es.TopicCreateRequest{
-			Name:           invalidTopicName,
-			PartitionCount: onePartition,
-			Configs:        topicConfigs,
-		}
-
-		_, outResponse, outErr := service.CreateTopic(context.Background(), outTopicRequest)
-		if outErr != nil {
-			logger.Errorf("Unable to create new topic [%s]. %s", outTopicName, outErr.Error())
-			responseCode, errorMessage := getResponseCodeAndErrorMessage(outResponse, service.HandleModelError(outErr))
-			return createdTopics, responseCode, fmt.Errorf(errorMessage)
-		}
-		createdTopics = append(createdTopics, outTopicName)
-
-		_, invalidResponse, invalidErr := service.CreateTopic(context.Background(), invalidTopicRequest)
-		if invalidErr != nil {
-			logger.Errorf("Unable to create new topic [%s]. %s", invalidTopicName, invalidErr.Error())
-			responseCode, errorMessage := getResponseCodeAndErrorMessage(invalidResponse, service.HandleModelError(invalidErr))
-			return createdTopics, responseCode, fmt.Errorf(errorMessage)
-		}
-		createdTopics = append(createdTopics, invalidTopicName)
 	}
 
-	return createdTopics, http.StatusCreated, nil
+	returnCode := http.StatusCreated
+	err = nil
+	if len(errs) > 0 {
+		err = errs[0]
+		returnCode = getResponseCodeAndErrorMessage(errs[0])
+	}
+
+	return createdTopics, returnCode, err
 }
 
-func setUpTopicConfigs(request model.CreateStreamsRequest) []es.ConfigCreate {
-	retentionMsConfig := es.ConfigCreate{
-		Name:  "retention.ms",
-		Value: strconv.Itoa(*request.RetentionMs),
+func CreateStream(
+	request model.CreateStreamsRequest,
+	tenantId string,
+	streamId string,
+	validationEnabled bool,
+	requestId string,
+	adminClient kafka.KafkaAdmin) ([]string, int, error) {
+
+	prefix := "streams/create"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+	logger.Debugln("Start Streams Create")
+
+	inTopicName, notificationTopicName, outTopicName, invalidTopicName := kafka.CreateTopicNames(
+		tenantId, streamId)
+
+	//numPartitions and retentionTime configs are required, the rest are optional
+	topicConfig := setUpTopicConfig(request)
+
+	// Build up topic names and partition counts arrays. Orders are:
+	// { inTopicName, notificationTopicName, outTopicName, invalidTopicName }
+	// { <fromCreateRequest>, 1, <fromCreateRequest>, 1 }
+	// create notification and invalid topics with only 1 Partition b/c of the small expected msg volume for these topics
+	topicNames := make([]string, 0, 4)
+	partitionCounts := make([]int, 0, 4)
+
+	topicNames = append(topicNames, inTopicName, notificationTopicName)
+	partitionCounts = append(partitionCounts, int(*request.NumPartitions), onePartition)
+	if validationEnabled {
+		topicNames = append(topicNames, outTopicName, invalidTopicName)
+		partitionCounts = append(partitionCounts, int(*request.NumPartitions), onePartition)
 	}
-	configs := []es.ConfigCreate{retentionMsConfig}
+	topicSpecs := buildTopicSpecifications(topicNames, partitionCounts, topicConfig)
+
+	ctx := context.Background()
+
+	results, err := adminClient.CreateTopics(ctx, topicSpecs, cfk.SetAdminRequestTimeout(kafka.AdminTimeout))
+	if err != nil {
+		return make([]string, 0), http.StatusInternalServerError, fmt.Errorf("unexpected error creating Kafka topics: %w", err)
+	}
+
+	createdTopics := make([]string, 0, 4)
+	errs := make([]cfk.Error, 0, 4)
+	for _, res := range results {
+		if res.Error.Code() != cfk.ErrNoError {
+			logger.Errorf(res.Error.Error())
+			errs = append(errs, res.Error)
+		} else {
+			createdTopics = append(createdTopics, res.Topic)
+		}
+	}
+
+	returnCode := http.StatusCreated
+	err = nil
+	if len(errs) > 0 {
+		err = errs[0]
+		returnCode = getResponseCodeAndErrorMessage(errs[0])
+	}
+
+	return createdTopics, returnCode, err
+}
+
+func buildTopicSpecifications(topicNames []string, partitionCounts []int, config map[string]string) []cfk.TopicSpecification {
+
+	topicSpecs := make([]cfk.TopicSpecification, len(topicNames))
+	for i, _ := range topicNames {
+		topicSpecs[i] = cfk.TopicSpecification{
+			Topic:             topicNames[i],
+			NumPartitions:     partitionCounts[i],
+			ReplicationFactor: replicationFactor,
+			Config:            config,
+		}
+	}
+	return topicSpecs
+
+}
+
+func setUpTopicConfig(request model.CreateStreamsRequest) map[string]string {
+
+	config := map[string]string{
+		"retention.ms": strconv.Itoa(*request.RetentionMs),
+	}
 
 	if request.RetentionBytes != nil {
-		retentionBytesConfig := es.ConfigCreate{
-			Name:  "retention.bytes",
-			Value: strconv.Itoa(*request.RetentionBytes),
-		}
-		configs = append(configs, retentionBytesConfig)
+		config["retention.bytes"] = strconv.Itoa(*request.RetentionBytes)
 	}
 
 	if request.CleanupPolicy != nil {
-		cleanupPolicyConfig := es.ConfigCreate{
-			Name:  "cleanup.policy",
-			Value: *request.CleanupPolicy,
-		}
-		configs = append(configs, cleanupPolicyConfig)
+		config["cleanup.policy"] = *request.CleanupPolicy
 	}
 
 	if request.SegmentMs != nil {
-		segmentMsConfig := es.ConfigCreate{
-			Name:  "segment.ms",
-			Value: strconv.Itoa(*request.SegmentMs),
-		}
-		configs = append(configs, segmentMsConfig)
+		config["segment.ms"] = strconv.Itoa(*request.SegmentMs)
 	}
 
 	if request.SegmentBytes != nil {
-		segmentBytesConfig := es.ConfigCreate{
-			Name:  "segment.bytes",
-			Value: strconv.Itoa(*request.SegmentBytes),
-		}
-		configs = append(configs, segmentBytesConfig)
+		config["segment.bytes"] = strconv.Itoa(*request.SegmentBytes)
 	}
 
 	if request.SegmentIndexBytes != nil {
-		segmentIndexBytesConfig := es.ConfigCreate{
-			Name:  "segment.index.bytes",
-			Value: strconv.Itoa(*request.SegmentIndexBytes),
-		}
-		configs = append(configs, segmentIndexBytesConfig)
+		config["segment.index.bytes"] = strconv.Itoa(*request.SegmentIndexBytes)
 	}
 
-	return configs
+	return config
 }
 
-func getResponseCodeAndErrorMessage(resp *http.Response, err *es.ModelError) (int, string) {
-	//EventStreams Admin API gives us status 403 when provided bearer token is unauthorized
-	//and status 401 when Authorization isn't provided or is nil
-	if resp.StatusCode == http.StatusForbidden {
-		return http.StatusUnauthorized, eventstreams.UnauthorizedMsg
-	} else if resp.StatusCode == http.StatusUnauthorized {
-		return http.StatusUnauthorized, eventstreams.MissingHeaderMsg
-	} else if resp.StatusCode == http.StatusUnprocessableEntity && err.ErrorCode == topicAlreadyExists {
-		return http.StatusConflict, err.Message
-	} else if resp.StatusCode == http.StatusUnprocessableEntity && err.ErrorCode == invalidCleanupPolicy {
-		return http.StatusBadRequest, err.Message
+func getResponseCodeAndErrorMessage(err cfk.Error) int {
+	code := err.Code()
+	if code == cfk.ErrTopicAlreadyExists {
+		return http.StatusConflict
+	} else if code == cfk.ErrTopicAuthorizationFailed || code == cfk.ErrGroupAuthorizationFailed || code == cfk.ErrClusterAuthorizationFailed {
+		return http.StatusUnauthorized
+	} else if code == cfk.ErrPolicyViolation || code == cfk.ErrInvalidConfig {
+		// invalid int values return policy violation, invalid cleanup policy gives invalid config.
+		return http.StatusBadRequest
 	}
-	return http.StatusInternalServerError, err.Message
+	return http.StatusInternalServerError
 }

@@ -23,7 +23,7 @@ describe 'HRI Management API Without Validation' do
     @iam_token = HRITestHelpers::IAMHelper.new(ENV['IAM_CLOUD_URL']).get_access_token(ENV['CLOUD_API_KEY'])
     @mgmt_api_helper = HRITestHelpers::MgmtAPIHelper.new(@hri_base_url, @iam_token)
     @hri_deploy_helper = HRIDeployHelper.new
-    @event_streams_helper = HRITestHelpers::EventStreamsHelper.new
+    @event_streams_api_helper = HRITestHelpers::EventStreamsAPIHelper.new(ENV['ES_ADMIN_URL'], ENV['CLOUD_API_KEY'])
     @app_id_helper = HRITestHelpers::AppIDHelper.new(ENV['APPID_URL'], ENV['APPID_TENANT'], @iam_token, ENV['JWT_AUDIENCE_ID'])
     @start_date = DateTime.now
 
@@ -92,8 +92,8 @@ describe 'HRI Management API Without Validation' do
     @kafka_consumer.stop
 
     #Ensure Event Stream topics were deleted
-    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in")
-    @event_streams_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification")
+    @event_streams_api_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in")
+    @event_streams_api_helper.delete_topic("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification")
   end
 
   context 'POST /tenants/{tenant_id}' do
@@ -186,7 +186,7 @@ describe 'HRI Management API Without Validation' do
 
       Timeout.timeout(30, nil, 'Kafka topics not created after 30 seconds') do
         loop do
-          topics = @event_streams_helper.get_topics
+          topics = @event_streams_api_helper.get_topics
           break if (topics.include?("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in") && topics.include?("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification"))
         end
       end
@@ -196,7 +196,7 @@ describe 'HRI Management API Without Validation' do
       response = @mgmt_api_helper.hri_post_tenant_stream(TENANT_ID, INTEGRATOR_ID, @stream_info.to_json)
       expect(response.code).to eq 409
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "topic 'ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.in' already exists"
+      expect(parsed_response['errorDescription']).to eql "Topic 'ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.in' already exists."
     end
 
     it 'Missing numPartitions' do
@@ -264,17 +264,24 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Missing Authorization' do
-      response = @mgmt_api_helper.hri_post_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, @stream_info.to_json, {'Authorization' => nil})
+      response = @mgmt_api_helper.hri_post_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, @stream_info.to_json, {}, true)
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "missing header 'Authorization'"
+    end
+
+    it 'Blank Authorization' do
+      response = @mgmt_api_helper.hri_post_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, @stream_info.to_json, {'Authorization' => nil})
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'unexpected error parsing bearer token: token contains an invalid number of segments'
     end
 
     it 'Invalid Authorization' do
       response = @mgmt_api_helper.hri_post_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, @stream_info.to_json, {'Authorization' => 'Bearer Invalid'})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql 'Unauthorized to manage resource'
+      expect(parsed_response['errorDescription']).to eql 'unexpected error parsing bearer token: token contains an invalid number of segments'
     end
 
     it 'Missing Tenant ID' do
@@ -327,7 +334,7 @@ describe 'HRI Management API Without Validation' do
       response = @mgmt_api_helper.hri_delete_tenant_stream(INVALID_ID, TEST_INTEGRATOR_ID)
       expect(response.code).to eq 404
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Unable to delete topic \"ingest.#{INVALID_ID}.#{TEST_INTEGRATOR_ID}.in\": topic 'ingest.#{INVALID_ID}.#{TEST_INTEGRATOR_ID}.in' does not exist\nUnable to delete topic \"ingest.#{INVALID_ID}.#{TEST_INTEGRATOR_ID}.notification\": topic 'ingest.#{INVALID_ID}.#{TEST_INTEGRATOR_ID}.notification' does not exist"
+      expect(parsed_response['errorDescription']).to eql "Unable to delete topic \"ingest.#{INVALID_ID}.#{TEST_INTEGRATOR_ID}.in\": Broker: Unknown topic or partition\nUnable to delete topic \"ingest.#{INVALID_ID}.#{TEST_INTEGRATOR_ID}.notification\": Broker: Unknown topic or partition"
     end
 
     it 'Missing Tenant ID' do
@@ -338,17 +345,24 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Missing Authorization' do
+      response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, {}, true)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "missing header 'Authorization'"
+    end
+
+    it 'Blank Authorization' do
       response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, {'Authorization' => nil})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Unable to delete topic \"ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in\": missing header 'Authorization'\nUnable to delete topic \"ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification\": missing header 'Authorization'"
+      expect(parsed_response['errorDescription']).to eql 'unexpected error parsing bearer token: token contains an invalid number of segments'
     end
 
     it 'Invalid Authorization' do
       response = @mgmt_api_helper.hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, {'Authorization' => 'Bearer Invalid'})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Unable to delete topic \"ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in\": Unauthorized to manage resource\nUnable to delete topic \"ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification\": Unauthorized to manage resource"
+      expect(parsed_response['errorDescription']).to eql 'unexpected error parsing bearer token: token contains an invalid number of segments'
     end
 
     it 'Missing Stream ID' do
@@ -429,15 +443,15 @@ describe 'HRI Management API Without Validation' do
       response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID)
       expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['results'][0]['id']).to eql INTEGRATOR_ID
+      expect(parsed_response['results'].map{ |stream| stream['id'] }).to include(INTEGRATOR_ID)
     end
 
     it 'Success With Invalid Topic Only' do
       invalid_topic = "ingest.#{TENANT_ID}.#{TEST_INTEGRATOR_ID}.invalid"
-      @event_streams_helper.create_topic(invalid_topic, 1)
+      @event_streams_api_helper.create_topic(invalid_topic, 1)
       Timeout.timeout(30, nil, "Timed out waiting for the '#{invalid_topic}' topic to be created") do
         loop do
-          break if @event_streams_helper.get_topics.include?(invalid_topic)
+          break if @event_streams_api_helper.get_topic(invalid_topic).code == 200
         end
       end
 
@@ -450,12 +464,14 @@ describe 'HRI Management API Without Validation' do
       end
       raise "Tenant Stream Not Found: #{TEST_INTEGRATOR_ID}" unless stream_found
 
-      @event_streams_helper.delete_topic(invalid_topic)
       Timeout.timeout(30, nil, "Timed out waiting for the '#{invalid_topic}' topic to be deleted") do
         loop do
-          break unless @event_streams_helper.get_topics.include?(invalid_topic)
+          response = @event_streams_api_helper.delete_topic_no_verification(invalid_topic)
+          break if response.code == 202
+          sleep 3
         end
       end
+      expect(@event_streams_api_helper.get_topics).to_not include(invalid_topic)
     end
 
     it 'Missing Tenant ID' do
@@ -466,17 +482,24 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Missing Authorization' do
-      response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID, {'Authorization' => nil})
+      response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID, {}, true)
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "missing header 'Authorization'"
+    end
+
+    it 'Blank Authorization' do
+      response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID, {'Authorization' => nil})
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'unexpected error parsing bearer token: token contains an invalid number of segments'
     end
 
     it 'Invalid Authorization' do
       response = @mgmt_api_helper.hri_get_tenant_streams(TENANT_ID, {'Authorization' => 'Bearer Invalid'})
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql 'Unauthorized to manage resource'
+      expect(parsed_response['errorDescription']).to eql 'unexpected error parsing bearer token: token contains an invalid number of segments'
     end
 
   end

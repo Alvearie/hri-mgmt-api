@@ -8,9 +8,10 @@ package kafka
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"strings"
 )
 
 type Writer interface {
@@ -33,10 +34,26 @@ type confluentProducer interface {
 
 func NewWriterFromConfig(config config.Config) (Writer, error) {
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
-	for key, value := range config.KafkaProperties {
+	/*for key, value := range config.KafkaProperties {
 		kafkaConfig.SetKey(key, value)
+	}*/
+
+	producer, err := kafka.NewProducer(kafkaConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing Kafka producer: %w", err)
 	}
 
+	return confluentKafkaWriter{
+		producer,
+	}, nil
+}
+
+func NewWriterFromAzConfig(config config.Config) (Writer, error) {
+	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.AzKafkaBrokers, ",")}
+	/*for key, value := range config.KafkaProperties {
+		kafkaConfig.SetKey(key, value)
+	}*/
+	fmt.Println("config.AzKafkaBrokers: ", config.AzKafkaBrokers)
 	producer, err := kafka.NewProducer(kafkaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing Kafka producer: %w", err)
