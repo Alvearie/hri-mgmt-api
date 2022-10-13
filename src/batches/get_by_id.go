@@ -7,6 +7,9 @@ package batches
 
 import (
 	"fmt"
+
+	"net/http"
+
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
@@ -15,7 +18,6 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
 
 const msgMissingStatusElem = "Error: Elastic Search Result body does Not have the expected '_source' Element"
