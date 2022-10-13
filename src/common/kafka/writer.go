@@ -34,9 +34,9 @@ type confluentProducer interface {
 
 func NewWriterFromConfig(config config.Config) (Writer, error) {
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
-	/*for key, value := range config.KafkaProperties {
+	for key, value := range config.KafkaProperties {
 		kafkaConfig.SetKey(key, value)
-	}*/
+	}
 
 	producer, err := kafka.NewProducer(kafkaConfig)
 	if err != nil {
