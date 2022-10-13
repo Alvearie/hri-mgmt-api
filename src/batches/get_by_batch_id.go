@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/sirupsen/logrus"
@@ -24,8 +24,6 @@ func GetByBatchId(requestId string, batch model.GetByIdBatch, claims auth.HriAzC
 	prefix := "batches/GetByBatchId"
 	logger := logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Tenants Get By ID(Metadata)")
-	fmt.Println("Auth zone")
-
 	// validate that caller has sufficient permissions
 	if !claims.HasRole(auth.HriIntegrator) && !claims.HasRole(auth.HriConsumer) {
 		msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "GetByBatchId")
@@ -41,7 +39,6 @@ func GetByBatchId(requestId string, batch model.GetByIdBatch, claims auth.HriAzC
 
 func GetByBatchIdNoAuth(requestId string, params model.GetByIdBatch,
 	_ auth.HriAzClaims, client *mongo.Collection) (int, interface{}) {
-	fmt.Println("in no auth zone")
 
 	prefix := "batches/GetByBatchIdNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
@@ -54,7 +51,8 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 	noAuthFlag bool, logger logrus.FieldLogger,
 	claims *auth.HriAzClaims, client *mongo.Collection) (int, interface{}) {
 
-	index := elastic.IndexFromTenantId(batch.TenantId)
+	//Apending "-batches" to tenants id
+	index := mongoApi.IndexFromTenantId(batch.TenantId)
 	logger.Debugf("index: %v", index)
 
 	var details []bson.M
@@ -72,7 +70,7 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 	cursor, err := client.Find(
 		context.TODO(),
 		bson.D{
-			{"tenantid", mongoApi.IndexFromTenantId(batch.TenantId)},
+			{"tenantid", index},
 		},
 		options.Find().SetProjection(projection),
 	)
@@ -83,19 +81,17 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 	if err = cursor.All(context.TODO(), &details); err != nil {
 		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, "Get batch by ID failed")
 	}
+	msg := fmt.Sprintf(msgDocNotFound, batch.TenantId, batch.BatchId)
 
 	if details == nil {
-		msg := fmt.Sprintf(msgDocNotFound, batch.TenantId, batch.BatchId)
-		return http.StatusNotFound, msg
+		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, msg)
 	}
 	batchMap, ok := details[0]["batch"].(primitive.A)
 	batchMapSlice := []interface{}(batchMap)
 
 	if len(batchMapSlice) == 0 || !ok {
-		msg := fmt.Sprintf(msgDocNotFound, batch.TenantId, batch.BatchId)
-		return http.StatusNotFound, msg
+		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, msg)
 	}
-	fmt.Println("Working", ok)
 
 	getBatchMetaDataResponse = mapResponseBody(batchMapSlice)
 
@@ -116,15 +112,15 @@ func mapResponseBody(batchMapSlice []interface{}) (getBatchMetaData model.GetBat
 
 	mapResponse := map[string]interface{}(mapResponseBody)
 
-	getBatchMetaDataResponse.DataType = mapResponse["datatype"].(string)
-	getBatchMetaDataResponse.Id = mapResponse["batchid"].(string)
-	getBatchMetaDataResponse.IntegratorId = mapResponse["integratorid"].(string)
-	getBatchMetaDataResponse.InvalidThreshold = mapResponse["invalidthreshold"].(int32)
-	getBatchMetaDataResponse.Metadata = mapResponse["metadata"].(primitive.M)
-	getBatchMetaDataResponse.Name = mapResponse["name"].(string)
-	getBatchMetaDataResponse.StartDate = mapResponse["startdate"].(string)
-	getBatchMetaDataResponse.Status = mapResponse["status"].(string)
-	getBatchMetaDataResponse.Topic = mapResponse["topic"].(string)
+	getBatchMetaDataResponse.DataType = mapResponse[param.HriDataType].(string)
+	getBatchMetaDataResponse.Id = mapResponse[param.HriBatchId].(string)
+	getBatchMetaDataResponse.IntegratorId = mapResponse[param.HriIntegratorId].(string)
+	getBatchMetaDataResponse.InvalidThreshold = mapResponse[param.HriInvalidThreshold].(int32)
+	getBatchMetaDataResponse.Metadata = mapResponse[param.HriMetadata].(primitive.M)
+	getBatchMetaDataResponse.Name = mapResponse[param.HriName].(string)
+	getBatchMetaDataResponse.StartDate = mapResponse[param.HriStartDate].(string)
+	getBatchMetaDataResponse.Status = mapResponse[param.HriStatus].(string)
+	getBatchMetaDataResponse.Topic = mapResponse[param.HriStatus].(string)
 	return getBatchMetaDataResponse
 }
 
