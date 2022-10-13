@@ -13,8 +13,8 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
     env:
-      API_SPEC_DEV_BRANCH: main
-      API_SPEC_TAG: v3.2-2.0.3
+      API_SPEC_DEV_BRANCH: develop
+      API_SPEC_TAG:
       APPID_TENANT: 0f389ea4-778e-4831-9b29-6156c4c1df1e
       APPID_URL: https://us-east.appid.cloud.ibm.com
       ELASTIC_CRN: "crn:v1:bluemix:public:databases-for-elasticsearch:us-east:a/52366c9ab214402f9e96917b1b2850e9:c9acb36a-0feb-4b6e-aac1-6651c71d19e4::"
