@@ -76,7 +76,6 @@ func NewHandler(config config.Config) Handler {
 			terminate:           TerminateNoAuth,
 			processingComplete:  ProcessingCompleteNoAuth,
 			fail:                FailNoAuth,
-			getByBatchId:        GetByBatchIdNoAuth,
 			getTenantByIdNoAuth: GetByBatchIdNoAuth,
 			createBatch:         CreateBatchNoAuth,
 		}
