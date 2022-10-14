@@ -124,6 +124,11 @@ type GetTenantDetail struct {
 	Docs_deleted string             `bson:"docs_deleted" `
 }
 
+type GetBatchTenantDetail struct {
+	TenantId string                   `bson:"tenantid"`
+	Result   []map[string]interface{} `bson:"batch"`
+}
+
 type TenatGetResponse struct {
 	Health      string             `json:"health"`
 	Status      string             `json:"status"`

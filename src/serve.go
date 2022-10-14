@@ -177,7 +177,7 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	// e.GET(fmt.Sprintf("/hri/tenants/:%s/batches/:%s", param.TenantId, param.BatchId), batchesHandler.GetById)
 
 	// e.POST(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.Create)
-	e.GET(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.Get)
+	//e.GET(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.Get)
 	e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/sendComplete",
 		param.TenantId, param.BatchId), batchesHandler.SendComplete)
 	e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/terminate",
@@ -189,6 +189,7 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	//As part of Azure porting
 	e.POST(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.CreateBatch)
 	e.GET(fmt.Sprintf("/hri/tenants/:%s/batches/:%s", param.TenantId, param.BatchId), batchesHandler.GetByBatchId)
+	e.GET(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.GetBatch)
 
 	// Streams routing
 	streamsHandler := streams.NewHandler(config)

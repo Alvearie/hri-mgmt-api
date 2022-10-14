@@ -233,7 +233,7 @@ func createBatch(
 	mongoClient.FindOne(ctx, filter).Decode(&returnResult)
 	//fmt.Println("find by id result ", res)
 	if returnResult.TenantId == "" {
-		return http.StatusInternalServerError, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusBadRequest,
+		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound,
 			logger, errMsg)
 	}
 	//Generate batchId to add batchInfo.
