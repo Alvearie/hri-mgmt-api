@@ -148,18 +148,24 @@ func buildBatchInfo(batch model.CreateBatch, integrator string) map[string]inter
 	return info
 }
 
-func UpdateBatchInfo(batch model.CreateBatch, integrator string, batchId string) model.CreateBatch {
+func UpdateBatchInfo(batch model.CreateBatch, integrator string, batchId string) model.CreateBatchBson {
 	currentTime := time.Now().UTC()
-
-	batch.IntegratorId = integrator
-	batch.Status = status.Started.String()
-	batch.StartDate = currentTime.Format(mongoApi.DateTimeFormat)
-	batch.BatchId = batchId
+	batchBson := model.CreateBatchBson{}
+	batchBson.BatchId = batchId
+	batchBson.DataType = batch.DataType
+	batchBson.Metadata = batch.Metadata
+	batchBson.Name = batch.Name
+	batchBson.Topic = batch.Topic
+	batchBson.IntegratorId = integrator
+	batchBson.Status = status.Started.String()
+	batchBson.StartDate = currentTime.Format(mongoApi.DateTimeFormat)
+	batchBson.BatchId = batchId
+	batchBson.InvalidThreshold = batch.InvalidThreshold
 	if batch.InvalidThreshold == 0 {
-		batch.InvalidThreshold = -1
+		batchBson.InvalidThreshold = -1
 	}
 
-	return batch
+	return batchBson
 }
 func CreateBatchNoAuth(
 	requestId string,
@@ -237,7 +243,7 @@ func createBatch(
 	if nil != returnResult.Batch {
 		returnResult.Batch = append(returnResult.Batch, updatedBatchInfo)
 	} else {
-		batchArraymodel := []model.CreateBatch{updatedBatchInfo}
+		batchArraymodel := []model.CreateBatchBson{updatedBatchInfo}
 		returnResult.Batch = batchArraymodel
 
 	}

@@ -14,10 +14,18 @@ type CreateBatch struct {
 	DataType         string                 `json:"dataType" validate:"required,injection-check-validator"`
 	InvalidThreshold int                    `json:"invalidThreshold"`
 	Metadata         map[string]interface{} `json:"metadata"`
-	BatchId          string                 `json:"batchId"`
-	IntegratorId     string                 `json:"integratorId"`
-	Status           string                 `json:"status"`
-	StartDate        string                 `json:"startDate"`
+}
+
+type CreateBatchBson struct {
+	Name             string                 `bson:"name" validate:"required,injection-check-validator"`
+	Topic            string                 `bson:"topic" validate:"required,injection-check-validator"`
+	DataType         string                 `bson:"dataType" validate:"required,injection-check-validator"`
+	InvalidThreshold int                    `bson:"invalidThreshold"`
+	Metadata         map[string]interface{} `bson:"metadata"`
+	BatchId          string                 `bson:"id"`
+	IntegratorId     string                 `bson:"integratorId"`
+	Status           string                 `bson:"status"`
+	StartDate        string                 `bson:"startDate"`
 }
 
 type GetBatch struct {
@@ -101,7 +109,12 @@ type CreateBatchRequestForTenant struct {
 	TenantId     string             `json:"tenantId" `
 	Docs_count   string             `json:"docs.count"`
 	Docs_deleted string             `json:"docs.deleted" `
-	Batch        []CreateBatch      `json:"batch"`
+	Batch        []CreateBatchBson  `json:"batch"`
+}
+
+type GetBatchTenantDetail struct {
+	TenantId string                   `bson:"tenantid"`
+	Result   []map[string]interface{} `bson:"batch"`
 }
 
 type GetTenantDetail struct {
