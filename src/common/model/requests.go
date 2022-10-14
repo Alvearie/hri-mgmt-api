@@ -112,11 +112,6 @@ type CreateBatchRequestForTenant struct {
 	Batch        []CreateBatchBson  `json:"batch"`
 }
 
-type GetBatchTenantDetail struct {
-	TenantId string                   `bson:"tenantid"`
-	Result   []map[string]interface{} `bson:"batch"`
-}
-
 type GetTenantDetail struct {
 	Uuid         primitive.ObjectID `bson:"_id"`
 	TenantId     string             `bson:"tenantid" `
