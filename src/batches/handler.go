@@ -38,6 +38,7 @@ type Handler interface {
 	Fail(ctx echo.Context) error
 	CreateBatch(echo.Context) error
 	GetByBatchId(echo.Context) error
+	GetBatch(echo.Context) error
 }
 
 type theHandler struct {
@@ -57,6 +58,7 @@ type theHandler struct {
 	createBatch         func(string, model.CreateBatch, auth.HriAzClaims, *mongo.Collection, kafka.Writer) (int, interface{})
 	getByBatchId        func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
 	getTenantByIdNoAuth func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
+	getBatch            func(string, model.GetBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
 }
 
 // NewHandler This struct is designed to make unit testing easier. It has function references for the calls to backend
@@ -79,6 +81,7 @@ func NewHandler(config config.Config) Handler {
 			getByBatchId:        GetByBatchIdNoAuth,
 			getTenantByIdNoAuth: GetByBatchIdNoAuth,
 			createBatch:         CreateBatchNoAuth,
+			getBatch:            GetBatchNoAuth,
 		}
 
 	} else {
@@ -101,6 +104,7 @@ func NewHandler(config config.Config) Handler {
 			createBatch:         CreateBatch,
 			getByBatchId:        GetByBatchId,
 			getTenantByIdNoAuth: GetByBatchIdNoAuth,
+			getBatch:            GetBatch,
 		}
 	}
 
@@ -581,5 +585,37 @@ func (h *theHandler) CreateBatch(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - calling CreateBatchNoAuth()")
 		return c.JSON(h.createBatch(requestId, batch, auth.HriAzClaims{}, mongoApi.GetMongoCollection(h.config.MongoColName), kafkaWriter))
+	}
+}
+
+func (h *theHandler) GetBatch(c echo.Context) error {
+	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
+	prefix := "batches/handler/get"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+
+	// bind & validate request body
+	var request model.GetBatch
+	if err := c.Bind(&request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+	if err := c.Validate(request); err != nil {
+		logger.Printf(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+
+	if h.config.AuthDisabled == false { //Auth Enabled
+		//JWT claims validation
+		claims, errResp := h.jwtBatchValidator.GetValidatedRoles(requestId,
+			c.Request().Header.Get(echo.HeaderAuthorization), request.TenantId)
+		if errResp != nil {
+			return c.JSON(errResp.Code, response.NewErrorDetail(requestId, errResp.Body.ErrorDescription))
+		}
+
+		return c.JSON(h.getBatch(requestId, request, claims, mongoApi.GetMongoCollection(h.config.MongoColName)))
+	} else {
+		logger.Debugln("Auth Disabled - calling GetNoAuth()")
+		var emptyClaims = auth.HriAzClaims{}
+		return c.JSON(h.getBatch(requestId, request, emptyClaims, mongoApi.GetMongoCollection(h.config.MongoColName)))
 	}
 }
