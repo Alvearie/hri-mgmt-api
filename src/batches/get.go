@@ -201,7 +201,7 @@ func getBatch(requestId string, params model.GetBatch, noAuthFlag bool, claims *
 	tenantId := params.TenantId
 
 	var ctx = context.Background()
-	var filter = bson.M{"tenantid": mongoApi.IndexFromTenantId(tenantId)}
+	var filter = bson.M{"tenantId": mongoApi.IndexFromTenantId(tenantId)}
 	var returnTenetResult model.GetBatchTenantDetail
 	//var tenantResponse model.TenatGetResponse
 

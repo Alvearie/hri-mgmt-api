@@ -220,7 +220,7 @@ func createBatch(
 
 	var (
 		ctx          = context.Background()
-		filter       = bson.M{"tenantid": mongoApi.IndexFromTenantId(batch.TenantId)}
+		filter       = bson.M{"tenantId": mongoApi.IndexFromTenantId(batch.TenantId)}
 		returnResult model.CreateBatchRequestForTenant
 	)
 

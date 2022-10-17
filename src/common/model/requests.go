@@ -98,7 +98,7 @@ type CreateTenant struct {
 }
 
 type CreateTenantRequest struct {
-	TenantId     string `json:"tenantId" `
+	TenantId     string `bson:"tenantId" `
 	Docs_count   string `json:"docs.count"`
 	Docs_deleted string `json:"docs.deleted" `
 	//Batch        []CreateBatch `json:"batch"`
@@ -106,7 +106,7 @@ type CreateTenantRequest struct {
 
 type CreateBatchRequestForTenant struct {
 	Uuid         primitive.ObjectID `bson:"_id"`
-	TenantId     string             `json:"tenantId" `
+	TenantId     string             `bson:"tenantId" `
 	Docs_count   string             `json:"docs.count"`
 	Docs_deleted string             `json:"docs.deleted" `
 	Batch        []CreateBatchBson  `json:"batch"`
@@ -114,7 +114,7 @@ type CreateBatchRequestForTenant struct {
 
 type GetTenantDetail struct {
 	Uuid         primitive.ObjectID `bson:"_id"`
-	TenantId     string             `bson:"tenantid" `
+	TenantId     string             `bson:"tenantId" `
 	Docs_count   string             `bson:"docs_count"`
 	Docs_deleted string             `bson:"docs_deleted" `
 }
@@ -127,7 +127,7 @@ type GetBatchTenantDetail struct {
 type TenatGetResponse struct {
 	Health      string             `json:"health"`
 	Status      string             `json:"status"`
-	Index       string             `json:"tenatid"`
+	Index       string             `bson:"tenatId"`
 	Uuid        primitive.ObjectID `json:"_id"`
 	Size        string             `json:"size"`
 	DocsCount   string             `json:"docs.count"`

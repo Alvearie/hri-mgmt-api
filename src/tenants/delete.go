@@ -46,7 +46,7 @@ func DeleteTenant(requestId string, tenantId string, mongoClient *mongo.Collecti
 	logger.Debugln("Start Tenant Delete")
 
 	var ctx = context.Background()
-	var filter = bson.M{"tenantid": mongoApi.IndexFromTenantId(tenantId)}
+	var filter = bson.M{"tenantId": mongoApi.IndexFromTenantId(tenantId)}
 
 	//make call to elastic to delete tenant
 	result, err := mongoClient.DeleteOne(ctx, filter)

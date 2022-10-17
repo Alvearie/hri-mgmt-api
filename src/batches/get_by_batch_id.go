@@ -70,7 +70,7 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 	cursor, err := client.Find(
 		context.TODO(),
 		bson.D{
-			{"tenantid", index},
+			{"tenantId", index},
 		},
 		options.Find().SetProjection(projection),
 	)
