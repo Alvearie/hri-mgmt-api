@@ -52,7 +52,7 @@ func CreateTenant(
 	prefix := "tenants/CreateTenant"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	var ctx = context.Background()
-	var filter = bson.M{"tenantid": mongoApi.IndexFromTenantId(tenantId)}
+	var filter = bson.M{"tenantId": mongoApi.IndexFromTenantId(tenantId)}
 	var returnResult model.CreateTenantRequest
 
 	//create new tenant In azure cosmos- mongo API
