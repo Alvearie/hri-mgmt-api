@@ -56,13 +56,12 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 	logger.Debugf("index: %v", index)
 
 	var details []bson.M
-	var getBatchMetaDataResponse model.GetBatchMetaDataResponse
 
 	// Query Cosmos for information on the tenant
 	projection := bson.D{
 		{"batch", bson.D{
 			{"$elemMatch", bson.D{
-				{"batchid", batch.BatchId},
+				{"id", batch.BatchId},
 			}}}},
 		{"_id", 0},
 	}
@@ -93,51 +92,40 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, msg)
 	}
 
-	getBatchMetaDataResponse = mapResponseBody(batchMapSlice)
+	mapResponseBody, _ := batchMapSlice[0].(primitive.M)
+	mapResponse := map[string]interface{}(mapResponseBody)
 
 	if !noAuthFlag {
-		errDetailResponse := checkBatchAuth(requestId, claims, getBatchMetaDataResponse)
+		errDetailResponse := checkBatchAuth(requestId, claims, mapResponse)
 		if errDetailResponse != nil {
 			return errDetailResponse.Code, errDetailResponse.Body
 		}
 	}
 
-	return http.StatusOK, getBatchMetaDataResponse
+	return http.StatusOK, NormalizeBatchRecordCountValues(mapResponse)
 
-}
-func mapResponseBody(batchMapSlice []interface{}) (getBatchMetaData model.GetBatchMetaDataResponse) {
-	var getBatchMetaDataResponse model.GetBatchMetaDataResponse
-
-	mapResponseBody, _ := batchMapSlice[0].(primitive.M)
-
-	mapResponse := map[string]interface{}(mapResponseBody)
-
-	getBatchMetaDataResponse.DataType = mapResponse[param.HriDataType].(string)
-	getBatchMetaDataResponse.Id = mapResponse[param.HriBatchId].(string)
-	getBatchMetaDataResponse.IntegratorId = mapResponse[param.HriIntegratorId].(string)
-	getBatchMetaDataResponse.InvalidThreshold = mapResponse[param.HriInvalidThreshold].(int32)
-	getBatchMetaDataResponse.Metadata = mapResponse[param.HriMetadata].(primitive.M)
-	getBatchMetaDataResponse.Name = mapResponse[param.HriName].(string)
-	getBatchMetaDataResponse.StartDate = mapResponse[param.HriStartDate].(string)
-	getBatchMetaDataResponse.Status = mapResponse[param.HriStatus].(string)
-	getBatchMetaDataResponse.Topic = mapResponse[param.HriStatus].(string)
-	return getBatchMetaDataResponse
 }
 
 // Data Integrators and Consumers can call this endpoint, but the behavior is slightly different. Consumers can see
 // all Batches, but Data Integrators are only allowed to see Batches they created.
-func checkBatchAuth(requestId string, claims *auth.HriAzClaims, resultBody model.GetBatchMetaDataResponse) *response.ErrorDetailResponse {
+func checkBatchAuth(requestId string, claims *auth.HriAzClaims, resultBody map[string]interface{}) *response.ErrorDetailResponse {
 	if claims.HasRole(auth.HriConsumer) { //= Always Authorized
 		return nil // return nil Error for Authorized
 	}
-
 	if claims.HasRole(auth.HriIntegrator) {
-		integratorId := resultBody.IntegratorId
-		//if claims.Subject from the token does NOT match the previously saved batch.IntegratorId, user NOT Authorized
-		if claims.Subject != integratorId {
-			errMsg := fmt.Sprintf(auth.MsgIntegratorSubClaimNoMatch, claims.Subject, integratorId)
-			return response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errMsg)
+		if integratorId, ok := resultBody[param.IntegratorId].(string); ok {
+			//if claims.Subject from the token does NOT match the previously saved batch.IntegratorId, user NOT Authorized
+			if claims.Subject != integratorId {
+				errMsg := fmt.Sprintf(auth.MsgIntegratorSubClaimNoMatch, claims.Subject, integratorId)
+				return response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errMsg)
+			}
+		} else { //integratorId elem does Not exist - Internal Server Error
+			return response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, msgMissingStatusElem)
 		}
+	} else { //No Scope was provided -> Unauthorized - we should never reach here
+		errMsg := auth.MsgAccessTokenMissingScopes
+		return response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errMsg)
 	}
+
 	return nil //Default Return: we are Authorized  => nil error
 }
