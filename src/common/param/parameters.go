@@ -27,15 +27,4 @@ const (
 
 	Size string = "size"
 	From string = "from"
-
-	//Az Porting Params
-	HriDataType         string = "datatype"
-	HriMetadata         string = "metadata"
-	HriName             string = "name"
-	HriIntegratorId     string = "integratorid"
-	HriStatus           string = "status"
-	HriStartDate        string = "startdate"
-	HriBatchId          string = "batchid"
-	HriInvalidThreshold string = "invalidthreshold"
-	HriTopic            string = "topic"
 )
