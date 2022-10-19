@@ -9,6 +9,7 @@ package tenants
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
@@ -125,12 +126,9 @@ func (h *theHandler) CreateTenant(c echo.Context) error {
 
 	//Adding explicit validation for single char - & _ to restrict tenant creation
 	errMessage := "Unable to create a new tenant[" + request.TenantId + "]:[" + strconv.Itoa(http.StatusBadRequest) + "]"
-	if len(request.TenantId) == 1 {
-		r := []rune(request.TenantId)
-		if r[0] == '-' || r[0] == '_' {
-			logger.Errorln(errMessage)
-			return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, errMessage))
-		}
+	if strings.HasPrefix(request.TenantId, "_") || strings.HasPrefix(request.TenantId, "-") {
+		logger.Errorln(errMessage)
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, errMessage))
 	}
 
 	//Add JWT Token validation

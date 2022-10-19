@@ -165,7 +165,7 @@ func (v theTenantValidator) getSignedToken(requestId string, authorization strin
 		logger.Errorln(msg)
 		errmsg := "Azure AD authentication returned " + strconv.Itoa(http.StatusUnauthorized)
 
-		if strings.Contains(msg, "JWS format must have three parts") {
+		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") {
 			return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errmsg)
 		}
 
@@ -200,6 +200,7 @@ func (v theValidator) GetValidatedClaims(requestId string, authorization string,
 
 	// verify that request has a signed OAuth JWT OIDC-compliant access token
 	token, errResp := v.getSignedToken(requestId, authorization)
+
 	if errResp != nil {
 		return claims, errResp
 	}
@@ -231,7 +232,7 @@ func (v theTenantValidator) GetValidatedClaimsForTenant(requestId string, author
 func (v theBatchValidator) GetValidatedRoles(requestId string, authorization string, tenant string) (HriAzClaims, *response.ErrorDetailResponse) {
 	claims := HriAzClaims{}
 
-	prefix := "auth/getValidatedClaims"
+	prefix := "auth/getValidatedRoles"
 	//logger := logwrapper.GetMyLogger(requestId, prefix)
 	fmt.Println(requestId, prefix)
 
@@ -292,6 +293,12 @@ func (v theBatchValidator) getSignedToken(requestId string, authorization string
 	if err != nil {
 		msg := fmt.Sprintf("Authorization token validation failed: %s", err.Error())
 		logger.Errorln(msg)
+		errmsg := "Azure AD authentication returned " + strconv.Itoa(http.StatusUnauthorized)
+
+		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") {
+			return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errmsg)
+		}
+
 		return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, msg)
 	}
 
