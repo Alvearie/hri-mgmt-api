@@ -127,7 +127,7 @@ type GetBatchTenantDetail struct {
 type TenatGetResponse struct {
 	Health      string             `json:"health"`
 	Status      string             `json:"status"`
-	Index       string             `bson:"tenantId"`
+	Index       string             `json:"tenantId"`
 	Uuid        primitive.ObjectID `json:"_id"`
 	Size        string             `json:"size"`
 	DocsCount   string             `json:"docs.count"`
