@@ -50,10 +50,11 @@ func NewWriterFromConfig(config config.Config) (Writer, error) {
 
 func NewWriterFromAzConfig(config config.Config) (Writer, error) {
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.AzKafkaBrokers, ",")}
-	/*for key, value := range config.KafkaProperties {
+	for key, value := range config.AzKafkaProperties {
 		kafkaConfig.SetKey(key, value)
-	}*/
-	fmt.Println("config.AzKafkaBrokers: ", config.AzKafkaBrokers)
+	}
+	//Add CA location
+	kafkaConfig.SetKey("ssl.ca.location", config.SslCALocation)
 	producer, err := kafka.NewProducer(kafkaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing Kafka producer: %w", err)

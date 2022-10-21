@@ -46,9 +46,12 @@ func NewHealthChecker(config config.Config) (HealthChecker, error) {
 }
 func HriHealthChecker(config config.Config) (HealthChecker, error) {
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.AzKafkaBrokers, ",")}
-	// for key, value := range config.KafkaProperties {
-	// 	kafkaConfig.SetKey(key, value)
-	// }
+	//Add CA location
+	kafkaConfig.SetKey("ssl.ca.location", config.SslCALocation)
+	for key, value := range config.AzKafkaProperties {
+		kafkaConfig.SetKey(key, value)
+	}
+
 	kafkaClient, err := kafka.NewAdminClient(kafkaConfig)
 
 	if err != nil {
