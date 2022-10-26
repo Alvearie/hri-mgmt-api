@@ -26,6 +26,13 @@ func LogAndBuildErrorDetail(requestId string, code int, logger logrus.FieldLogge
 	return response.NewErrorDetail(requestId, err.Error())
 }
 
+func LogAndBuildErrorDetailWithoutStatusCode(requestId string, logger logrus.FieldLogger,
+	message string) *response.ErrorDetail {
+	err := fmt.Errorf("%s", message)
+	logger.Errorln(err.Error())
+	return response.NewErrorDetail(requestId, err.Error())
+}
+
 func DatabaseHealthCheck(client *mongo.Collection) (string, string) {
 	command := bson.D{{"dbStats", 1}}
 	var result bson.D
