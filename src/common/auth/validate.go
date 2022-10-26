@@ -263,7 +263,11 @@ func (v theBatchValidator) checkTenantScope(requestId string, tenantId string, c
 	// The tenant scope token must have "tenant_" as a prefix
 	if !claims.HasRole(TenantScopePrefix + tenantId) {
 		// The authorized scopes do not include tenant data
-		msg := fmt.Sprintf("Unauthorized tenant access. Tenant '%s' is not included in the authorized roles: %v.", tenantId, claims.Scope)
+		fmt.Println("claims.Scope1")
+		fmt.Println(claims.Scope)
+		fmt.Println("claims.Scope")
+
+		msg := fmt.Sprintf("Unauthorized tenant access. Tenant '%s' is not included in the authorized roles:tenant_%s.", tenantId, tenantId)
 		logger.Errorln(msg)
 		return response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, msg)
 	}
