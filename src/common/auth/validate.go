@@ -20,9 +20,11 @@ import (
 // Validator Public interface
 type Validator interface {
 	GetValidatedClaims(requestId string, authorization string, tenant string) (HriClaims, *response.ErrorDetailResponse)
-	//GetValidatedClaimsForTenant(requestId string, authorization string) (HriClaims, *response.ErrorDetailResponse)
 }
 
+type BatchValidator interface {
+	GetValidatedRoles(requestId string, authorization string, tenant string) (HriAzClaims, *response.ErrorDetailResponse)
+}
 type TenantValidator interface {
 	//GetValidatedClaims(requestId string, authorization string, tenant string) (HriClaims, *response.ErrorDetailResponse)
 	GetValidatedClaimsForTenant(requestId string, authorization string) *response.ErrorDetailResponse
@@ -37,6 +39,12 @@ type theValidator struct {
 
 // Added  as part of Azure parting
 type theTenantValidator struct {
+	issuer      string
+	audienceId  string
+	providerNew newOidcProvider // this enables unit tests to use a mocked oidcProvider
+}
+
+type theBatchValidator struct {
 	issuer      string
 	audienceId  string
 	providerNew newOidcProvider // this enables unit tests to use a mocked oidcProvider
@@ -98,6 +106,14 @@ func NewTenantValidator(issuer string, audienceId string) TenantValidator {
 	}
 }
 
+func NewBatchValidator(issuer string, audienceId string) BatchValidator {
+	return theBatchValidator{
+		issuer:      issuer,
+		audienceId:  audienceId,
+		providerNew: newProvider,
+	}
+}
+
 // Ensures the request has a valid OAuth JWT OIDC compliant access token.
 func (v theValidator) getSignedToken(requestId string, authorization string) (ClaimsHolder, *response.ErrorDetailResponse) {
 	rawToken := strings.ReplaceAll(strings.ReplaceAll(authorization, "Bearer ", ""), "bearer ", "")
@@ -149,7 +165,7 @@ func (v theTenantValidator) getSignedToken(requestId string, authorization strin
 		logger.Errorln(msg)
 		errmsg := "Azure AD authentication returned " + strconv.Itoa(http.StatusUnauthorized)
 
-		if strings.Contains(msg, "JWS format must have three parts") {
+		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") {
 			return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errmsg)
 		}
 
@@ -184,6 +200,7 @@ func (v theValidator) GetValidatedClaims(requestId string, authorization string,
 
 	// verify that request has a signed OAuth JWT OIDC-compliant access token
 	token, errResp := v.getSignedToken(requestId, authorization)
+
 	if errResp != nil {
 		return claims, errResp
 	}
@@ -210,4 +227,80 @@ func (v theTenantValidator) GetValidatedClaimsForTenant(requestId string, author
 		return errResp
 	}
 	return nil
+}
+
+func (v theBatchValidator) GetValidatedRoles(requestId string, authorization string, tenant string) (HriAzClaims, *response.ErrorDetailResponse) {
+	claims := HriAzClaims{}
+
+	prefix := "auth/getValidatedRoles"
+	//logger := logwrapper.GetMyLogger(requestId, prefix)
+	fmt.Println(requestId, prefix)
+
+	// verify that request has a signed OAuth JWT OIDC-compliant access token
+	token, errResp := v.getSignedToken(requestId, authorization)
+	if errResp != nil {
+		return claims, errResp
+	}
+
+	// extract HRI-related claims from JWT access token
+	if err := token.Claims(&claims); err != nil {
+		fmt.Println(err.Error())
+		return claims, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, err.Error())
+	}
+
+	// verify that necessary tenant claim exists to access this endpoint's data
+	if errResp := v.checkTenantScope(requestId, tenant, claims); errResp != nil {
+		return claims, errResp
+	}
+
+	return claims, nil
+}
+
+func (v theBatchValidator) checkTenantScope(requestId string, tenantId string, claims HriAzClaims) *response.ErrorDetailResponse {
+	prefix := "auth/checkTenant"
+	logger := logwrapper.GetMyLogger(requestId, prefix)
+
+	// The tenant scope token must have "tenant_" as a prefix
+	if !claims.HasRole(TenantScopePrefix + tenantId) {
+		// The authorized scopes do not include tenant data
+		msg := fmt.Sprintf("Unauthorized tenant access. Tenant '%s' is not included in the authorized roles:tenant_%s.", tenantId, tenantId)
+		logger.Errorln(msg)
+		return response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, msg)
+	}
+
+	// Tenant data included in authorized scopes
+	return nil
+}
+
+func (v theBatchValidator) getSignedToken(requestId string, authorization string) (ClaimsHolder, *response.ErrorDetailResponse) {
+	rawToken := strings.ReplaceAll(strings.ReplaceAll(authorization, "Bearer ", ""), "bearer ", "")
+
+	ctx := context.Background()
+	prefix := "auth/validate"
+	logger := logwrapper.GetMyLogger(requestId, prefix)
+
+	provider, err := v.providerNew(ctx, v.issuer)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to create OIDC provider: %s", err.Error())
+		logger.Errorln(msg)
+		return nil, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, msg)
+	}
+
+	// This verifies the `aud` claim equals the configured audienceId
+	verifier := provider.Verifier(&oidc.Config{ClientID: v.audienceId})
+
+	token, err := verifier.Verify(ctx, rawToken)
+	if err != nil {
+		msg := fmt.Sprintf("Authorization token validation failed: %s", err.Error())
+		logger.Errorln(msg)
+		errmsg := "Azure AD authentication returned " + strconv.Itoa(http.StatusUnauthorized)
+
+		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") {
+			return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errmsg)
+		}
+
+		return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, msg)
+	}
+
+	return token, nil
 }

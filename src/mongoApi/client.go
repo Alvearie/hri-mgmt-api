@@ -26,12 +26,26 @@ func LogAndBuildErrorDetail(requestId string, code int, logger logrus.FieldLogge
 	return response.NewErrorDetail(requestId, err.Error())
 }
 
+func LogAndBuildErrorDetailWithoutStatusCode(requestId string, logger logrus.FieldLogger,
+	message string) *response.ErrorDetail {
+	err := fmt.Errorf("%s", message)
+	logger.Errorln(err.Error())
+	return response.NewErrorDetail(requestId, err.Error())
+}
+
 func DatabaseHealthCheck(client *mongo.Collection) (string, string) {
 	command := bson.D{{"dbStats", 1}}
 	var result bson.D
 	client.Database().RunCommand(context.TODO(), command).Decode(&result)
 	fmt.Println(result)
 	return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value)
+}
+
+func HriDatabaseHealthCheck(client *mongo.Collection) (string, string, error) {
+	command := bson.D{{"dbStats", 1}}
+	var result bson.D
+	err := client.Database().RunCommand(context.TODO(), command).Decode(&result)
+	return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value), err
 }
 
 func TenantIdFromIndex(tenantIndex string) string {

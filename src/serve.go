@@ -39,7 +39,6 @@ func main() {
 }
 
 func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
-	//configPath := "C:/hri-mgmnt-api/WFHRI-822/hri-mgmt-api/config.yml"
 	configPath := "./config.yml"
 	config, err := config.GetConfig(configPath, args)
 	if err != nil {
@@ -158,7 +157,8 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 
 	// Healthcheck routing
 	healthcheckHandler := healthcheck.NewHandler(config)
-	e.GET("/hri/healthcheck", healthcheckHandler.Healthcheck)
+	// e.GET("/hri/healthcheck", healthcheckHandler.Healthcheck)
+	e.GET("/hri/healthcheck", healthcheckHandler.HriHealthcheck)
 
 	// Tenants routing
 	tenantsHandler := tenants.NewHandler(config)
@@ -174,9 +174,10 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 
 	// Batches routing
 	batchesHandler := batches.NewHandler(config)
-	e.GET(fmt.Sprintf("/hri/tenants/:%s/batches/:%s", param.TenantId, param.BatchId), batchesHandler.GetById)
-	e.POST(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.Create)
-	e.GET(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.Get)
+	// e.GET(fmt.Sprintf("/hri/tenants/:%s/batches/:%s", param.TenantId, param.BatchId), batchesHandler.GetById)
+
+	// e.POST(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.Create)
+	//e.GET(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.Get)
 	e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/sendComplete",
 		param.TenantId, param.BatchId), batchesHandler.SendComplete)
 	e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/terminate",
@@ -185,6 +186,10 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 		param.TenantId, param.BatchId), batchesHandler.ProcessingComplete)
 	e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/fail",
 		param.TenantId, param.BatchId), batchesHandler.Fail)
+	//As part of Azure porting
+	e.POST(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.CreateBatch)
+	e.GET(fmt.Sprintf("/hri/tenants/:%s/batches/:%s", param.TenantId, param.BatchId), batchesHandler.GetByBatchId)
+	e.GET(fmt.Sprintf("/hri/tenants/:%s/batches", param.TenantId), batchesHandler.GetBatch)
 
 	// Streams routing
 	streamsHandler := streams.NewHandler(config)

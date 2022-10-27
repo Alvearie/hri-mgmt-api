@@ -54,7 +54,7 @@ func GetTenantById(
 	prefix := "tenants/GetTenantById"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	var ctx = context.Background()
-	var filter = bson.M{"tenantid": mongoApi.IndexFromTenantId(tenantId)}
+	var filter = bson.M{"tenantId": mongoApi.IndexFromTenantId(tenantId)}
 	var returnTenetResult model.GetTenantDetail
 	var tenantResponse model.TenatGetResponse
 

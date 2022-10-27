@@ -62,6 +62,11 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 func AzNewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAdmin, *response.ErrorDetailResponse) {
 
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.AzKafkaBrokers, ",")}
+	for key, value := range config.AzKafkaProperties {
+		kafkaConfig.SetKey(key, value)
+	}
+	//Add CA location
+	kafkaConfig.SetKey("ssl.ca.location", config.SslCALocation)
 	// We use oauthbearer auth for create/delete topic requests.
 	//kafkaConfig.SetKey("security.protocol", config.KafkaProperties["security.protocol"])
 	//kafkaConfig.SetKey("sasl.mechanism", "OAUTHBEARER")

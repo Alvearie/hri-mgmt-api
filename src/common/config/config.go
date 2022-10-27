@@ -45,6 +45,8 @@ type Config struct {
 	AzOidcIssuer       string
 	AzJwtAudienceId    string
 	AzKafkaBrokers     StringSlice
+	AzKafkaProperties  StringMap
+	SslCALocation      string
 }
 
 // StringSlice is a flag.Value that collects each Set string into a slice, allowing for repeated flags.
@@ -158,6 +160,7 @@ func ValidateConfig(config Config) error {
 	if len(config.AzKafkaBrokers) == 0 {
 		errorBuilder.WriteString("\n\tNo Azure HdInsight Kafka brokers were defined")
 	}
+
 	errorMsg := errorBuilder.String()
 	if len(errorMsg) > len(errorHeader) {
 		return errors.New(errorMsg)
@@ -202,6 +205,8 @@ func GetConfig(configPath string, commandLineFlags []string) (Config, error) {
 	fs.StringVar(&config.AzOidcIssuer, "az-oidc-issuer", "", "(Optional) The base URL of the Azure AD OIDC issuer to use for OAuth authentication (e.g. https://sts.windows.net/<tenantId>)")
 	fs.StringVar(&config.AzJwtAudienceId, "az-jwt-audience-id", "", "(Optional) The azure AD ID of the HRI Management API within your  authorization service.")
 	fs.Var(&config.AzKafkaBrokers, "az-kafka-brokers", "(Optional) A list of azure hdinsights Kafka brokers, separated by \",\"")
+	fs.Var(&config.AzKafkaProperties, "az-kafka-properties", "(Optional) A list of azure hd insight Kafka properties, entries separated by \",\", key value pairs separated by \":\"")
+	fs.StringVar(&config.SslCALocation, "ca-location", "", "(Optional) SSL CA location")
 
 	err := ff.Parse(fs, commandLineFlags,
 		ff.WithIgnoreUndefined(true),

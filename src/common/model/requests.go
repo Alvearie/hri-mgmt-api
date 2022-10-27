@@ -16,6 +16,18 @@ type CreateBatch struct {
 	Metadata         map[string]interface{} `json:"metadata"`
 }
 
+type CreateBatchBson struct {
+	Name             string                 `bson:"name" validate:"required,injection-check-validator"`
+	Topic            string                 `bson:"topic" validate:"required,injection-check-validator"`
+	DataType         string                 `bson:"dataType" validate:"required,injection-check-validator"`
+	InvalidThreshold int                    `bson:"invalidThreshold"`
+	Metadata         map[string]interface{} `bson:"metadata"`
+	BatchId          string                 `bson:"id"`
+	IntegratorId     string                 `bson:"integratorId"`
+	Status           string                 `bson:"status"`
+	StartDate        string                 `bson:"startDate"`
+}
+
 type GetBatch struct {
 	TenantId string  `param:"tenantId" validate:"required"`
 	Name     *string `query:"name" validate:"omitempty,injection-check-validator"`
@@ -86,22 +98,36 @@ type CreateTenant struct {
 }
 
 type CreateTenantRequest struct {
-	TenantId     string `json:"tenantId" `
+	TenantId     string `bson:"tenantId" `
 	Docs_count   string `json:"docs.count"`
 	Docs_deleted string `json:"docs.deleted" `
+	//Batch        []CreateBatch `json:"batch"`
+}
+
+type CreateBatchRequestForTenant struct {
+	Uuid         primitive.ObjectID `bson:"_id"`
+	TenantId     string             `bson:"tenantId" `
+	Docs_count   string             `json:"docs.count"`
+	Docs_deleted string             `json:"docs.deleted" `
+	Batch        []CreateBatchBson  `json:"batch"`
 }
 
 type GetTenantDetail struct {
 	Uuid         primitive.ObjectID `bson:"_id"`
-	TenantId     string             `bson:"tenantid" `
+	TenantId     string             `bson:"tenantId" `
 	Docs_count   string             `bson:"docs_count"`
 	Docs_deleted string             `bson:"docs_deleted" `
+}
+
+type GetBatchTenantDetail struct {
+	TenantId string                   `bson:"tenantid"`
+	Result   []map[string]interface{} `bson:"batch"`
 }
 
 type TenatGetResponse struct {
 	Health      string             `json:"health"`
 	Status      string             `json:"status"`
-	Index       string             `json:"tenatid"`
+	Index       string             `json:"tenantId"`
 	Uuid        primitive.ObjectID `json:"_id"`
 	Size        string             `json:"size"`
 	DocsCount   string             `json:"docs.count"`

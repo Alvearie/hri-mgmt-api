@@ -54,7 +54,7 @@ func GetTenants(
 	var tenantsList []model.GetTenantId
 
 	projection := bson.D{
-		{"tenantid", 1},
+		{"tenantId", 1},
 		{"_id", 0},
 	}
 
