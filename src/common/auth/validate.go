@@ -165,7 +165,7 @@ func (v theTenantValidator) getSignedToken(requestId string, authorization strin
 		logger.Errorln(msg)
 		errmsg := "Azure AD authentication returned " + strconv.Itoa(http.StatusUnauthorized)
 
-		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") {
+		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") || strings.Contains(msg, "Token Expiry") {
 			return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errmsg)
 		}
 
@@ -295,7 +295,7 @@ func (v theBatchValidator) getSignedToken(requestId string, authorization string
 		logger.Errorln(msg)
 		errmsg := "Azure AD authentication returned " + strconv.Itoa(http.StatusUnauthorized)
 
-		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") {
+		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") || strings.Contains(msg, "Token Expiry") {
 			return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errmsg)
 		}
 
