@@ -8,14 +8,14 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/golang-jwt/jwt"
-	"net/http"
-	"regexp"
-	"strings"
-	"time"
 )
 
 const (
@@ -32,15 +32,20 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
 	// We use oauthbearer auth for create/delete topic requests.
-	kafkaConfig.SetKey("security.protocol", config.KafkaProperties["security.protocol"])
-	kafkaConfig.SetKey("sasl.mechanism", "OAUTHBEARER")
+	//kafkaConfig.SetKey("security.protocol", config.KafkaProperties["security.protocol"])
+	//kafkaConfig.SetKey("sasl.mechanism", "OAUTHBEARER")
+	//kafkaConfig.SetKey("ssl.ca.location", "C:/manav-kafka/pem/client.cer.pem")
 
+	for key, value := range config.KafkaProperties {
+		kafkaConfig.SetKey(key, value)
+	}
+	kafkaConfig.SetKey("ssl.ca.location", "C:/manav-kafka/pem/client.cer.pem")
 	admin, err := kafka.NewAdminClient(kafkaConfig)
 	if err != nil {
 		return nil, response.NewErrorDetailResponse(http.StatusInternalServerError, "n/a", fmt.Sprintf("error constructing Kafka admin client: %s", err.Error()))
 	}
 
-	re := regexp.MustCompile(`(?i)bearer `) // Remove bearer prefix, ignoring case.
+	/*re := regexp.MustCompile(`(?i)bearer `) // Remove bearer prefix, ignoring case.
 	tokenValue := re.ReplaceAllString(bearerToken, "")
 
 	exp, err := getExpFromToken(tokenValue)
@@ -54,7 +59,7 @@ func NewAdminClientFromConfig(config config.Config, bearerToken string) (KafkaAd
 	})
 	if err != nil {
 		return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, "n/a", err.Error())
-	}
+	}*/
 
 	return admin, nil
 }

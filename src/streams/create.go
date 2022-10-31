@@ -8,17 +8,20 @@ package streams
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
-	"net/http"
-	"strconv"
 )
 
 const (
-	onePartition      int = 1
-	replicationFactor int = 3
+	onePartition int = 1
+	//replicationFactor int = 3
+	replicationFactor int = 1
 )
 
 func Create(
@@ -33,9 +36,10 @@ func Create(
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Streams Create")
 
-	inTopicName, notificationTopicName, outTopicName, invalidTopicName := kafka.CreateTopicNames(
-		tenantId, streamId)
-
+	//inTopicName, notificationTopicName, outTopicName, invalidTopicName := kafka.CreateTopicNames(
+	//tenantId, streamId)
+	baseTopicName := strings.Join([]string{tenantId, streamId}, ".")
+	inTopicName := "ingest" + baseTopicName + ".in"
 	//numPartitions and retentionTime configs are required, the rest are optional
 	topicConfig := setUpTopicConfig(request)
 
@@ -43,15 +47,19 @@ func Create(
 	// { inTopicName, notificationTopicName, outTopicName, invalidTopicName }
 	// { <fromCreateRequest>, 1, <fromCreateRequest>, 1 }
 	// create notification and invalid topics with only 1 Partition b/c of the small expected msg volume for these topics
-	topicNames := make([]string, 0, 4)
-	partitionCounts := make([]int, 0, 4)
+	//topicNames := make([]string, 0, 4)
+	//partitionCounts := make([]int, 0, 4)
 
-	topicNames = append(topicNames, inTopicName, notificationTopicName)
-	partitionCounts = append(partitionCounts, int(*request.NumPartitions), onePartition)
-	if validationEnabled {
+	topicNames := make([]string, 0, 1)
+	partitionCounts := make([]int, 0, 1)
+	//topicNames = append(topicNames, inTopicName, notificationTopicName)
+	topicNames = append(topicNames, inTopicName)
+	//partitionCounts = append(partitionCounts, int(*request.NumPartitions), onePartition)
+	partitionCounts = append(partitionCounts, int(*request.NumPartitions))
+	/*if validationEnabled {
 		topicNames = append(topicNames, outTopicName, invalidTopicName)
 		partitionCounts = append(partitionCounts, int(*request.NumPartitions), onePartition)
-	}
+	}*/
 	topicSpecs := buildTopicSpecifications(topicNames, partitionCounts, topicConfig)
 
 	ctx := context.Background()
