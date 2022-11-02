@@ -65,7 +65,7 @@ func CreateTenant(
 
 	if (model.CreateTenantRequest{}) != returnResult {
 		return http.StatusBadRequest, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusBadRequest, logger,
-			fmt.Sprintf("Unable to create new tenant as it is already exists[%s]", tenantId))
+			fmt.Sprintf("Unable to create new tenant as it already exists[%s]", tenantId))
 	}
 
 	// Insert one
