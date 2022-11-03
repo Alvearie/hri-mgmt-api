@@ -62,10 +62,7 @@ func sendFail(requestId string, request *model.FailRequest,
 	if err != nil {
 		return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
 	}
-	fmt.Println(batch_metaData[param.Status] != status.Failed.String())
-	fmt.Println(batch_metaData[param.Status] != status.Terminated.String())
-	op := batch_metaData[param.Status] != status.Failed.String() && batch_metaData[param.Status] != status.Terminated.String()
-	fmt.Print(op)
+
 	if (batch_metaData[param.Status] != status.Failed.String()) && (batch_metaData[param.Status] != status.Terminated.String()) {
 		updateRequest := getBatchFailUpdateRequest(request)
 		fmt.Println(updateRequest)

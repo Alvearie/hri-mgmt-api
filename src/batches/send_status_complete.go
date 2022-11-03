@@ -35,7 +35,6 @@ func SendStatusComplete(requestId string,
 
 	//We know claims Must be Non-nil because the handler checks for that before we reach this point
 	var claimSubj = claims.Subject
-	fmt.Println(claimSubj)
 
 	return sendStatusComplete(requestId, request, claimSubj, mongoClient, writer, logger, currentStatus)
 }
@@ -47,13 +46,11 @@ func SendStatusCompleteNoAuth(
 	client *mongo.Collection,
 	writer kafka.Writer,
 	currentStatus status.BatchStatus) (int, interface{}) {
-	fmt.Println("NoAuth zone")
 	prefix := "batches/sendStatusCompleteNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
 	//claims == nil --> NO Auth (Auth is NOT Enabled)
 	var subject = auth.NoAuthFakeIntegrator
-	fmt.Println(subject)
 
 	return sendStatusComplete(requestId, request, subject, client, writer, logger, currentStatus)
 }
@@ -74,8 +71,6 @@ func sendStatusComplete(
 
 	if batch_metaData[param.Status] == status.Started.String() && batch_metaData[param.IntegratorId] == claimSubj {
 		updateRequest := getSendCompleteUpdateRequest(request, claimSubj, requestId)
-
-		fmt.Println(updateRequest)
 
 		errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId,
 			updateRequest, client, kafkaWriter, currentStatus)
