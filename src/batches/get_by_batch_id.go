@@ -80,16 +80,16 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 	if err = cursor.All(context.TODO(), &details); err != nil {
 		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, "Get batch by ID failed")
 	}
-	msg := fmt.Sprintf(msgDocNotFound, batch.TenantId, batch.BatchId)
+	msg := fmt.Sprintf(docNotFoundMsg, batch.TenantId, batch.BatchId)
 
 	if details == nil {
-		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, msg)
+		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetailWithoutStatusCode(requestId, logger, msg)
 	}
 	batchMap, ok := details[0]["batch"].(primitive.A)
 	batchMapSlice := []interface{}(batchMap)
 
 	if len(batchMapSlice) == 0 || !ok {
-		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, msg)
+		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetailWithoutStatusCode(requestId, logger, msg)
 	}
 
 	mapResponseBody, _ := batchMapSlice[0].(primitive.M)

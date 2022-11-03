@@ -21,7 +21,7 @@ type CreateBatchBson struct {
 	Topic            string                 `bson:"topic" validate:"required,injection-check-validator"`
 	DataType         string                 `bson:"dataType" validate:"required,injection-check-validator"`
 	InvalidThreshold int                    `bson:"invalidThreshold"`
-	Metadata         map[string]interface{} `bson:"metadata"`
+	Metadata         map[string]interface{} `bson:"metadata,omitempty"`
 	BatchId          string                 `bson:"id"`
 	IntegratorId     string                 `bson:"integratorId"`
 	Status           string                 `bson:"status"`

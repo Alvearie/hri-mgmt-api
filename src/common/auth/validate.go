@@ -165,7 +165,7 @@ func (v theTenantValidator) getSignedToken(requestId string, authorization strin
 		logger.Errorln(msg)
 		errmsg := "Azure AD authentication returned " + strconv.Itoa(http.StatusUnauthorized)
 
-		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") {
+		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") || strings.Contains(msg, "Token Expiry") {
 			return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errmsg)
 		}
 
@@ -263,7 +263,7 @@ func (v theBatchValidator) checkTenantScope(requestId string, tenantId string, c
 	// The tenant scope token must have "tenant_" as a prefix
 	if !claims.HasRole(TenantScopePrefix + tenantId) {
 		// The authorized scopes do not include tenant data
-		msg := fmt.Sprintf("Unauthorized tenant access. Tenant '%s' is not included in the authorized roles: %v.", tenantId, claims.Scope)
+		msg := fmt.Sprintf("Unauthorized tenant access. Tenant '%s' is not included in the authorized roles:tenant_%s.", tenantId, tenantId)
 		logger.Errorln(msg)
 		return response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, msg)
 	}
@@ -295,7 +295,7 @@ func (v theBatchValidator) getSignedToken(requestId string, authorization string
 		logger.Errorln(msg)
 		errmsg := "Azure AD authentication returned " + strconv.Itoa(http.StatusUnauthorized)
 
-		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") {
+		if strings.Contains(msg, "JWS format must have three parts") || strings.Contains(msg, "malformed jwt") || strings.Contains(msg, "Token Expiry") {
 			return nil, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, errmsg)
 		}
 
