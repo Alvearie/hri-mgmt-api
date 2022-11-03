@@ -28,7 +28,7 @@ func SendFail(
 	prefix := "batches/sendfail"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Fail")
-	fmt.Println(" auth zone fail")
+
 	// Only Integrators can call fail
 	if !claims.HasRole(auth.HriInternal) {
 		msg := fmt.Sprintf(auth.MsgInternalRoleRequired, "failed")
