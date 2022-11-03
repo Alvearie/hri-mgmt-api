@@ -39,6 +39,8 @@ type Handler interface {
 	CreateBatch(echo.Context) error
 	GetByBatchId(echo.Context) error
 	GetBatch(echo.Context) error
+	SendStatusComplete(ctx echo.Context) error
+	SendFail(ctx echo.Context) error
 }
 
 type theHandler struct {
@@ -59,6 +61,8 @@ type theHandler struct {
 	getByBatchId        func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
 	getTenantByIdNoAuth func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
 	getBatch            func(string, model.GetBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
+	sendStatusComplete  func(string, *model.SendCompleteRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
+	sendFail            func(string, *model.FailRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
 }
 
 // NewHandler This struct is designed to make unit testing easier. It has function references for the calls to backend
@@ -82,6 +86,8 @@ func NewHandler(config config.Config) Handler {
 			getTenantByIdNoAuth: GetByBatchIdNoAuth,
 			createBatch:         CreateBatchNoAuth,
 			getBatch:            GetBatchNoAuth,
+			sendStatusComplete:  SendStatusCompleteNoAuth,
+			sendFail:            SendFailNoAuth,
 		}
 
 	} else {
@@ -105,11 +111,161 @@ func NewHandler(config config.Config) Handler {
 			getByBatchId:        GetByBatchId,
 			getTenantByIdNoAuth: GetByBatchIdNoAuth,
 			getBatch:            GetBatch,
+			sendStatusComplete:  SendStatusComplete,
+			sendFail:            SendFail,
 		}
 	}
 
 	return newHandler
 }
+
+func (h *theHandler) SendFail(c echo.Context) error {
+	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
+	prefix := "batches/handler/sendfail"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+
+	// bind & validate request body
+	var request model.FailRequest
+	if err := c.Bind(&request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+	if err := c.Validate(request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+
+	getBatchRequest := model.GetByIdBatch{
+		TenantId: request.TenantId,
+		BatchId:  request.BatchId,
+	}
+	var code int
+	var body interface{}
+
+	mongoClient := mongoApi.GetMongoCollection(h.config.MongoColName)
+
+	kafkaWriter, err := kafka.NewWriterFromAzConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
+	defer kafkaWriter.Close()
+
+	var claims = auth.HriAzClaims{}
+	var errResp *response.ErrorDetailResponse
+	if h.config.AuthDisabled == false { //Auth Enabled
+		//JWT claims validation
+		claims, errResp = h.jwtBatchValidator.GetValidatedRoles(requestId,
+			c.Request().Header.Get(echo.HeaderAuthorization), request.TenantId)
+		if errResp != nil {
+			return c.JSON(errResp.Code, errResp.Body)
+		}
+		logger.Debugln("Auth Enabled - call SendFail()")
+
+	} else {
+		logger.Debugln("Auth Disabled - call FailNoAuth()")
+	}
+
+	currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, mongoClient, logger)
+	if getStatusErr != nil {
+		return c.JSON(getStatusErr.Code, getStatusErr.Body)
+	}
+
+	code, body = h.sendFail(requestId, &request, claims, mongoClient, kafkaWriter, currentStatus)
+
+	if body != nil {
+		return c.JSON(code, body)
+	}
+
+	return c.NoContent(code)
+}
+
+func (h *theHandler) SendStatusComplete(c echo.Context) error {
+	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
+	prefix := "batches/handler/sendStatusComplete"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+
+	// bind & validate request body
+	var request model.SendCompleteRequest
+	if err := c.Bind(&request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+	if err := c.Validate(request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+
+	request.Validation = h.config.Validation
+
+	mongoClient := mongoApi.GetMongoCollection(h.config.MongoColName)
+
+	kafkaWriter, err := kafka.NewWriterFromAzConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
+	defer kafkaWriter.Close()
+
+	getBatchRequest := model.GetByIdBatch{
+		TenantId: request.TenantId,
+		BatchId:  request.BatchId,
+	}
+	var code int
+	var body interface{}
+	var claims = auth.HriAzClaims{}
+	var errResp *response.ErrorDetailResponse
+
+	if h.config.AuthDisabled == false { //Auth Enabled
+		//JWT claims validation
+		claims, errResp = h.jwtBatchValidator.GetValidatedRoles(requestId,
+			c.Request().Header.Get(echo.HeaderAuthorization), request.TenantId)
+		if errResp != nil {
+			return c.JSON(errResp.Code, errResp.Body)
+		}
+		logger.Debugln("Auth Enabled - call SendComplete()")
+	} else {
+		logger.Debugln("Auth Disabled - call SendCompleteNoAuth()")
+	}
+
+	currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, mongoClient, logger)
+	if getStatusErr != nil {
+		return c.JSON(getStatusErr.Code, getStatusErr.Body)
+	}
+
+	code, body = h.sendStatusComplete(requestId, &request, claims, mongoClient, kafkaWriter, currentStatus)
+
+	if body != nil {
+		return c.JSON(code, body)
+	}
+
+	return c.NoContent(code)
+}
+
+// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateStatus()
+// Note: this call will Always use the empty claims (NoAuth) option for calling GetById()
+func getBatchStatus(h *theHandler, requestId string, getBatchRequest model.GetByIdBatch, mongoClient *mongo.Collection, logger logrus.FieldLogger) (status.BatchStatus, *response.ErrorDetailResponse) {
+
+	var claims = auth.HriAzClaims{} //Always use the empty claims (NoAuth) option
+	getByIdCode, responseBody := h.getTenantByIdNoAuth(requestId, getBatchRequest, claims, mongoClient)
+	if getByIdCode != http.StatusOK { //error getting current Batch Info
+		// var errDetail = getByIdBody.(*response.ErrorDetail)
+		newErrMsg := fmt.Sprintf(msgGetByIdErr, " Error getting current Batch Info")
+		logger.Errorln(newErrMsg)
+
+		return status.Unknown, response.NewErrorDetailResponse(getByIdCode, requestId, newErrMsg)
+	}
+
+	currentStatus, extractErr := ExtractBatchStatus(responseBody)
+	if extractErr != nil {
+		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+		logger.Errorln(errMsg)
+		return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+	}
+
+	return currentStatus, nil
+}
+
 func (h *theHandler) GetByBatchId(c echo.Context) error {
 	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
 	prefix := "batches/handler/getById"
