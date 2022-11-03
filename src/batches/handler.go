@@ -242,8 +242,8 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 	return c.NoContent(code)
 }
 
-// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateStatus()
-// Note: this call will Always use the empty claims (NoAuth) option for calling GetById()
+// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
+// Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
 func getBatchStatus(h *theHandler, requestId string, getBatchRequest model.GetByIdBatch, mongoClient *mongo.Collection, logger logrus.FieldLogger) (status.BatchStatus, *response.ErrorDetailResponse) {
 
 	var claims = auth.HriAzClaims{} //Always use the empty claims (NoAuth) option

@@ -68,7 +68,7 @@ func sendStatusComplete(
 	if err != nil {
 		return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
 	}
-
+	// Can only transition if the batch is in the 'started' state
 	if batch_metaData[param.Status] == status.Started.String() && batch_metaData[param.IntegratorId] == claimSubj {
 		updateRequest := getSendCompleteUpdateRequest(request, claimSubj, requestId)
 
@@ -99,7 +99,9 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 		expectedRecordCount = *request.RecordCount
 	}
 	var updateRequest map[string]interface{}
-	request.Validation = false
+	// When validation is enabled
+	//   - change the status to 'sendCompleted'
+	//   - set the record count
 	if request.Validation {
 		if request.Metadata == nil {
 
@@ -121,7 +123,12 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 			}
 		}
 	} else {
+		// When validation is not enabled:
+		//   - change the status to 'completed'
+		//   - set the record count
+		//   - set the end date
 		currentTime := time.Now().UTC()
+
 		if request.Metadata == nil {
 
 			updateRequest = bson.M{

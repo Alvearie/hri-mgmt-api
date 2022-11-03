@@ -45,7 +45,7 @@ func updateBatchStatus(requestId string,
 	updateResponse, updateErr := client.UpdateOne(
 		context.Background(),
 		filter,
-		updateRequest,
+		updateRequest, // request body
 	)
 
 	if updateErr != nil {
@@ -57,7 +57,8 @@ func updateBatchStatus(requestId string,
 
 	batchMap, errResp := getBatchMetaData(requestId, tenantId, batchId, client, logger)
 	if errResp != nil {
-		msg := "Error retreiving updated batch"
+		msg := fmt.Sprintf("updated document not returned in Cosmos response: %s", errResp.Body.ErrorDescription)
+		logger.Errorln(msg)
 		return response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, msg)
 	}
 
@@ -65,15 +66,16 @@ func updateBatchStatus(requestId string,
 	updatedBatch := NormalizeBatchRecordCountValues(batchMap)
 	// // read cosmos response and verify the batch was updated: checking for updated data
 	if updateResponse.ModifiedCount == 1 {
-		// fmt.Println(notificationTopic)
+		// successful update; publish update notification to Kafka
+
 		err := kafkaWriter.Write(notificationTopic, batchId, updatedBatch)
 		// err := kafkaWriter.Write("notificationTopic", batchId, updatedBatch)
 		if err != nil { //Write to Elastic Failed, try to Revert Batch Status
 			kafkaErrMsg := fmt.Sprintf("error writing batch notification to kafka: %s", err.Error())
 			logger.Errorln(kafkaErrMsg)
-			reverterr := revertStatus(requestId, tenantId, batchId, client, currentStatus, logger)
-			if reverterr != nil {
-				return reverterr
+			revertErr := revertStatus(requestId, tenantId, batchId, client, currentStatus, logger)
+			if revertErr != nil {
+				return revertErr
 			}
 			return response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, kafkaErrMsg)
 		}
@@ -88,6 +90,10 @@ func updateBatchStatus(requestId string,
 
 }
 
+// Here we are reverting the Batch status to "currentStatus" in Cosmos. "currentStatus" is the
+// status that the Batch had BEFORE the update operation//
+// If the Revert attempt in Elastic fails, we retry up to 5 times.
+// TODO:enhacement
 func revertStatus(requestId string,
 	tenantId string,
 	batchId string,

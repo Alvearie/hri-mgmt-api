@@ -63,9 +63,10 @@ func sendFail(requestId string, request *model.FailRequest,
 		return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
 	}
 
+	// Can't fail a batch if status is already 'terminated' or 'failed'
+
 	if (batch_metaData[param.Status] != status.Failed.String()) && (batch_metaData[param.Status] != status.Terminated.String()) {
 		updateRequest := getBatchFailUpdateRequest(request)
-		fmt.Println(updateRequest)
 
 		errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId, updateRequest, client, writer, currentStatus)
 		if errResp != nil {
