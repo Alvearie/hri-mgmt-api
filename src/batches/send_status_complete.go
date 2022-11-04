@@ -133,9 +133,9 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 
 			updateRequest = bson.M{
 				"$set": bson.M{
-					"batch.$.status":              status.SendCompleted.String(),
+					"batch.$.status":              status.Completed.String(),
 					"batch.$.expectedRecordCount": expectedRecordCount,
-					"batch.$.startDate":           currentTime,
+					"batch.$.endDate":             currentTime,
 				},
 			}
 		} else {
@@ -143,9 +143,9 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 			updateRequest = bson.M{
 				"$set": bson.M{
 					"batch.$.metadata":            request.Metadata,
-					"batch.$.status":              status.SendCompleted.String(),
+					"batch.$.status":              status.Completed.String(),
 					"batch.$.expectedRecordCount": expectedRecordCount,
-					"batch.$.startDate":           currentTime,
+					"batch.$.endDate":             currentTime,
 				},
 			}
 		}

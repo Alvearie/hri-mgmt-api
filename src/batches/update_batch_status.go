@@ -69,7 +69,7 @@ func updateBatchStatus(requestId string,
 		// successful update; publish update notification to Kafka
 
 		err := kafkaWriter.Write(notificationTopic, batchId, updatedBatch)
-		// err := kafkaWriter.Write("notificationTopic", batchId, updatedBatch)
+
 		if err != nil { //Write to Elastic Failed, try to Revert Batch Status
 			kafkaErrMsg := fmt.Sprintf("error writing batch notification to kafka: %s", err.Error())
 			logger.Errorln(kafkaErrMsg)
