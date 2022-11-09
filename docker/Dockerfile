@@ -15,7 +15,7 @@ ENV PATH=$PATH:/usr/local/go/bin
 
 COPY ./ /hri-mgmt-api/
 WORKDIR /hri-mgmt-api
-RUN make -f ./Makefile
+RUN make
 
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4
