@@ -18,4 +18,8 @@ const (
 	MsgIntegratorRoleRequired           = "Must have hri_data_integrator role to %s a batch"
 	MsgInternalRoleRequired             = "Must have hri_internal role to mark a batch as %s"
 	MsgSubClaimRequiredInJwt            = "JWT access token 'sub' claim must be populated."
+	Hri                          string = "hri_"
+	DataIntegrator               string = "_data_integrator"
+	DataConsumer                 string = "_data_consumer"
+	DataInternal                 string = "_data_internal"
 )
