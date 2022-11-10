@@ -70,3 +70,17 @@ func (c HriAzClaims) HasRole(claim string) bool {
 
 	return false
 }
+
+func GetAuthRole(tenantId string, roleToValidate string) (role string) {
+	switch roleToValidate {
+	case HriIntegrator:
+		role = Hri + TenantScopePrefix + tenantId + DataIntegrator
+	case HriConsumer:
+		role = Hri + TenantScopePrefix + tenantId + DataConsumer
+	case HriInternal:
+		role = Hri + TenantScopePrefix + tenantId + DataInternal
+	default:
+		role = roleToValidate
+	}
+	return role
+}
