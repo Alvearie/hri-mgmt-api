@@ -42,6 +42,7 @@ type Handler interface {
 	SendStatusComplete(ctx echo.Context) error
 	SendFail(ctx echo.Context) error
 	TerminateBatch(ctx echo.Context) error
+	ProcessingCompleteBatch(ctx echo.Context) error
 }
 
 type theHandler struct {
@@ -57,14 +58,15 @@ type theHandler struct {
 	processingComplete func(string, *model.ProcessingCompleteRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
 	fail               func(string, *model.FailRequest, auth.HriClaims, *elasticsearch.Client, kafka.Writer, status.BatchStatus) (int, interface{})
 	//Azure porting
-	jwtBatchValidator   auth.BatchValidator
-	createBatch         func(string, model.CreateBatch, auth.HriAzClaims, *mongo.Collection, kafka.Writer) (int, interface{})
-	getByBatchId        func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
-	getTenantByIdNoAuth func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
-	getBatch            func(string, model.GetBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
-	sendStatusComplete  func(string, *model.SendCompleteRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
-	sendFail            func(string, *model.FailRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
-	terminateBatch      func(string, *model.TerminateRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
+	jwtBatchValidator       auth.BatchValidator
+	createBatch             func(string, model.CreateBatch, auth.HriAzClaims, *mongo.Collection, kafka.Writer) (int, interface{})
+	getByBatchId            func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
+	getTenantByIdNoAuth     func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
+	getBatch                func(string, model.GetBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
+	sendStatusComplete      func(string, *model.SendCompleteRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
+	sendFail                func(string, *model.FailRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
+	terminateBatch          func(string, *model.TerminateRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
+	processingCompleteBatch func(string, *model.ProcessingCompleteRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
 }
 
 // NewHandler This struct is designed to make unit testing easier. It has function references for the calls to backend
@@ -75,22 +77,23 @@ func NewHandler(config config.Config) Handler {
 	if config.AuthDisabled {
 		newHandler = &theHandler{
 
-			config:              config,
-			create:              CreateNoAuth,
-			get:                 GetNoAuth,
-			getById:             GetByIdNoAuth,
-			getByIdNoAuth:       GetByIdNoAuth,
-			sendComplete:        SendCompleteNoAuth,
-			terminate:           TerminateNoAuth,
-			processingComplete:  ProcessingCompleteNoAuth,
-			fail:                FailNoAuth,
-			getByBatchId:        GetByBatchIdNoAuth,
-			getTenantByIdNoAuth: GetByBatchIdNoAuth,
-			createBatch:         CreateBatchNoAuth,
-			getBatch:            GetBatchNoAuth,
-			sendStatusComplete:  SendStatusCompleteNoAuth,
-			sendFail:            SendFailNoAuth,
-			terminateBatch:      TerminateBatchNoAuth,
+			config:                  config,
+			create:                  CreateNoAuth,
+			get:                     GetNoAuth,
+			getById:                 GetByIdNoAuth,
+			getByIdNoAuth:           GetByIdNoAuth,
+			sendComplete:            SendCompleteNoAuth,
+			terminate:               TerminateNoAuth,
+			processingComplete:      ProcessingCompleteNoAuth,
+			fail:                    FailNoAuth,
+			getByBatchId:            GetByBatchIdNoAuth,
+			getTenantByIdNoAuth:     GetByBatchIdNoAuth,
+			createBatch:             CreateBatchNoAuth,
+			getBatch:                GetBatchNoAuth,
+			sendStatusComplete:      SendStatusCompleteNoAuth,
+			sendFail:                SendFailNoAuth,
+			terminateBatch:          TerminateBatchNoAuth,
+			processingCompleteBatch: ProcessingCompleteBatchNoAuth,
 		}
 
 	} else {
@@ -110,13 +113,14 @@ func NewHandler(config config.Config) Handler {
 			processingComplete: ProcessingComplete,
 			fail:               Fail,
 
-			createBatch:         CreateBatch,
-			getByBatchId:        GetByBatchId,
-			getTenantByIdNoAuth: GetByBatchIdNoAuth,
-			getBatch:            GetBatch,
-			sendStatusComplete:  SendStatusComplete,
-			sendFail:            SendFail,
-			terminateBatch:      TerminateBatch,
+			createBatch:             CreateBatch,
+			getByBatchId:            GetByBatchId,
+			getTenantByIdNoAuth:     GetByBatchIdNoAuth,
+			getBatch:                GetBatch,
+			sendStatusComplete:      SendStatusComplete,
+			sendFail:                SendFail,
+			terminateBatch:          TerminateBatch,
+			processingCompleteBatch: ProcessingCompleteBatch,
 		}
 	}
 
@@ -828,6 +832,64 @@ func (h *theHandler) TerminateBatch(c echo.Context) error {
 		return c.JSON(getStatusErr.Code, getStatusErr.Body)
 	}
 	code, body = h.terminateBatch(requestId, &request, claims, mongoApi.GetMongoCollection(h.config.MongoColName), kafkaWriter, currentStatus)
+
+	if body != nil {
+		return c.JSON(code, body)
+	}
+
+	return c.NoContent(code)
+}
+
+func (h *theHandler) ProcessingCompleteBatch(c echo.Context) error {
+	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
+	prefix := "batches/handler/processingComplete"
+	var logger = logwrapper.GetMyLogger(requestId, prefix)
+
+	// bind & validate request body
+	var request model.ProcessingCompleteRequest
+	if err := c.Bind(&request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+	if err := c.Validate(request); err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
+	}
+
+	kafkaWriter, err := kafka.NewWriterFromAzConfig(h.config)
+	if err != nil {
+		logger.Errorln(err.Error())
+		return c.JSON(http.StatusInternalServerError, response.NewErrorDetail(requestId, err.Error()))
+	}
+	defer kafkaWriter.Close()
+
+	getBatchRequest := model.GetByIdBatch{
+		TenantId: request.TenantId,
+		BatchId:  request.BatchId,
+	}
+	var code int
+	var body interface{}
+	var claims = auth.HriAzClaims{}
+	var errResp *response.ErrorDetailResponse
+	if !h.config.AuthDisabled { //Auth Enabled
+		//JWT claims validation
+		claims, errResp = h.jwtBatchValidator.GetValidatedRoles(requestId,
+			c.Request().Header.Get(echo.HeaderAuthorization), request.TenantId)
+		if errResp != nil {
+			return c.JSON(errResp.Code, errResp.Body)
+		}
+
+		logger.Debugln("Auth Enabled - call ProcessingComplete()")
+	} else {
+		logger.Debugln("Auth Disabled - call ProcessingCompleteNoAuth()")
+	}
+
+	currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, mongoApi.GetMongoCollection(h.config.MongoColName), logger)
+	if getStatusErr != nil {
+		return c.JSON(getStatusErr.Code, getStatusErr.Body)
+	}
+
+	code, body = h.processingCompleteBatch(requestId, &request, claims, mongoApi.GetMongoCollection(h.config.MongoColName), kafkaWriter, currentStatus)
 
 	if body != nil {
 		return c.JSON(code, body)
