@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
@@ -238,6 +239,12 @@ func createBatch(
 	}
 	//Generate batchId to add batchInfo.
 	batchId := mongoApi.RandomString(20)
+
+	if returnResult.Docs_count == "" {
+		returnResult.Docs_count = "1"
+	}
+	total_count := len(returnResult.Batch) + 1
+	returnResult.Docs_count = strconv.Itoa(total_count)
 	updatedBatchInfo := UpdateBatchInfo(batch, integratorId, batchId)
 
 	if nil != returnResult.Batch {

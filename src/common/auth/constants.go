@@ -6,6 +6,8 @@
 package auth
 
 const (
+	HriInternalSuffix            string = "hri_tenant_"
+	HriInternalPreffix           string = "_data_internal"
 	HriIntegrator                string = "hri_data_integrator"
 	HriInternal                  string = "hri_internal"
 	HriConsumer                  string = "hri_consumer"

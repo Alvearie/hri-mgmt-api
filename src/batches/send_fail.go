@@ -35,8 +35,12 @@ func SendFail(
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Fail")
 
+	//check for tenant internalclaim
+	// claimRequired := mongoApi.GetTenanatInternalClaim(request.TenantId)
+
 	// Only Integrators can call fail
-	if !claims.HasRole(auth.HriInternal) {
+	if true && !claims.HasRole(auth.HriInternal) {
+		// if !claims.HasRole(claimRequired) && !claims.HasRole(auth.HriInternal) {
 		msg := fmt.Sprintf(auth.MsgInternalRoleRequired, "failed")
 		logger.Errorln(msg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)

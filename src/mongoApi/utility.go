@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 )
 
@@ -40,4 +41,8 @@ func StringWithCharset(length int, charset string) string {
 
 func RandomString(length int) string {
 	return StringWithCharset(length, charset)
+}
+
+func GetTenanatInternalClaim(tenantId string) string {
+	return auth.HriInternalSuffix + tenantId + auth.HriInternalPreffix
 }
