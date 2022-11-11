@@ -8,7 +8,8 @@ TEST:=./src/testCoverage.out
 $(HRI): clean format tidy $(TEST) src/go.mod src/go.sum $(SRCS)
 	cd src; go build -o hri
 
-test: clean $(TEST)
+test: 
+    clean $(TEST)
 
 # '-tags tests' is used to excluded the multiple main declarations from test builds
 $(TEST): $(SRCS) src/go.mod src/go.sum
