@@ -157,7 +157,7 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 					"batch.$.expectedRecordCount": expectedRecordCount,
 					"batch.$.endDate":             currentTime,
 				},
-				"$inc": bson.M{"docs_deleted": string(1)},
+				"$inc": bson.M{"docs_deleted": 1},
 			}
 
 		}
