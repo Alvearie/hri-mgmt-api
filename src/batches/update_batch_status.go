@@ -67,7 +67,6 @@ func updateBatchStatus(requestId string,
 	notificationTopic := InputTopicToNotificationTopic(batchMap[param.Topic].(string))
 	updatedBatch := NormalizeBatchRecordCountValues(batchMap)
 	// // read cosmos response and verify the batch was updated: checking for updated data
-	fmt.Println(updateResponse.ModifiedCount)
 	if updateResponse.ModifiedCount == 1 {
 		// successful update; publish update notification to Kafka
 
