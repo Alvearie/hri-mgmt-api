@@ -108,7 +108,7 @@ func GetBatch(requestId string, params model.GetBatch, claims auth.HriAzClaims, 
 	logger.Debugln("Start Batch Get")
 
 	// Data Integrators and Consumers can use this endpoint, so either scope allows access
-	if !claims.HasRole(auth.HriConsumer) && !claims.HasRole(auth.HriIntegrator) {
+	if (!claims.HasRole(auth.HriIntegrator) || !claims.HasRole(auth.GetAuthRole(params.TenantId, auth.HriIntegrator))) && (!claims.HasRole(auth.HriConsumer) || !claims.HasRole(auth.GetAuthRole(params.TenantId, auth.HriConsumer))) {
 		errMsg := auth.MsgAccessTokenMissingScopes
 		logger.Errorln(errMsg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, errMsg)
