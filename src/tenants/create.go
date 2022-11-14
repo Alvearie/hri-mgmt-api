@@ -57,7 +57,7 @@ func CreateTenant(
 
 	//create new tenant In azure cosmos- mongo API
 	//As it is a new tenant creation passing docCount and docDeleted as 0
-	createTenantRequest := mongoApi.ConvertToJSON(mongoApi.IndexFromTenantId(tenantId), "0", "0")
+	createTenantRequest := mongoApi.ConvertToJSON(mongoApi.IndexFromTenantId(tenantId), "0", 0)
 
 	//check if duplicate tenantId or not
 	res := mongoClient.FindOne(ctx, filter).Decode(&returnResult)

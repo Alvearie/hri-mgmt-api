@@ -114,6 +114,7 @@ func getTerminateUpdateRequest(request *model.TerminateRequest, claimsSubject st
 				"batch.$.status":  status.Terminated.String(),
 				"batch.$.endDate": currentTime.Format(mongoApi.DateTimeFormat),
 			},
+			"$inc": bson.M{"docs_deleted": 1},
 		}
 	} else {
 		updateRequest = bson.M{
@@ -122,6 +123,7 @@ func getTerminateUpdateRequest(request *model.TerminateRequest, claimsSubject st
 				"batch.$.status":   status.Terminated.String(),
 				"batch.$.endDate":  currentTime.Format(mongoApi.DateTimeFormat),
 			},
+			"$inc": bson.M{"docs_deleted": 1},
 		}
 	}
 	return updateRequest

@@ -104,6 +104,7 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 	} else {
 		expectedRecordCount = *request.RecordCount
 	}
+
 	var updateRequest map[string]interface{}
 	// When validation is enabled
 	//   - change the status to 'sendCompleted'
@@ -116,6 +117,7 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 					"batch.$.status":              status.SendCompleted.String(),
 					"batch.$.expectedRecordCount": expectedRecordCount,
 				},
+				"$inc": bson.M{"docs_deleted": 1},
 			}
 
 		} else {
@@ -126,6 +128,7 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 					"batch.$.status":              status.SendCompleted.String(),
 					"batch.$.expectedRecordCount": expectedRecordCount,
 				},
+				"$inc": bson.M{"docs_deleted": 1},
 			}
 		}
 	} else {
@@ -143,6 +146,7 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 					"batch.$.expectedRecordCount": expectedRecordCount,
 					"batch.$.endDate":             currentTime,
 				},
+				"$inc": bson.M{"docs_deleted": 1},
 			}
 		} else {
 
@@ -153,7 +157,9 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 					"batch.$.expectedRecordCount": expectedRecordCount,
 					"batch.$.endDate":             currentTime,
 				},
+				"$inc": bson.M{"docs_deleted": string(1)},
 			}
+
 		}
 	}
 	return updateRequest

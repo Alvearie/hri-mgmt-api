@@ -9,15 +9,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 
-	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/sirupsen/logrus"
@@ -38,6 +35,7 @@ func updateBatchStatus(requestId string,
 	prefix := "batches/updateStatus"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Update Status")
+	//appending "-batches"
 	tenant_id := mongoApi.IndexFromTenantId(tenantId)
 
 	filter := bson.D{
@@ -45,10 +43,11 @@ func updateBatchStatus(requestId string,
 		{"batch.id", batchId},
 	}
 
-	updateResponse, updateErr := client.UpdateOne(
+	updateResponse, updateErr := client.UpdateMany(
 		context.Background(),
 		filter,
 		updateRequest, // request body
+
 	)
 
 	if updateErr != nil {
@@ -82,10 +81,7 @@ func updateBatchStatus(requestId string,
 			}
 			return response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, kafkaErrMsg)
 		}
-		docUpdateErr := updateDocCountDelete(requestId, tenantId, batchId, auth.HriAzClaims{}, client, 1)
-		if docUpdateErr != nil {
-			return docUpdateErr
-		}
+
 		return nil
 
 	} else {
@@ -147,50 +143,5 @@ func revertStatus(requestId string,
 		}
 	}
 
-	return nil
-}
-
-func updateDocCountDelete(requestId string, tenantId string, batchId string, claims auth.HriAzClaims, mongoClient *mongo.Collection, modifiedCount int) *response.ErrorDetailResponse {
-
-	var ctx = context.Background()
-	tenant_id := mongoApi.IndexFromTenantId(tenantId)
-	var filter = bson.M{"tenantId": tenant_id}
-	var returnTenetResult model.GetTenantDetail
-
-	mongoClient.FindOne(ctx, filter).Decode(&returnTenetResult)
-	var total_Docs_Deleted string
-	if returnTenetResult.Docs_deleted == "" {
-		total_Docs_Deleted = "1"
-	} else {
-		i, err := strconv.Atoi(returnTenetResult.Docs_deleted)
-		if err != nil {
-			return response.NewErrorDetailResponse(http.StatusNotFound, requestId, "Error in Docs Deleted conversion")
-		}
-		docsDeleted := i + modifiedCount
-		total_Docs_Deleted = strconv.Itoa(docsDeleted)
-
-	}
-
-	//update to tenants
-	updateRequest := bson.M{
-		"$set": bson.M{
-			"docs_deleted": total_Docs_Deleted,
-		},
-	}
-
-	filterCount := bson.D{
-		{"tenantId", tenant_id},
-	}
-
-	updateResponse, err := mongoClient.UpdateOne(
-		context.Background(),
-		filterCount,
-		updateRequest, // request body
-	)
-	if err != nil {
-		return response.NewErrorDetailResponse(http.StatusNotFound, requestId, "Error in updating Docs Deleted ")
-	} else if updateResponse.ModifiedCount != 1 {
-		return response.NewErrorDetailResponse(http.StatusNotFound, requestId, "Docs Deleted not modified")
-	}
 	return nil
 }

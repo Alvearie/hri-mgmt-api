@@ -9,13 +9,12 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 )
 
 const DateTimeFormat string = "2006-01-02T15:04:05Z"
 
-func ConvertToJSON(tenantId string, docCount string, docsDeleted string) model.CreateTenantRequest {
+func ConvertToJSON(tenantId string, docCount string, docsDeleted int) model.CreateTenantRequest {
 	result := model.CreateTenantRequest{
 		//ID:            primitive.NewObjectID(),
 		TenantId:     tenantId,
@@ -41,8 +40,4 @@ func StringWithCharset(length int, charset string) string {
 
 func RandomString(length int) string {
 	return StringWithCharset(length, charset)
-}
-
-func GetTenanatInternalClaim(tenantId string) string {
-	return auth.HriInternalSuffix + tenantId + auth.HriInternalPreffix
 }
