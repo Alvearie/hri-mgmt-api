@@ -182,8 +182,8 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 	// 	param.TenantId, param.BatchId), batchesHandler.SendComplete)
 	// e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/terminate",
 	// 	param.TenantId, param.BatchId), batchesHandler.Terminate)
-	e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/processingComplete",
-		param.TenantId, param.BatchId), batchesHandler.ProcessingComplete)
+	// e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/processingComplete",
+	// 	param.TenantId, param.BatchId), batchesHandler.ProcessingComplete)
 	// e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/fail",
 	// 	param.TenantId, param.BatchId), batchesHandler.Fail)
 	//As part of Azure porting
@@ -196,6 +196,8 @@ func configureMgmtServer(e *echo.Echo, args []string) (int, func(), error) {
 		param.TenantId, param.BatchId), batchesHandler.SendFail)
 	e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/terminate",
 		param.TenantId, param.BatchId), batchesHandler.TerminateBatch)
+	e.PUT(fmt.Sprintf("/hri/tenants/:%s/batches/:%s/action/processingComplete",
+		param.TenantId, param.BatchId), batchesHandler.ProcessingCompleteBatch)
 
 	// Streams routing
 	streamsHandler := streams.NewHandler(config)
