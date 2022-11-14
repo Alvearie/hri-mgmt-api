@@ -35,7 +35,7 @@ func ProcessingCompleteBatch(
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Processing Complete")
 
-	if !claims.HasRole(auth.GetAuthRole(request.TenantId, auth.HriInternal)) {
+	if !claims.HasRole(auth.HriInternal) || !claims.HasRole(auth.GetAuthRole(request.TenantId, auth.HriInternal)) {
 		msg := fmt.Sprintf(auth.MsgInternalRoleRequired, "processingComplete")
 		logger.Errorln(msg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
