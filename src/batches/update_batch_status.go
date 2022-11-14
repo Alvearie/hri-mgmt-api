@@ -35,6 +35,7 @@ func updateBatchStatus(requestId string,
 	prefix := "batches/updateStatus"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Update Status")
+	//appending "-batches"
 	tenant_id := mongoApi.IndexFromTenantId(tenantId)
 
 	filter := bson.D{
@@ -42,10 +43,11 @@ func updateBatchStatus(requestId string,
 		{"batch.id", batchId},
 	}
 
-	updateResponse, updateErr := client.UpdateOne(
+	updateResponse, updateErr := client.UpdateMany(
 		context.Background(),
 		filter,
 		updateRequest, // request body
+
 	)
 
 	if updateErr != nil {
@@ -79,6 +81,7 @@ func updateBatchStatus(requestId string,
 			}
 			return response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, kafkaErrMsg)
 		}
+
 		return nil
 
 	} else {

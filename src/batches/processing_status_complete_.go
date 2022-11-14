@@ -95,6 +95,7 @@ func getProcessingCompleteUpdate(request *model.ProcessingCompleteRequest) map[s
 			"batch.$.invalidRecordCount": request.InvalidRecordCount,
 			"batch.$.endDate":            currentTime.Format(mongoApi.DateTimeFormat),
 		},
+		"$inc": bson.M{"docs_deleted": 1},
 	}
 	return updateRequest
 }

@@ -8,6 +8,7 @@ package tenants
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
@@ -69,7 +70,7 @@ func GetTenantById(
 	tenantResponse.Index = returnTenetResult.TenantId
 	tenantResponse.Uuid = returnTenetResult.Uuid
 	tenantResponse.DocsCount = returnTenetResult.Docs_count
-	tenantResponse.DocsDeleted = returnTenetResult.Docs_deleted
+	tenantResponse.DocsDeleted = strconv.Itoa(returnTenetResult.Docs_deleted)
 	tenantResponse.Size = datasize
 	if healthOk == "1" {
 		tenantResponse.Health = "green"
