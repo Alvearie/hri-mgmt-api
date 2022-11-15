@@ -182,3 +182,8 @@ func getBatchMetaData(requestId string, tenantId string, batchId string, mongoCl
 	batchMap := batch.(map[string]interface{})
 	return batchMap, nil
 }
+func logNoUpdateToBatchStatus(origBatchStatus string, logger logrus.FieldLogger, requestId string) (int, interface{}) {
+	errMsg := fmt.Sprintf("sendComplete failed, batch is in '%s' state", origBatchStatus)
+	logger.Errorln(errMsg)
+	return http.StatusConflict, response.NewErrorDetail(requestId, errMsg)
+}

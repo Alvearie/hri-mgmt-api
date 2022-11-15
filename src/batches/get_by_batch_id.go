@@ -24,6 +24,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const msgMissingStatusElem = "Error: Cosmos Search Result body does Not have the expected 'integratorId' Element"
+
 const docNotFoundMsg string = "The document for tenantId: %s with document (batch) ID: %s was not found"
 
 func GetByBatchId(requestId string, batch model.GetByIdBatch, claims auth.HriAzClaims, client *mongo.Collection) (int, interface{}) {

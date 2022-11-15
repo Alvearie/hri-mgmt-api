@@ -8,10 +8,10 @@ package batches
 import (
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/param/esparam"
-	"strings"
 )
 
 const (
@@ -21,13 +21,6 @@ const (
 	statusErrMissingField string = "'status' field missing"
 	statusErrInvalidValue string = "Invalid 'status' value: "
 )
-
-func EsDocToBatch(esDoc map[string]interface{}) map[string]interface{} {
-	batch := esDoc["_source"].(map[string]interface{})
-	batch[param.BatchId] = esDoc[esparam.EsDocId]
-	batch = NormalizeBatchRecordCountValues(batch)
-	return batch
-}
 
 func ExtractBatchStatus(batch interface{}) (status.BatchStatus, error) {
 	var batchStatus = status.Unknown
