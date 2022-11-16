@@ -33,10 +33,10 @@ func GetByBatchId(requestId string, batch model.GetByIdBatch, claims auth.HriAzC
 	logger := logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Tenants Get By ID(Metadata)")
 	// validate that caller has sufficient permissions
-	if !claims.HasRole(auth.HriIntegrator) && !claims.HasRole(auth.HriConsumer) {
-		msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "GetByBatchId")
-		logger.Errorln(msg)
-		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
+	if !claims.HasRole(auth.HriIntegrator) || !claims.HasRole(auth.GetAuthRole(batch.TenantId, auth.HriIntegrator)) || !claims.HasRole(auth.HriConsumer) || !claims.HasRole(auth.GetAuthRole(batch.TenantId, auth.HriConsumer)) {
+		errMsg := auth.MsgAccessTokenMissingScopes
+		logger.Errorln(errMsg)
+		return http.StatusUnauthorized, response.NewErrorDetail(requestId, errMsg)
 	}
 
 	logger.Debugf("params_tenantID: %v, batchID: %v", batch.TenantId, batch.BatchId)

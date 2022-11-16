@@ -37,7 +37,7 @@ func TerminateBatch(
 	logger.Debugln("Start Batch Terminate")
 
 	// Only Integrators can call terminate
-	if !claims.HasRole(auth.HriIntegrator) {
+	if !claims.HasRole(auth.HriIntegrator) || !claims.HasRole(auth.GetAuthRole(request.TenantId, auth.HriIntegrator)) {
 		msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "terminate")
 		logger.Errorln(msg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)

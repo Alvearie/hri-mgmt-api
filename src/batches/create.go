@@ -94,7 +94,7 @@ func CreateBatch(
 	logger.Debugln("Start Batch Create")
 
 	// validate that caller has sufficient permissions
-	if !claims.HasRole(auth.HriIntegrator) {
+	if !claims.HasRole(auth.HriIntegrator) || !claims.HasRole(auth.GetAuthRole(batch.TenantId, auth.HriIntegrator)) {
 		msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "create")
 		logger.Errorln(msg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
