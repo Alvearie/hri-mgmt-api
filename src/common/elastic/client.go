@@ -5,24 +5,7 @@
  */
 package elastic
 
-import (
-	"bytes"
-	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/config"
-	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	service "github.com/IBM/resource-controller-go-sdk-generator/build/generated"
-	"github.com/elastic/go-elasticsearch/v7"
-	"github.com/sirupsen/logrus"
-	"net/http"
-	"strings"
-)
-
+/*
 // DateTimeFormat magical reference date must be used for some reason
 const DateTimeFormat string = "2006-01-02T15:04:05Z"
 
@@ -156,3 +139,4 @@ func TenantsFromIndices(body []map[string]interface{}) map[string]interface{} {
 	tenantsMap["results"] = indices
 	return tenantsMap
 }
+*/

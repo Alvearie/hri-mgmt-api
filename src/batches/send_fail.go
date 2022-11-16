@@ -36,7 +36,7 @@ func SendFail(
 	logger.Debugln("Start Batch Fail")
 
 	// Only Integrators can call fail
-	if !claims.HasRole(auth.HriInternal) {
+	if !claims.HasRole(auth.GetAuthRole(request.TenantId, auth.HriInternal)) || !claims.HasRole(auth.HriInternal) {
 		msg := fmt.Sprintf(auth.MsgInternalRoleRequired, "failed")
 		logger.Errorln(msg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
@@ -101,6 +101,7 @@ func getBatchFailUpdateRequest(request *model.FailRequest) map[string]interface{
 			"batch.$.failureMessage":     request.FailureMessage,
 			"batch.$.endDate":            currentTime,
 		},
+		"$inc": bson.M{"docs_deleted": 1},
 	}
 
 	return updateRequest

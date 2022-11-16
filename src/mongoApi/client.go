@@ -20,7 +20,7 @@ func GetMongoCollection(collectionName string) *mongo.Collection {
 	return db.Collection(collectionName)
 }
 
-func IndexFromTenantId(tenantId string) string {
+func GetTenantWithBatchesSuffix(tenantId string) string {
 	return tenantId + "-batches"
 }
 

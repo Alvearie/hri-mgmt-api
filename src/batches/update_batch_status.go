@@ -11,12 +11,11 @@ import (
 	"net/http"
 
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
-	"github.com/Alvearie/hri-mgmt-api/mongoApi"
-
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
+	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -35,17 +34,19 @@ func updateBatchStatus(requestId string,
 	prefix := "batches/updateStatus"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Update Status")
-	tenant_id := mongoApi.IndexFromTenantId(tenantId)
+	//appending "-batches"
+	tenant_id := mongoApi.GetTenantWithBatchesSuffix(tenantId)
 
 	filter := bson.D{
 		{"tenantId", tenant_id},
 		{"batch.id", batchId},
 	}
 
-	updateResponse, updateErr := client.UpdateOne(
+	updateResponse, updateErr := client.UpdateMany(
 		context.Background(),
 		filter,
 		updateRequest, // request body
+
 	)
 
 	if updateErr != nil {
@@ -79,6 +80,7 @@ func updateBatchStatus(requestId string,
 			}
 			return response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, kafkaErrMsg)
 		}
+
 		return nil
 
 	} else {
@@ -101,7 +103,7 @@ func revertStatus(requestId string,
 	currentStatus status.BatchStatus,
 	logger logrus.FieldLogger) *response.ErrorDetailResponse {
 
-	tenant_id := mongoApi.IndexFromTenantId(tenantId)
+	tenant_id := mongoApi.GetTenantWithBatchesSuffix(tenantId)
 	var revertErrMsg = "(Attempt # %d) Error Reverting batch Status back to %s; CosmosResponseCode: %d, Cosmos error: %s"
 	var attemptNum = 1
 

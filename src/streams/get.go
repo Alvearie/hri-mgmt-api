@@ -19,34 +19,6 @@ import (
 
 const msgStreamsNotFound = "Unable to get stream names for tenant [%s]. %s"
 
-func Get(
-	requestId string, tenantId string,
-	adminClient kafka.KafkaAdmin) (int, interface{}) {
-	prefix := "streams/Get"
-	var logger = logwrapper.GetMyLogger(requestId, prefix)
-	logger.Debugln("List streams for: " + tenantId)
-
-	// get all topics for the kafka connection, then take only the streams for the given tenantId
-	topics, err := listTopics(adminClient)
-	if err != nil {
-		msg := fmt.Sprintf(msgStreamsNotFound, tenantId, err.Error())
-		logger.Errorln(msg)
-
-		returnCode := http.StatusInternalServerError
-		var kafkaErr = &cfk.Error{}
-		if errors.As(err, kafkaErr) {
-			code := kafkaErr.Code()
-			if code == cfk.ErrTopicAuthorizationFailed || code == cfk.ErrGroupAuthorizationFailed || code == cfk.ErrClusterAuthorizationFailed {
-				returnCode = http.StatusUnauthorized
-			}
-		}
-		return returnCode, err
-	}
-
-	streamNames := GetStreamNames(topics, tenantId)
-	return http.StatusOK, map[string]interface{}{"results": streamNames}
-}
-
 func GetStreamNames(topics []string, tenantId string) []map[string]interface{} {
 	streamNames := []map[string]interface{}{}
 	seenStreamIds := make(map[string]bool)

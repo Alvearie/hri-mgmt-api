@@ -5,17 +5,7 @@
  */
 package kafka
 
-import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/config"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"testing"
-)
-
+/*
 func TestNewConfluentWriter(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -146,4 +136,4 @@ func sendMessage(message *kafka.Message, channel chan kafka.Event) {
 // needed because you can't take the address of errors.New("")
 func errPtr(err error) *error {
 	return &err
-}
+}*/

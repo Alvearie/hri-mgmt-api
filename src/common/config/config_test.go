@@ -16,27 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testCert = `-----BEGIN CERTIFICATE-----
-MIIDDzCCAfegAwIBAgIJANEH58y2/kzHMA0GCSqGSIb3DQEBCwUAMB4xHDAaBgNV
-BAMME0lCTSBDbG91ZCBEYXRhYmFzZXMwHhcNMTgwNjI1MTQyOTAwWhcNMjgwNjIy
-MTQyOTAwWjAeMRwwGgYDVQQDDBNJQk0gQ2xvdWQgRGF0YWJhc2VzMIIBIjANBgkq
-hkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8lpaQGzcFdGqeMlmqjffMPpIQhqpd8qJ
-Pr3bIkrXJbTcJJ9uIckSUcCjw4Z/rSg8nnT13SCcOl+1to+7kdMiU8qOWKiceYZ5
-y+yZYfCkGaiZVfazQBm45zBtFWv+AB/8hfCTdNF7VY4spaA3oBE2aS7OANNSRZSK
-pwy24IUgUcILJW+mcvW80Vx+GXRfD9Ytt6PRJgBhYuUBpgzvngmCMGBn+l2KNiSf
-weovYDCD6Vngl2+6W9QFAFtWXWgF3iDQD5nl/n4mripMSX6UG/n6657u7TDdgkvA
-1eKI2FLzYKpoKBe5rcnrM7nHgNc/nCdEs5JecHb1dHv1QfPm6pzIxwIDAQABo1Aw
-TjAdBgNVHQ4EFgQUK3+XZo1wyKs+DEoYXbHruwSpXjgwHwYDVR0jBBgwFoAUK3+X
-Zo1wyKs+DEoYXbHruwSpXjgwDAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQsFAAOC
-AQEAJf5dvlzUpqaix26qJEuqFG0IP57QQI5TCRJ6Xt/supRHo63eDvKw8zR7tlWQ
-lV5P0N2xwuSl9ZqAJt7/k/3ZeB+nYwPoyO3KvKvATunRvlPBn4FWVXeaPsG+7fhS
-qsejmkyonYw77HRzGOzJH4Zg8UN6mfpbaWSsyaExvqknCp9SoTQP3D67AzWqb1zY
-doqqgGIZ2nxCkp5/FXxF/TMb55vteTQwfgBy60jVVkbF7eVOWCv0KaNHPF5hrqbN
-i+3XjJ7/peF3xMvTMoy35DcT3E2ZeSVjouZs15O90kI3k2daS2OHJABW0vSj4nLz
-+PQzp/B9cQmOO8dCe049Q3oaUA==
------END CERTIFICATE-----
-`
-
 func TestValidateConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name           string
@@ -48,17 +27,6 @@ func TestValidateConfig(t *testing.T) {
 			config: Config{
 				ConfigPath:         "validPath",
 				AuthDisabled:       false,
-				OidcIssuer:         "https://us-south.appid.cloud.ibm.com/oauth/v4/",
-				JwtAudienceId:      "",
-				Validation:         false,
-				ElasticUrl:         "https://ibm.com",
-				ElasticUsername:    "elasticUsername",
-				ElasticPassword:    "elasticPassword",
-				ElasticCert:        testCert,
-				ElasticServiceCrn:  "elasticServiceCrn",
-				KafkaAdminUrl:      "https://ibm.kafka.com",
-				KafkaBrokers:       StringSlice{"broker 1", "broker 2"},
-				KafkaProperties:    StringMap{"sasl.mechanism": "PLAIN", "sasl.username": "kafkaUsername", "sasl.password": "kafkaPassword"},
 				LogLevel:           "info",
 				NewRelicEnabled:    true,
 				NewRelicAppName:    "nrAppName",
@@ -100,16 +68,6 @@ func TestValidateConfig(t *testing.T) {
 			config: Config{
 				ConfigPath:         "validPath",
 				AuthDisabled:       false,
-				OidcIssuer:         "invalidUrl.gov",
-				JwtAudienceId:      "",
-				Validation:         false,
-				ElasticUrl:         "https://ibm.com",
-				ElasticUsername:    "elasticUsername",
-				ElasticPassword:    "elasticPassword",
-				ElasticCert:        testCert,
-				ElasticServiceCrn:  "elasticServiceCrn",
-				KafkaAdminUrl:      "https://ibm.kafka.com",
-				KafkaBrokers:       StringSlice{"broker 1", "broker 2"},
 				LogLevel:           "info",
 				NewRelicEnabled:    true,
 				NewRelicAppName:    "nrAppName",
@@ -125,25 +83,15 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "nr enabled but no app name or license",
 			config: Config{
-				ConfigPath:        "validPath",
-				AuthDisabled:      false,
-				OidcIssuer:        "https://us-south.appid.cloud.ibm.com/oauth/v4/",
-				JwtAudienceId:     "",
-				Validation:        false,
-				ElasticUrl:        "https://ibm.com",
-				ElasticUsername:   "elasticUsername",
-				ElasticPassword:   "elasticPassword",
-				ElasticCert:       testCert,
-				ElasticServiceCrn: "elasticServiceCrn",
-				KafkaAdminUrl:     "https://ibm.kafka.com",
-				KafkaBrokers:      StringSlice{"broker 1", "broker 2"},
-				LogLevel:          "info",
-				NewRelicEnabled:   true,
-				MongoDBUri:        "mongoDbUri",
-				MongoDBName:       "HRI-DEV",
-				MongoColName:      "HRI-Mgmt",
-				AzOidcIssuer:      "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
-				AzJwtAudienceId:   "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
+				ConfigPath:      "validPath",
+				AuthDisabled:    false,
+				LogLevel:        "info",
+				NewRelicEnabled: true,
+				MongoDBUri:      "mongoDbUri",
+				MongoDBName:     "HRI-DEV",
+				MongoColName:    "HRI-Mgmt",
+				AzOidcIssuer:    "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
+				AzJwtAudienceId: "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
 			},
 			expectedErrMsg: "Configuration errors:\n\tNew Relic monitoring enabled, but the New Relic app name was not specified\n\tNew Relic monitoring enabled, but the New Relic license key was not specified",
 		},
@@ -152,15 +100,6 @@ func TestValidateConfig(t *testing.T) {
 			config: Config{
 				ConfigPath:         "validPath",
 				AuthDisabled:       true,
-				JwtAudienceId:      "",
-				Validation:         false,
-				ElasticUrl:         "https://ibm.com",
-				ElasticUsername:    "elasticUsername",
-				ElasticPassword:    "elasticPassword",
-				ElasticCert:        testCert,
-				ElasticServiceCrn:  "elasticServiceCrn",
-				KafkaAdminUrl:      "https://ibm.kafka.com",
-				KafkaBrokers:       StringSlice{"broker 1", "broker 2"},
 				LogLevel:           "info",
 				NewRelicEnabled:    true,
 				NewRelicAppName:    "nrAppName",
@@ -180,16 +119,6 @@ func TestValidateConfig(t *testing.T) {
 			config: Config{
 				ConfigPath:         "validPath",
 				AuthDisabled:       false,
-				OidcIssuer:         "https://us-south.appid.cloud.ibm.com/oauth/v4/",
-				JwtAudienceId:      "",
-				Validation:         false,
-				ElasticUrl:         "https://elastic.com",
-				ElasticUsername:    "elasticUsername",
-				ElasticPassword:    "elasticPassword",
-				ElasticCert:        "Invalid Certificate",
-				ElasticServiceCrn:  "elasticServiceCrn",
-				KafkaAdminUrl:      "https://ibm.kafka.com",
-				KafkaBrokers:       StringSlice{"broker 1", "broker 2"},
 				LogLevel:           "info",
 				NewRelicEnabled:    true,
 				NewRelicAppName:    "nrAppName",
@@ -269,17 +198,6 @@ func TestGetConfig(t *testing.T) {
 			expectedConfig: Config{
 				ConfigPath:         configPath,
 				AuthDisabled:       false,
-				OidcIssuer:         "http://ValFromEnv.gov",
-				JwtAudienceId:      "ValFromFlag",
-				Validation:         true,
-				ElasticUrl:         "https://elastic.com",
-				ElasticUsername:    "elasticUsername",
-				ElasticPassword:    "elasticPassword",
-				ElasticCert:        testCert,
-				ElasticServiceCrn:  "elasticCrn",
-				KafkaAdminUrl:      "https://ibm.kafka.com",
-				KafkaBrokers:       StringSlice{"broker1", "broker2"},
-				KafkaProperties:    StringMap{"sasl.mechanism": "PLAIN", "sasl.username": "kafkaUsername", "sasl.password": "kafkaPassword"},
 				LogLevel:           "info",
 				NewRelicEnabled:    true,
 				NewRelicAppName:    "nrAppName",
@@ -328,11 +246,11 @@ func expectedConfigExists(c Config) bool {
 	if c.ConfigPath != "" {
 		return true
 	}
-	if c.OidcIssuer != "" {
-		return true
-	}
-	if c.JwtAudienceId != "" {
-		return true
-	}
+	// if c.OidcIssuer != "" {
+	// 	return true
+	// }
+	// if c.JwtAudienceId != "" {
+	// 	return true
+	// }
 	return false
 }

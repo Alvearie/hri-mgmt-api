@@ -16,29 +16,7 @@ import (
 
 	// "fmt"
 	"net/http"
-
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
-	"github.com/elastic/go-elasticsearch/v7"
 )
-
-func Delete(requestId string, tenantId string, client *elasticsearch.Client) (int, interface{}) {
-	prefix := "tenants/Delete"
-	var logger = logwrapper.GetMyLogger(requestId, prefix)
-	logger.Debugln("Start Tenant Delete")
-
-	index := []string{elastic.IndexFromTenantId(tenantId)}
-
-	//make call to elastic to delete tenant
-	res, err2 := client.Indices.Delete(index)
-
-	_, elasticErr := elastic.DecodeBody(res, err2)
-	if elasticErr != nil {
-		return elasticErr.Code, elasticErr.LogAndBuildErrorDetail(requestId,
-			logger, fmt.Sprintf("Could not delete tenant [%s]", tenantId))
-	}
-
-	return http.StatusOK, nil
-}
 
 func DeleteTenant(requestId string, tenantId string, mongoClient *mongo.Collection) (int, interface{}) {
 	prefix := "tenants/Delete"
@@ -46,7 +24,7 @@ func DeleteTenant(requestId string, tenantId string, mongoClient *mongo.Collecti
 	logger.Debugln("Start Tenant Delete")
 
 	var ctx = context.Background()
-	var filter = bson.M{"tenantId": mongoApi.IndexFromTenantId(tenantId)}
+	var filter = bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId)}
 
 	//make call to elastic to delete tenant
 	result, err := mongoClient.DeleteOne(ctx, filter)

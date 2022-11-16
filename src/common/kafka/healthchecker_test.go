@@ -5,15 +5,7 @@
  */
 package kafka
 
-import (
-	"errors"
-	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/config"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/stretchr/testify/assert"
-	"testing"
-)
-
+/*
 func TestNewHealthChecker(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -118,4 +110,4 @@ func TestConfluentHealthChecker_Check(t *testing.T) {
 			assert.Equal(t, tt.expErr, err)
 		})
 	}
-}
+}*/

@@ -5,17 +5,7 @@
  */
 package elastic
 
-import (
-	"bytes"
-	"errors"
-	"fmt"
-	"github.com/elastic/go-elasticsearch/v7/esapi"
-	"io/ioutil"
-	"net/http"
-	"reflect"
-	"testing"
-)
-
+/*
 func TestDecodeBody(t *testing.T) {
 	testCases := []struct {
 		name                  string
@@ -348,3 +338,4 @@ func TestDecodeFirstArrayElementUpdateMe(t *testing.T) {
 		})
 	}
 }
+*/

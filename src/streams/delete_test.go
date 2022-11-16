@@ -8,15 +8,16 @@ package streams
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
+	"reflect"
+	"testing"
+
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
 	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/golang/mock/gomock"
-	"net/http"
-	"os"
-	"reflect"
-	"testing"
 )
 
 const (
@@ -24,7 +25,7 @@ const (
 	unauthorizedMessage  string = "Authorization failed."
 )
 
-func TestDelete(t *testing.T) {
+func TestDeleteStream(t *testing.T) {
 	logwrapper.Initialize("error", os.Stdout)
 	var requestId = "reqIdZz05"
 
@@ -105,7 +106,7 @@ func TestDelete(t *testing.T) {
 			Return(tc.deleteResults, tc.deleteError).
 			MaxTimes(1)
 
-		actualCode, actualErrMsg := Delete(requestId, tc.topics, mockService)
+		actualCode, actualErrMsg := DeleteStream(requestId, tc.topics, mockService)
 
 		t.Run(tc.name, func(t *testing.T) {
 			if actualCode != tc.expectedReturnCode || !reflect.DeepEqual(tc.expectedError, actualErrMsg) {

@@ -33,7 +33,7 @@ func SendStatusComplete(requestId string,
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
 	// Only Integrators can call sendComplete
-	if !claims.HasRole(auth.HriIntegrator) {
+	if !claims.HasRole(auth.HriIntegrator) || !claims.HasRole(auth.GetAuthRole(request.TenantId, auth.HriIntegrator)) {
 		msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
 		logger.Errorln(msg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
@@ -104,6 +104,7 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 	} else {
 		expectedRecordCount = *request.RecordCount
 	}
+
 	var updateRequest map[string]interface{}
 	// When validation is enabled
 	//   - change the status to 'sendCompleted'
@@ -116,6 +117,7 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 					"batch.$.status":              status.SendCompleted.String(),
 					"batch.$.expectedRecordCount": expectedRecordCount,
 				},
+				"$inc": bson.M{"docs_deleted": 1},
 			}
 
 		} else {
@@ -126,6 +128,7 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 					"batch.$.status":              status.SendCompleted.String(),
 					"batch.$.expectedRecordCount": expectedRecordCount,
 				},
+				"$inc": bson.M{"docs_deleted": 1},
 			}
 		}
 	} else {
@@ -143,6 +146,7 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 					"batch.$.expectedRecordCount": expectedRecordCount,
 					"batch.$.endDate":             currentTime,
 				},
+				"$inc": bson.M{"docs_deleted": 1},
 			}
 		} else {
 
@@ -153,7 +157,9 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 					"batch.$.expectedRecordCount": expectedRecordCount,
 					"batch.$.endDate":             currentTime,
 				},
+				"$inc": bson.M{"docs_deleted": 1},
 			}
+
 		}
 	}
 	return updateRequest
@@ -175,4 +181,9 @@ func getBatchMetaData(requestId string, tenantId string, batchId string, mongoCl
 	}
 	batchMap := batch.(map[string]interface{})
 	return batchMap, nil
+}
+func logNoUpdateToBatchStatus(origBatchStatus string, logger logrus.FieldLogger, requestId string) (int, interface{}) {
+	errMsg := fmt.Sprintf("sendComplete failed, batch is in '%s' state", origBatchStatus)
+	logger.Errorln(errMsg)
+	return http.StatusConflict, response.NewErrorDetail(requestId, errMsg)
 }

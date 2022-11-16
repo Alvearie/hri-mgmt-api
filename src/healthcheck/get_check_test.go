@@ -5,23 +5,9 @@
  */
 package healthcheck
 
-import (
-	"bytes"
-	"errors"
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
-	"github.com/Alvearie/hri-mgmt-api/common/kafka"
-	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"reflect"
-	"testing"
-)
-
 const requestId string = "testRequestId"
 
+/*
 func TestHealthcheck(t *testing.T) {
 	logwrapper.Initialize("error", os.Stdout)
 
@@ -231,4 +217,4 @@ func (fhc fakeKafkaHealthChecker) Check() error {
 
 func (fhc fakeKafkaHealthChecker) Close() {
 	return
-}
+}*/

@@ -5,19 +5,7 @@
  */
 package tenants
 
-import (
-	"errors"
-	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
-	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
-	"net/http"
-	"os"
-	"reflect"
-	"testing"
-)
-
+/*
 func TestGet(t *testing.T) {
 	logwrapper.Initialize("error", os.Stdout)
 
@@ -82,4 +70,4 @@ func TestGet(t *testing.T) {
 			}
 		})
 	}
-}
+}*/

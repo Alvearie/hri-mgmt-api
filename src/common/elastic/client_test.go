@@ -5,25 +5,7 @@
  */
 package elastic
 
-import (
-	"bytes"
-	"crypto/tls"
-	"errors"
-	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/config"
-	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
-	"github.com/IBM/resource-controller-go-sdk-generator/build/generated"
-	"github.com/elastic/go-elasticsearch/v7"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"strings"
-	"testing"
-)
-
+/*
 const MOCK_RESPONSE string = "mocked response"
 
 type mockTransport struct{}
@@ -250,3 +232,4 @@ func TestTenantsFromIndices(t *testing.T) {
 	expResultsMap["results"] = expIndices
 	assert.Equal(t, expResultsMap, resultsMap)
 }
+*/

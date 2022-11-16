@@ -24,6 +24,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const msgMissingStatusElem = "Error: Cosmos Search Result body does Not have the expected 'integratorId' Element"
+
 const docNotFoundMsg string = "The document for tenantId: %s with document (batch) ID: %s was not found"
 
 func GetByBatchId(requestId string, batch model.GetByIdBatch, claims auth.HriAzClaims, client *mongo.Collection) (int, interface{}) {
@@ -31,7 +33,7 @@ func GetByBatchId(requestId string, batch model.GetByIdBatch, claims auth.HriAzC
 	logger := logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Tenants Get By ID(Metadata)")
 	// validate that caller has sufficient permissions
-	if !claims.HasRole(auth.HriIntegrator) && !claims.HasRole(auth.GetAuthRole(batch.TenantId, auth.HriIntegrator)) && !claims.HasRole(auth.HriConsumer) && !claims.HasRole(auth.GetAuthRole(batch.TenantId, auth.HriConsumer)) {
+	if !claims.HasRole(auth.HriIntegrator) && !claims.HasRole(auth.HriConsumer) {
 		msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "GetByBatchId")
 		logger.Errorln(msg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
@@ -58,7 +60,7 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 	claims *auth.HriAzClaims, client *mongo.Collection) (int, interface{}) {
 
 	//Apending "-batches" to tenants id
-	index := mongoApi.IndexFromTenantId(batch.TenantId)
+	index := mongoApi.GetTenantWithBatchesSuffix(batch.TenantId)
 	logger.Debugf("index: %v", index)
 
 	var details []bson.M
@@ -102,7 +104,7 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 	mapResponse := map[string]interface{}(mapResponseBody)
 
 	if !noAuthFlag {
-		errDetailResponse := checkBatchAuth(requestId, claims, mapResponse, batch.TenantId)
+		errDetailResponse := checkBatchAuth(requestId, claims, mapResponse)
 		if errDetailResponse != nil {
 			return errDetailResponse.Code, errDetailResponse.Body
 		}
@@ -114,11 +116,11 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 
 // Data Integrators and Consumers can call this endpoint, but the behavior is slightly different. Consumers can see
 // all Batches, but Data Integrators are only allowed to see Batches they created.
-func checkBatchAuth(requestId string, claims *auth.HriAzClaims, resultBody map[string]interface{}, tenantId string) *response.ErrorDetailResponse {
-	if claims.HasRole(auth.HriConsumer) && claims.HasRole(auth.GetAuthRole(tenantId, auth.HriConsumer)) { //= Always Authorized
+func checkBatchAuth(requestId string, claims *auth.HriAzClaims, resultBody map[string]interface{}) *response.ErrorDetailResponse {
+	if claims.HasRole(auth.HriConsumer) { //= Always Authorized
 		return nil // return nil Error for Authorized
 	}
-	if claims.HasRole(auth.HriIntegrator) && claims.HasRole(auth.GetAuthRole(tenantId, auth.HriIntegrator)) {
+	if claims.HasRole(auth.HriIntegrator) {
 		if integratorId, ok := resultBody[param.IntegratorId].(string); ok {
 			//if claims.Subject from the token does NOT match the previously saved batch.IntegratorId, user NOT Authorized
 			if claims.Subject != integratorId {

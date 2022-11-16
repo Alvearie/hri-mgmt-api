@@ -5,13 +5,7 @@
  */
 package elastic
 
-import (
-	"encoding/json"
-	"fmt"
-	"github.com/elastic/go-elasticsearch/v7/esapi"
-	"net/http"
-)
-
+/*
 const msgClientErr string = "elasticsearch client error: %w"
 const MsgNilResponse string = "elasticsearch client returned nil response without an error"
 const msgParseErr string = "error parsing the Elasticsearch response body: %w"
@@ -120,3 +114,4 @@ func checkForClientErr(res *esapi.Response, err error) *ResponseError {
 	}
 	return nil
 }
+*/
