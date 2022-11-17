@@ -6,22 +6,7 @@
 
 package healthcheck
 
-import (
-	"github.com/Alvearie/hri-mgmt-api/common/config"
-	"github.com/Alvearie/hri-mgmt-api/common/kafka"
-	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
-	"github.com/elastic/go-elasticsearch/v7"
-	"github.com/labstack/echo/v4"
-	"github.com/stretchr/testify/assert"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"reflect"
-	"testing"
-)
-
+/*
 func TestNewHandler(t *testing.T) {
 	config := config.Config{
 		ConfigPath:      "",
@@ -105,4 +90,4 @@ func TestHealthcheckHandler(t *testing.T) {
 			}
 		})
 	}
-}
+}*/

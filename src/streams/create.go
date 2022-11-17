@@ -22,67 +22,6 @@ const (
 	replicationFactor int = 3
 )
 
-func Create(
-	request model.CreateStreamsRequest,
-	tenantId string,
-	streamId string,
-	validationEnabled bool,
-	requestId string,
-	adminClient kafka.KafkaAdmin) ([]string, int, error) {
-
-	prefix := "streams/create"
-	var logger = logwrapper.GetMyLogger(requestId, prefix)
-	logger.Debugln("Start Streams Create")
-
-	inTopicName, notificationTopicName, outTopicName, invalidTopicName := kafka.CreateTopicNames(
-		tenantId, streamId)
-
-	//numPartitions and retentionTime configs are required, the rest are optional
-	topicConfig := setUpTopicConfig(request)
-
-	// Build up topic names and partition counts arrays. Orders are:
-	// { inTopicName, notificationTopicName, outTopicName, invalidTopicName }
-	// { <fromCreateRequest>, 1, <fromCreateRequest>, 1 }
-	// create notification and invalid topics with only 1 Partition b/c of the small expected msg volume for these topics
-	topicNames := make([]string, 0, 4)
-	partitionCounts := make([]int, 0, 4)
-
-	topicNames = append(topicNames, inTopicName, notificationTopicName)
-	partitionCounts = append(partitionCounts, int(*request.NumPartitions), onePartition)
-	if validationEnabled {
-		topicNames = append(topicNames, outTopicName, invalidTopicName)
-		partitionCounts = append(partitionCounts, int(*request.NumPartitions), onePartition)
-	}
-	topicSpecs := buildTopicSpecifications(topicNames, partitionCounts, topicConfig)
-
-	ctx := context.Background()
-
-	results, err := adminClient.CreateTopics(ctx, topicSpecs, cfk.SetAdminRequestTimeout(kafka.AdminTimeout))
-	if err != nil {
-		return make([]string, 0), http.StatusInternalServerError, fmt.Errorf("unexpected error creating Kafka topics: %w", err)
-	}
-
-	createdTopics := make([]string, 0, 4)
-	errs := make([]cfk.Error, 0, 4)
-	for _, res := range results {
-		if res.Error.Code() != cfk.ErrNoError {
-			logger.Errorf(res.Error.Error())
-			errs = append(errs, res.Error)
-		} else {
-			createdTopics = append(createdTopics, res.Topic)
-		}
-	}
-
-	returnCode := http.StatusCreated
-	err = nil
-	if len(errs) > 0 {
-		err = errs[0]
-		returnCode = getResponseCodeAndErrorMessage(errs[0])
-	}
-
-	return createdTopics, returnCode, err
-}
-
 func CreateStream(
 	request model.CreateStreamsRequest,
 	tenantId string,

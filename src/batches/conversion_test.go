@@ -6,59 +6,60 @@
 package batches
 
 import (
-	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"reflect"
 	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/batches/status"
 )
 
-func TestEsDocToBatch(t *testing.T) {
-	tests := []struct {
-		name     string
-		esDoc    map[string]interface{}
-		expected map[string]interface{}
-	}{
-		{
-			name: "example1",
-			esDoc: map[string]interface{}{
-				"_index":        "test-batches",
-				"_type":         "_doc",
-				"_id":           "1",
-				"_version":      1,
-				"_seq_no":       0,
-				"_primary_term": 1,
-				"found":         true,
-				"_source": map[string]interface{}{
-					"name":         "batch-2019-10-07",
-					"topic":        "ingest.1.fhir",
-					"dataType":     "claims",
-					"integratorId": "dataIntegrator1",
-					"status":       "started",
-					"recordCount":  100,
-					"startDate":    "2019-10-30T12:34:00Z",
-				},
-			},
-			expected: map[string]interface{}{
-				"id":                  "1",
-				"name":                "batch-2019-10-07",
-				"topic":               "ingest.1.fhir",
-				"dataType":            "claims",
-				"integratorId":        "dataIntegrator1",
-				"status":              "started",
-				"recordCount":         100,
-				"expectedRecordCount": 100,
-				"startDate":           "2019-10-30T12:34:00Z",
-			},
-		},
-	}
+// func TestEsDocToBatch(t *testing.T) {
+// 	tests := []struct {
+// 		name     string
+// 		esDoc    map[string]interface{}
+// 		expected map[string]interface{}
+// 	}{
+// 		{
+// 			name: "example1",
+// 			esDoc: map[string]interface{}{
+// 				"_index":        "test-batches",
+// 				"_type":         "_doc",
+// 				"_id":           "1",
+// 				"_version":      1,
+// 				"_seq_no":       0,
+// 				"_primary_term": 1,
+// 				"found":         true,
+// 				"_source": map[string]interface{}{
+// 					"name":         "batch-2019-10-07",
+// 					"topic":        "ingest.1.fhir",
+// 					"dataType":     "claims",
+// 					"integratorId": "dataIntegrator1",
+// 					"status":       "started",
+// 					"recordCount":  100,
+// 					"startDate":    "2019-10-30T12:34:00Z",
+// 				},
+// 			},
+// 			expected: map[string]interface{}{
+// 				"id":                  "1",
+// 				"name":                "batch-2019-10-07",
+// 				"topic":               "ingest.1.fhir",
+// 				"dataType":            "claims",
+// 				"integratorId":        "dataIntegrator1",
+// 				"status":              "started",
+// 				"recordCount":         100,
+// 				"expectedRecordCount": 100,
+// 				"startDate":           "2019-10-30T12:34:00Z",
+// 			},
+// 		},
+// 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if batch := EsDocToBatch(tt.esDoc); !reflect.DeepEqual(batch, tt.expected) {
-				t.Errorf("EsDocToBatch() = %v, expected %v", batch, tt.expected)
-			}
-		})
-	}
-}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			if batch := EsDocToBatch(tt.esDoc); !reflect.DeepEqual(batch, tt.expected) {
+// 				t.Errorf("EsDocToBatch() = %v, expected %v", batch, tt.expected)
+// 			}
+// 		})
+// 	}
+// }
 
 func TestExtractBatchStatus(t *testing.T) {
 	tests := []struct {

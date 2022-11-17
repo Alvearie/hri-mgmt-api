@@ -1,3 +1,8 @@
+/**
+ * (C) Copyright IBM Corp. 2020
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 package mongoApi
 
 import (
@@ -9,7 +14,7 @@ import (
 
 const DateTimeFormat string = "2006-01-02T15:04:05Z"
 
-func ConvertToJSON(tenantId string, docCount string, docsDeleted string) model.CreateTenantRequest {
+func ConvertToJSON(tenantId string, docCount string, docsDeleted int) model.CreateTenantRequest {
 	result := model.CreateTenantRequest{
 		//ID:            primitive.NewObjectID(),
 		TenantId:     tenantId,

@@ -31,19 +31,6 @@ type confluentAdminClient interface {
 	Close()
 }
 
-func NewHealthChecker(config config.Config) (HealthChecker, error) {
-	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
-	for key, value := range config.KafkaProperties {
-		kafkaConfig.SetKey(key, value)
-	}
-
-	client, err := kafka.NewAdminClient(kafkaConfig)
-	if err != nil {
-		return nil, fmt.Errorf("error constructing Kafka admin client: %w", err)
-	}
-
-	return confluentHealthChecker{client}, nil
-}
 func HriHealthChecker(config config.Config) (HealthChecker, error) {
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.AzKafkaBrokers, ",")}
 	//Add CA location

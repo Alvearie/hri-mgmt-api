@@ -5,20 +5,7 @@
  */
 package tenants
 
-import (
-	"errors"
-	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
-	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
-	"net/http"
-	"os"
-	"reflect"
-	"testing"
-)
-
-func TestDelete(t *testing.T) {
+/*unc TestDelete(t *testing.T) {
 	logwrapper.Initialize("error", os.Stdout)
 
 	requestId := "request_id_1"
@@ -73,4 +60,4 @@ func TestDelete(t *testing.T) {
 			tc.transport.VerifyCalls()
 		})
 	}
-}
+}*/

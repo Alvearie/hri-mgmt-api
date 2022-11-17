@@ -32,22 +32,6 @@ type confluentProducer interface {
 	Close()
 }
 
-func NewWriterFromConfig(config config.Config) (Writer, error) {
-	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.KafkaBrokers, ",")}
-	for key, value := range config.KafkaProperties {
-		kafkaConfig.SetKey(key, value)
-	}
-
-	producer, err := kafka.NewProducer(kafkaConfig)
-	if err != nil {
-		return nil, fmt.Errorf("error constructing Kafka producer: %w", err)
-	}
-
-	return confluentKafkaWriter{
-		producer,
-	}, nil
-}
-
 func NewWriterFromAzConfig(config config.Config) (Writer, error) {
 	kafkaConfig := &kafka.ConfigMap{"bootstrap.servers": strings.Join(config.AzKafkaBrokers, ",")}
 	for key, value := range config.AzKafkaProperties {

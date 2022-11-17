@@ -5,19 +5,7 @@
  */
 package tenants
 
-import (
-	"errors"
-	"fmt"
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
-	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
-	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
-	"os"
-	"reflect"
-	"testing"
-)
-
-func TestCreate(t *testing.T) {
+/*func TestCreate(t *testing.T) {
 	logwrapper.Initialize("error", os.Stdout)
 
 	requestId := "request_id_1"
@@ -65,4 +53,4 @@ func TestCreate(t *testing.T) {
 			tc.transport.VerifyCalls()
 		})
 	}
-}
+}*/

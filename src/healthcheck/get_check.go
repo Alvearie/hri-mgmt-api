@@ -1,3 +1,9 @@
+/*
+ * (C) Copyright IBM Corp. 2021
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package healthcheck
 
 import (
@@ -12,6 +18,10 @@ import (
 )
 
 const hriServiceUnavailableMsg string = "HRI Service Temporarily Unavailable | error Detail: %v"
+const statusAllGood string = "green"
+const serviceUnavailableMsg string = "HRI Service Temporarily Unavailable | error Detail: %v"
+const notReported string = "NotReported"
+const noStatusReported = "NONE/" + notReported
 
 func GetCheck(requestId string, client *mongo.Collection, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
 	prefix := "hrihealthcheck/getCheck"

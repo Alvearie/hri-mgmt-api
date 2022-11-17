@@ -10,39 +10,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Alvearie/hri-mgmt-api/common/elastic"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
-	"github.com/elastic/go-elasticsearch/v7"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
-
-func Create(
-	requestId string,
-	tenantId string,
-	esClient *elasticsearch.Client) (int, interface{}) {
-
-	prefix := "tenants/Create"
-	var logger = logwrapper.GetMyLogger(requestId, prefix)
-
-	//create new index
-	//esClient.Indices.Get()
-	indexRes, err := esClient.Indices.Create(elastic.IndexFromTenantId(tenantId))
-
-	// parse the response
-	_, elasticErr := elastic.DecodeBody(indexRes, err)
-	if elasticErr != nil {
-		return elasticErr.Code, elasticErr.LogAndBuildErrorDetail(requestId, logger,
-			fmt.Sprintf("Unable to create new tenant [%s]", tenantId))
-	}
-
-	// return the ID of the newly created tenant
-	respBody := map[string]interface{}{param.TenantId: tenantId}
-	return http.StatusCreated, respBody
-}
 
 func CreateTenant(
 	requestId string,
@@ -52,12 +26,12 @@ func CreateTenant(
 	prefix := "tenants/CreateTenant"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	var ctx = context.Background()
-	var filter = bson.M{"tenantId": mongoApi.IndexFromTenantId(tenantId)}
+	var filter = bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId)}
 	var returnResult model.CreateTenantRequest
 
 	//create new tenant In azure cosmos- mongo API
 	//As it is a new tenant creation passing docCount and docDeleted as 0
-	createTenantRequest := mongoApi.ConvertToJSON(mongoApi.IndexFromTenantId(tenantId), "0", "0")
+	createTenantRequest := mongoApi.ConvertToJSON(mongoApi.GetTenantWithBatchesSuffix(tenantId), "0", 0)
 
 	//check if duplicate tenantId or not
 	res := mongoClient.FindOne(ctx, filter).Decode(&returnResult)

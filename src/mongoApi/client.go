@@ -1,3 +1,8 @@
+/**
+ * (C) Copyright IBM Corp. 2020
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 package mongoApi
 
 import (
@@ -15,7 +20,7 @@ func GetMongoCollection(collectionName string) *mongo.Collection {
 	return db.Collection(collectionName)
 }
 
-func IndexFromTenantId(tenantId string) string {
+func GetTenantWithBatchesSuffix(tenantId string) string {
 	return tenantId + "-batches"
 }
 
