@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 
 #ruby=ruby-2.6.5
-ruby '2.6.5'
+ruby '3.0.4p208'
 
 gem 'rspec'
 gem 'rest-client'
@@ -15,3 +15,4 @@ gem 'rspec-support'
 gem 'ruby-kafka'
 gem 'specific_install'
 gem 'nokogiri'
+gem 'hri-test-helpers'

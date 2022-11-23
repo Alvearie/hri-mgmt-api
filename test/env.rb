@@ -22,6 +22,7 @@ require 'securerandom'
 require 'kafka'
 require 'base64'
 require 'nokogiri'
+require 'mongo'
 
 require 'hritesthelpers'
 
