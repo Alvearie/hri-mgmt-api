@@ -9,10 +9,13 @@ describe 'HRI Management API Without Validation' do
 
   INVALID_ID = 'INVALID'
   TENANT_ID = 'test0211'
+  AUTHORIZED_TENANT_ID = 'provider1234'
+  TENANT_ID_WITH_NO_ROLES = 'provider237'
   INTEGRATOR_ID = 'claims'
-  TEST_TENANT_ID = "rspec-#{'2311'.delete('.')}-test-tenant".downcase
-  TEST_INTEGRATOR_ID = "rspec-#{'2311'.delete('.')}-test-integrator".downcase
+  TEST_TENANT_ID = "rspec-#{'-'.delete('.')}-test-tenant".downcase
+  TEST_INTEGRATOR_ID = "rspec-#{'-'.delete('.')}-test-integrator".downcase
   DATA_TYPE = 'rspec-batch'
+  INVALIDTHRESHOLD = 10
   STATUS = 'started'
   BATCH_INPUT_TOPIC = "ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.in"
   KAFKA_TIMEOUT = 60
@@ -106,6 +109,23 @@ describe 'HRI Management API Without Validation' do
     rest_delete(url, nil, headers, {})
   end
 
+  def hri_get_batch(tenant_id, batch_id, override_headers = {})
+    url = "#{@hri_base_url}/tenants/#{tenant_id}/batches/#{batch_id}"
+    @az_token = get_access_token()
+    headers = { 'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+                'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
+    rest_get(url, headers)
+  end
+
+  def hri_post_batch(tenant_id, request_body, override_headers = {})
+    url = "#{@hri_base_url}/tenants/#{tenant_id}/batches"
+    @az_token = get_access_token()
+    headers = { 'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+                'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
+    rest_post(url, request_body, headers)
+  end
 
   def response_rescue_wrapper
     yield
@@ -288,58 +308,6 @@ describe 'HRI Management API Without Validation' do
 
   end
 
-  context 'GET /tenants' do
-
-    it 'Success' do
-      response = hri_get_tenants
-      expect(response.code).to eq 200
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['results'].to_s).to include TENANT_ID
-    end
-
-    it 'Unauthorized' do
-      response = hri_get_tenants({ 'Authorization': nil })
-      expect(response.code).to eq 401
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql 'Azure AD authentication returned 401'
-    end
-
-  end
-
-  context 'GET /tenants/{tenant_id}' do
-
-    it 'Success' do
-      response = hri_get_tenant(TEST_TENANT_ID)
-      expect(response.code).to eq 200
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['tenantId']).to eql "#{TEST_TENANT_ID}-batches"
-      expect(parsed_response['health']).to eql 'green'
-      expect(parsed_response['status']).to eql 'open'
-    end
-
-    it 'Invalid Tenant ID' do
-      response = hri_get_tenant(INVALID_ID)
-      expect(response.code).to eq 404
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Tenant: #{INVALID_ID} not found: [404]"
-    end
-
-    it 'Unauthorized' do
-      response = hri_get_tenant(INVALID_ID, {'Authorization': nil})
-      expect(response.code).to eq 401
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql 'Azure AD authentication returned 401'
-    end
-
-    it 'Ending Forward Slash' do
-      response = hri_custom_request('/tenants//', nil, {}, 'GET')
-      expect(response.code).to eq 404
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['message']).to eql 'Not Found'
-    end
-
-  end
-
   context 'POST /tenants/{tenant_id}/streams/{integrator_id}' do
 
     before(:each) do
@@ -482,6 +450,123 @@ describe 'HRI Management API Without Validation' do
 
   end
 
+  context 'DELETE /tenants/{tenant_id}/streams/{integrator_id}' do
+
+    it 'Success' do
+      #Delete Stream and Verify Deletion
+      Timeout.timeout(20, nil, 'Kafka topics not deleted after 20 seconds') do
+        loop do
+          response = hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID)
+          break if response.code == 200
+
+          response = hri_get_tenant_streams(TEST_TENANT_ID)
+          expect(response.code).to eq 200
+          parsed_response = JSON.parse(response.body)
+          break if parsed_response['results'] == []
+          sleep 1
+        end
+      end
+    end
+
+    it 'Invalid Stream' do
+      response = hri_delete_tenant_stream(INVALID_ID, TEST_INTEGRATOR_ID)
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unable to delete topic \"ingest.INVALID.rspec---test-integrator.in\": Broker: Unknown topic or partition\nUnable to delete topic \"ingest.INVALID.rspec---test-integrator.notification\": Broker: Unknown topic or partition"
+    end
+
+    it 'Missing Tenant ID' do
+      response = hri_delete_tenant_stream(nil, INTEGRATOR_ID)
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- tenantId (url path parameter) is a required field"
+    end
+
+    it 'Missing Authorization' do
+      response = hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, {'Authorization' => nil})
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Azure AD authentication returned 401"
+    end
+
+    it 'Invalid Authorization' do
+      response = hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, {'Authorization' => 'Bearer Invalid'})
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Azure AD authentication returned 401"
+    end
+
+    it 'Missing Stream ID' do
+      response = hri_delete_tenant_stream(TEST_TENANT_ID, nil)
+      expect(response.code).to eq 405
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['message']).to eql 'Method Not Allowed'
+    end
+
+    it 'Missing Stream ID With Ending Forward Slash' do
+      response = hri_custom_request("/tenants/#{TEST_TENANT_ID}/streams//", nil, {}, 'DELETE')
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['message']).to eql 'Not Found'
+    end
+
+    it 'Missing Stream ID With No Forward Slash' do
+      response = hri_custom_request("/tenants/#{TEST_TENANT_ID}/streams", nil, {}, 'DELETE')
+      expect(response.code).to eq 405
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['message']).to eql 'Method Not Allowed'
+    end
+
+  end
+
+  context 'DELETE /tenants/{tenant_id}' do
+
+    it 'Success' do
+      #Delete Tenant
+      response = hri_delete_tenant(TEST_TENANT_ID)
+      expect(response.code).to eq 200
+
+      #Verify Tenant Deleted
+      response = hri_get_tenant(TEST_TENANT_ID)
+      expect(response.code).to eq 404
+    end
+
+    it 'Invalid Tenant ID' do
+      response = hri_delete_tenant(INVALID_ID)
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Could not delete tenant [#{INVALID_ID}-batches]: [404]"
+    end
+
+    it 'Unauthorized' do
+      response = hri_delete_tenant(TEST_TENANT_ID, { 'Authorization': nil })
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'Azure AD authentication returned 401'
+    end
+
+    it 'Missing Tenant ID' do
+      response = hri_delete_tenant(nil)
+      expect(response.code).to eq 405
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['message']).to eql 'Method Not Allowed'
+    end
+
+    it 'Missing Tenant ID With Ending Forward Slash' do
+      response = hri_custom_request('/tenants//', nil, {}, 'DELETE')
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['message']).to eql 'Not Found'
+    end
+
+    it 'Missing Tenant ID With No Forward Slash' do
+      response = hri_custom_request('/tenants', nil, {}, 'DELETE')
+      expect(response.code).to eq 405
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['message']).to eql 'Method Not Allowed'
+    end
+
+  end
 
   context 'GET /tenants/{tenant_id}/streams' do
 
@@ -542,125 +627,258 @@ describe 'HRI Management API Without Validation' do
   end
 
 
-  context 'DELETE /tenants/{tenant_id}/streams/{integrator_id}' do
+  context 'GET /tenants' do
 
     it 'Success' do
-      #Delete Stream and Verify Deletion
-      Timeout.timeout(20, nil, 'Kafka topics not deleted after 20 seconds') do
-        loop do
-          response = hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID)
-          break if response.code == 200
-
-          response = hri_get_tenant_streams(TEST_TENANT_ID)
-          expect(response.code).to eq 200
-          parsed_response = JSON.parse(response.body)
-          break if parsed_response['results'] == []
-          sleep 1
-        end
-      end
-    end
-
-    it 'Invalid Stream' do
-      response = hri_delete_tenant_stream(INVALID_ID, TEST_INTEGRATOR_ID)
-      expect(response.code).to eq 404
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Unable to delete topic \"ingest.INVALID.rspec-2311-test-integrator.in\": Broker: Unknown topic or partition\nUnable to delete topic \"ingest.INVALID.rspec-2311-test-integrator.notification\": Broker: Unknown topic or partition"
-    end
-
-    it 'Missing Tenant ID' do
-      response = hri_delete_tenant_stream(nil, INTEGRATOR_ID)
-      expect(response.code).to eq 400
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- tenantId (url path parameter) is a required field"
-    end
-
-    it 'Missing Authorization' do
-      response = hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, {'Authorization' => nil})
-      expect(response.code).to eq 401
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Azure AD authentication returned 401"
-    end
-
-    it 'Invalid Authorization' do
-      response = hri_delete_tenant_stream(TEST_TENANT_ID, TEST_INTEGRATOR_ID, {'Authorization' => 'Bearer Invalid'})
-      expect(response.code).to eq 401
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Azure AD authentication returned 401"
-    end
-
-    it 'Missing Stream ID' do
-      response = hri_delete_tenant_stream(TEST_TENANT_ID, nil)
-      expect(response.code).to eq 405
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['message']).to eql 'Method Not Allowed'
-    end
-
-    it 'Missing Stream ID With Ending Forward Slash' do
-      response = hri_custom_request("/tenants/#{TEST_TENANT_ID}/streams//", nil, {}, 'DELETE')
-      expect(response.code).to eq 404
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['message']).to eql 'Not Found'
-    end
-
-    it 'Missing Stream ID With No Forward Slash' do
-      response = hri_custom_request("/tenants/#{TEST_TENANT_ID}/streams", nil, {}, 'DELETE')
-      expect(response.code).to eq 405
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['message']).to eql 'Method Not Allowed'
-    end
-
-  end
-
-
-
-  context 'DELETE /tenants/{tenant_id}' do
-
-    it 'Success' do
-      #Delete Tenant
-      response = hri_delete_tenant(TEST_TENANT_ID)
+      response = hri_get_tenants
       expect(response.code).to eq 200
-
-      #Verify Tenant Deleted
-      response = hri_get_tenant(TEST_TENANT_ID)
-      expect(response.code).to eq 404
-    end
-
-    it 'Invalid Tenant ID' do
-      response = hri_delete_tenant(INVALID_ID)
-      expect(response.code).to eq 404
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['errorDescription']).to eql "Could not delete tenant [#{INVALID_ID}-batches]: [404]"
+      expect(parsed_response['results'].to_s).to include TENANT_ID
     end
 
     it 'Unauthorized' do
-      response = hri_delete_tenant(TEST_TENANT_ID, { 'Authorization': nil })
+      response = hri_get_tenants({ 'Authorization': nil })
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql 'Azure AD authentication returned 401'
     end
 
-    it 'Missing Tenant ID' do
-      response = hri_delete_tenant(nil)
-      expect(response.code).to eq 405
+  end
+
+  context 'GET /tenants/{tenant_id}' do
+
+    it 'Success' do
+      response = hri_get_tenant(TEST_TENANT_ID)
+      expect(response.code).to eq 200
       parsed_response = JSON.parse(response.body)
-      expect(parsed_response['message']).to eql 'Method Not Allowed'
+      expect(parsed_response['tenantId']).to eql "#{TEST_TENANT_ID}-batches"
+      expect(parsed_response['health']).to eql 'green'
+      expect(parsed_response['status']).to eql 'open'
     end
 
-    it 'Missing Tenant ID With Ending Forward Slash' do
-      response = hri_custom_request('/tenants//', nil, {}, 'DELETE')
+    it 'Invalid Tenant ID' do
+      response = hri_get_tenant(INVALID_ID)
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Tenant: #{INVALID_ID} not found: [404]"
+    end
+
+    it 'Unauthorized' do
+      response = hri_get_tenant(INVALID_ID, {'Authorization': nil})
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'Azure AD authentication returned 401'
+    end
+
+    it 'Ending Forward Slash' do
+      response = hri_custom_request('/tenants//', nil, {}, 'GET')
       expect(response.code).to eq 404
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['message']).to eql 'Not Found'
     end
 
-    it 'Missing Tenant ID With No Forward Slash' do
-      response = hri_custom_request('/tenants', nil, {}, 'DELETE')
-      expect(response.code).to eq 405
-      parsed_response = JSON.parse(response.body)
-      expect(parsed_response['message']).to eql 'Method Not Allowed'
+  end
+
+  context 'POST /tenants/{tenant_id}/batches' do
+
+    before(:each) do
+      @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
+      @batch_template = {
+        name: @batch_name,
+        topic: BATCH_INPUT_TOPIC,
+        dataType: "#{DATA_TYPE}",
+        invalidThreshold: "#{INVALIDTHRESHOLD}".to_i,
+        metadata: {
+          "compression": "gzip",
+          "finalRecordCount": 20
+        }
+      }
     end
 
+    it 'Successful Batch Creation' do
+      #Create Batch
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @new_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Batch Created With ID: #{@new_batch_id}")
+
+      #Verify Batch in Elastic
+      response_val = hri_get_batch(AUTHORIZED_TENANT_ID, @new_batch_id)
+      #response.nil? ? (raise 'Azure cosmosDB get batch did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response_val.body)
+      puts parsed_response
+      expect(parsed_response['id']).to eql @new_batch_id
+      expect(parsed_response['found']).to be true
+      expect(parsed_response['source']['name']).to eql @batch_name
+      expect(parsed_response['source']['topic']).to eql BATCH_INPUT_TOPIC
+      expect(parsed_response['source']['dataType']).to eql "#{DATA_TYPE}"
+      expect(parsed_response['source']['invalidThreshold']).to eql "#{INVALIDTHRESHOLD}"
+      expect(parsed_response['source']['metadata']['compression']).to eql 'gzip'
+      expect(parsed_response['source']['metadata']['finalRecordCount']).to eql 20
+      expect(DateTime.parse(parsed_response['source']['startDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
+
+      #Verify Kafka Message
+      #Timeout.timeout(KAFKA_TIMEOUT) do
+      #Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@new_batch_id} and status: #{STATUS}")
+      #@kafka_consumer.each_message do |message|
+      #parsed_message = JSON.parse(message.value)
+      #if parsed_message['id'] == @new_batch_id and parsed_message['status'] == STATUS
+      #@message_found = true
+      #expect(parsed_message['dataType']).to eql "#{DATA_TYPE}"
+      #expect(parsed_message['id']).to eql @new_batch_id
+      #expect(parsed_message['name']).to eql @batch_name
+      #expect(parsed_message['topic']).to eql BATCH_INPUT_TOPIC
+      #expect(parsed_message['status']).to eql STATUS
+      #expect(parsed_message['source']['invalidThreshold']).to eql "#{INVALIDTHRESHOLD}"
+      #expect(DateTime.parse(parsed_message['startDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
+      #expect(parsed_message['source']['metadata']['compression']).to eql 'gzip'
+      #expect(parsed_message['source']['metadata']['finalRecordCount']).to eql 20
+
+      #break
+      #end
+      #end
+      #expect(@message_found).to be true
+      #end
+
+      #Delete Batch
+      #response = hri_get_batches(AUTHORIZED_TENANT_ID, @new_batch_id)
+      #expect(response.code).to eq 200
+      #parsed_response = JSON.parse(response.body)
+      #expect(parsed_response['id']).to eq @new_batch_id
+      #expect(parsed_response['result']).to eql 'deleted'
+    end
+
+    it 'should auto-delete a batch from Elastic if the batch was created with an invalid Kafka topic' do
+      #Create Batch with Bad Topic
+      @batch_template[:topic] = 'INVALID-TEST-TOPIC'
+      @batch_template[:dataType] = 'rspec-invalid-batch'
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 504
+      parsed_response = JSON.parse(response.body)
+      puts parsed_response
+      expect(parsed_response['errorDescription']).to eql 'kafka producer error: Broker: Unknown topic or partition'
+
+      #Verify Batch Delete
+      #Timeout.timeout(30, nil, 'Batch with invalid topic not deleted after 30 seconds') do
+      #loop do
+      #response = hri_get_batches(AUTHORIZED_TENANT_ID, nil, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      #expect(response.code).to eq 200
+      #parsed_response = JSON.parse(response.body)
+      #expect(parsed_response['total']).to be > 0
+      #@batch_found = false
+      #parsed_response['results'].each do |batch|
+      #@batch_found = true if batch['dataType'] == 'rspec-invalid-batch'
+      #end
+      #break unless @batch_found
+      #end
+      #end
+    end
+
+    it 'Invalid Name' do
+      @batch_template[:name] = 12345
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request param \"name\": expected type string, but received type number"
+    end
+
+    it 'Invalid Topic' do
+      @batch_template[:topic] = 12345
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request param \"topic\": expected type string, but received type number"
+    end
+
+    it 'Invalid Data Type' do
+      @batch_template[:dataType] = 12345
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request param \"dataType\": expected type string, but received type number"
+    end
+
+    it 'Missing Name' do
+      @batch_template.delete(:name)
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- name (json field in request body) is a required field"
+    end
+
+    it 'Missing Topic' do
+      @batch_template.delete(:topic)
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- topic (json field in request body) is a required field"
+    end
+
+    it 'Missing Data Type' do
+      @batch_template.delete(:dataType)
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- dataType (json field in request body) is a required field"
+    end
+
+    it 'Missing Name, Topic, and Data Type' do
+      @batch_template.delete(:name)
+      @batch_template.delete(:topic)
+      @batch_template.delete(:dataType)
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- dataType (json field in request body) is a required field\n- name (json field in request body) is a required field\n- topic (json field in request body) is a required field"
+    end
+
+    it 'Missing Tenant ID' do
+      response = hri_post_batch(nil, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_all_roles}" })
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- tenantId (url path parameter) is a required field"
+    end
+
+    it 'Unauthorized - Missing Authorization' do
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json,{ 'Authorization' => "No auth token" })
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'Azure AD authentication returned 401'
+    end
+
+    it 'Unauthorized - Invalid Tenant ID' do
+      response = hri_post_batch(TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+
+    it 'Unauthorized - No Roles' do
+      response = hri_post_batch(TENANT_ID_WITH_NO_ROLES, @batch_template.to_json)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'Must have hri_data_integrator role to create a batch'
+    end
+
+    it 'Unauthorized - Incorrect Roles' do
+      response = hri_post_batch(TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+
+    it 'Unauthorized - Invalid Audience' do
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_invalid_audience}" })
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Azure AD authentication returned 401"
+    end
   end
 
 
+
+
+
 end
+
