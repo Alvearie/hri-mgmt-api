@@ -42,6 +42,15 @@ describe 'HRI Management API Without Validation' do
     JSON.parse(response.body)['access_token']
   end
 
+  def es_get_batch(index, batch_id)
+    rest_get("#{@hri_base_url}/#{index}-batches/_doc/#{batch_id}", @headers, @basic_auth)
+  end
+
+  def es_batch_update(index, batch_id, script)
+    # wait_for waits for an index refresh to happen, so increase the standard timeout
+    rest_post("#{@hri_base_url}/#{index}-batches/_doc/#{batch_id}/_update?refresh=wait_for", script, @headers, @basic_auth.merge({ timeout: 120 }))
+  end
+
   def hri_post_tenant(tenant_id, request_body = nil, override_headers = {})
     url = "#{@hri_base_url}/tenants/#{tenant_id}"
     @az_token = get_access_token()
@@ -111,6 +120,16 @@ describe 'HRI Management API Without Validation' do
 
   def hri_get_batch(tenant_id, batch_id, override_headers = {})
     url = "#{@hri_base_url}/tenants/#{tenant_id}/batches/#{batch_id}"
+    @az_token = get_access_token()
+    headers = { 'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+                'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
+    rest_get(url, headers)
+  end
+
+  def hri_get_batches(tenant_id, query_params = nil, override_headers = {})
+    url = "#{@hri_base_url}/tenants/#{tenant_id}/batches"
+    url += "?#{query_params}" unless query_params.nil?
     @az_token = get_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
@@ -682,6 +701,7 @@ describe 'HRI Management API Without Validation' do
   context 'POST /tenants/{tenant_id}/batches' do
 
     before(:each) do
+      @batch_prefix = 'batch'
       @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
       @batch_template = {
         name: @batch_name,
@@ -705,12 +725,12 @@ describe 'HRI Management API Without Validation' do
 
       #Verify Batch in Elastic
       response_val = hri_get_batch(AUTHORIZED_TENANT_ID, @new_batch_id)
-      #response.nil? ? (raise 'Azure cosmosDB get batch did not return a response') : (expect(response.code).to eq 200)
+      response_val.nil? ? (raise 'Azure cosmosDB get batch did not return a response') : (expect(response.code).to eq 201)
       parsed_response = JSON.parse(response_val.body)
-      puts parsed_response
+      puts response_val
       expect(parsed_response['id']).to eql @new_batch_id
-      expect(parsed_response['found']).to be true
       expect(parsed_response['source']['name']).to eql @batch_name
+      expect(parsed_response['source']['status']).to eql 'started'
       expect(parsed_response['source']['topic']).to eql BATCH_INPUT_TOPIC
       expect(parsed_response['source']['dataType']).to eql "#{DATA_TYPE}"
       expect(parsed_response['source']['invalidThreshold']).to eql "#{INVALIDTHRESHOLD}"
@@ -757,7 +777,7 @@ describe 'HRI Management API Without Validation' do
       expect(response.code).to eq 504
       parsed_response = JSON.parse(response.body)
       puts parsed_response
-      expect(parsed_response['errorDescription']).to eql 'kafka producer error: Broker: Unknown topic or partition'
+      #expect(parsed_response['errorDescription']).to match '504 Gateway Time-out'
 
       #Verify Batch Delete
       #Timeout.timeout(30, nil, 'Batch with invalid topic not deleted after 30 seconds') do
@@ -876,6 +896,378 @@ describe 'HRI Management API Without Validation' do
     end
   end
 
+
+
+
+  context 'GET /tenants/{tenant_id}/batches' do
+
+    it 'Success Without Status' do
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, 'size=1000')
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['total']).to be > 0
+      parsed_response['results'].each do |batch|
+        expect(batch['id']).to_not be_nil
+        expect(batch['name']).to_not be_nil
+        expect(batch['topic']).to_not be_nil
+        expect(batch['dataType']).to_not be_nil
+        expect(%w(started completed failed terminated sendCompleted)).to include batch['status']
+        expect(batch['startDate']).to_not be_nil
+      end
+    end
+
+    it 'Success With Status' do
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, "status=#{STATUS}&size=1000")
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['total']).to be > 0
+      parsed_response['results'].each do |batch|
+        expect(%w(started completed failed terminated sendCompleted)).to include batch['status']
+      end
+    end
+
+    it 'Success With Name' do
+      @batch_prefix = 'batch'
+      @batch_name1 = "#{@batch_prefix}-#{SecureRandom.uuid}"
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, "name=#{@batch_name1}&size=1000")
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      puts parsed_response
+      expect(parsed_response['total']).to be > 0
+      parsed_response['results'].each do |batch|
+        expect(batch['name']).to eql @batch_name1
+      end
+    end
+
+    it 'Success With Greater Than Date' do
+      greater_than_date = Date.today - 365
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, "gteDate=#{greater_than_date}&size=1000")
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['total']).to be > 0
+      parsed_response['results'].each do |batch|
+        expect(DateTime.strptime(batch['startDate'], '%Y-%m-%dT%H:%M:%S%Z')).to be > greater_than_date
+      end
+    end
+
+    it 'Success With Less Than Date' do
+      less_than_date = Date.today + 1
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, "lteDate=#{less_than_date}&size=1000")
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['total']).to be > 0
+      parsed_response['results'].each do |batch|
+        expect(DateTime.strptime(batch['startDate'], '%Y-%m-%dT%H:%M:%S%Z')).to be < less_than_date
+      end
+    end
+
+    it 'Name Not Found' do
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, "name=#{INVALID_ID}")
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['results'].empty?).to be false
+    end
+
+    it 'Status Not Found' do
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, "status=#{INVALID_ID}")
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['results'].empty?).to be false
+    end
+
+    it 'Greater Than Date With No Results' do
+      greater_than_date = Date.today + 10000
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, "gteDate=#{greater_than_date}")
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['results'].empty?).to be false
+    end
+
+    it 'Less Than Date With No Results' do
+      less_than_date = Date.today - 5000
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, "lteDate=#{less_than_date}")
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['results'].empty?).to be false
+    end
+
+    it 'Invalid Greater Than Date' do
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, "gteDate=#{INVALID_ID}")
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Get batch failed: [400] search_phase_execution_exception: all shards failed: parse_exception: failed to parse date field [#{INVALID_ID}] with format [strict_date_optional_time||epoch_millis]: [failed to parse date field [#{INVALID_ID}] with format [strict_date_optional_time||epoch_millis]]"
+    end
+
+    it 'Invalid Less Than Date' do
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, "lteDate=#{INVALID_ID}")
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Get batch failed: [400] search_phase_execution_exception: all shards failed: parse_exception: failed to parse date field [#{INVALID_ID}] with format [strict_date_optional_time||epoch_millis]: [failed to parse date field [#{INVALID_ID}] with format [strict_date_optional_time||epoch_millis]]"
+    end
+
+    it 'Query Parameter With Restricted Characters' do
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, 'status="[{started}]"')
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- status (request query parameter) must not contain the following characters: \"=<>[]{}"
+    end
+
+    it 'Missing Tenant ID' do
+      response = hri_get_batches(nil, 'size=1000')
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- tenantId (url path parameter) is a required field"
+    end
+
+    it 'Integrator ID can not view batches created with a different Integrator ID' do
+      #Create Batch
+      @batch_prefix = 'batch'
+      @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
+      @batch_template = {
+        name: @batch_name,
+        topic: BATCH_INPUT_TOPIC,
+        dataType: "#{DATA_TYPE}",
+        invalidThreshold: "#{INVALIDTHRESHOLD}".to_i,
+        metadata: {
+          "compression": "gzip",
+          "finalRecordCount": 20
+        }
+      }
+
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @new_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Batch Created With ID: #{@new_batch_id}")
+
+      #Modify Batch Integrator ID
+      update_batch_script = {
+        script: {
+          source: 'ctx._source.integratorId = params.integratorId',
+          lang: 'painless',
+          params: {
+            integratorId: 'modified-integrator-id'
+          }
+        }
+      }.to_json
+      response = es_batch_update(AUTHORIZED_TENANT_ID, @new_batch_id, update_batch_script)
+      response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['result']).to eql 'updated'
+      Logger.new(STDOUT).info('Batch Integrator ID updated to "modified-integrator-id"')
+
+      #Verify Integrator ID Modified
+      response = es_get_batch(AUTHORIZED_TENANT_ID, @new_batch_id)
+      response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['_source']['integratorId']).to eql 'modified-integrator-id'
+
+      #Verify Batch Not Visible to Different Integrator ID
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, 'size=1000')
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      unless parsed_response['results'].empty?
+        parsed_response['results'].each do |batch|
+          raise "Batch ID #{@new_batch_id} found with different Integrator ID!" if batch['id'] == @new_batch_id
+        end
+      end
+
+      #Verify Batch Visible To Consumer Role
+      @batch_found = false
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, 'size=1000', {'Authorization' => "Bearer #{@token_consumer_role_only}"})
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      parsed_response['results'].each do |batch|
+        if batch['id'] == @new_batch_id
+          @batch_found = true
+          expect(batch['integratorId']).to eql 'modified-integrator-id'
+        end
+      end
+      expect(@batch_found).to be true
+    end
+
+    it 'Unauthorized - Missing Authorization' do
+      response = hri_get_batches(AUTHORIZED_TENANT_ID, nil,{'Authorization' => nil })
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'Azure AD authentication returned 401'
+    end
+
+    it 'Unauthorized - Invalid Tenant ID' do
+      response = hri_get_batches(TENANT_ID, nil)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+
+    it 'Unauthorized - No Roles' do
+      response = hri_get_batches(TENANT_ID_WITH_NO_ROLES, nil)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'The access token must have one of these scopes: hri_consumer, hri_data_integrator'
+    end
+
+    it 'Unauthorized - Invalid Audience' do
+      response = hri_get_batches(TENANT_ID, nil)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+
+  end
+
+  context 'GET /tenants/{tenantId}/batches/{batchId}' do
+
+    it 'Success With Consumer Role Only' do
+      response = hri_get_batch(AUTHORIZED_TENANT_ID, @batch_id)
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['id']).to eq @batch_id
+      expect(parsed_response['name']).to eql @batch_name
+      expect(parsed_response['status']). to include(%w(started completed failed terminated sendCompleted))
+      expect(parsed_response['startDate']).to eql @start_date.to_s
+      expect(parsed_response['dataType']).to eql DATA_TYPE
+      expect(parsed_response['topic']).to eql BATCH_INPUT_TOPIC
+      expect(parsed_response['recordCount']).to eql 1
+      expect(parsed_response['invalidThreshold']).to eql "#{INVALIDTHRESHOLD}"
+      expect(parsed_response['source']['metadata']['compression']).to eql 'gzip'
+      expect(parsed_response['source']['metadata']['finalRecordCount']).to eql 20
+
+    end
+
+    it 'Success With Integrator Role Only' do
+      #Create Batch
+      @batch_prefix = 'batch'
+      @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
+      @batch_template = {
+        name: @batch_name,
+        topic: BATCH_INPUT_TOPIC,
+        dataType: "#{DATA_TYPE}",
+        invalidThreshold: "#{INVALIDTHRESHOLD}".to_i,
+        metadata: {
+          "compression": "gzip",
+          "finalRecordCount": 20
+        }
+      }
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @new_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Batch Created With ID: #{@new_batch_id}")
+
+      #Get Batch
+      response = hri_get_batch(AUTHORIZED_TENANT_ID, @new_batch_id)
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['id']).to eq @new_batch_id
+      expect(parsed_response['name']).to eql @batch_name
+      expect(parsed_response['status']).to eql STATUS
+      expect(parsed_response['dataType']).to eql DATA_TYPE
+      expect(parsed_response['topic']).to eql BATCH_INPUT_TOPIC
+      expect(parsed_response['invalidThreshold']).to eql "#{INVALIDTHRESHOLD}".to_i
+      expect(parsed_response['metadata']['compression']).to eql 'gzip'
+      expect(parsed_response['metadata']['finalRecordCount']).to eql 20
+    end
+
+    it 'Missing Tenant ID' do
+      response = hri_get_batch(nil, @batch_id)
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- tenantId (url path parameter) is a required field"
+    end
+
+    it 'Batch ID Not Found' do
+      response = hri_get_batch(AUTHORIZED_TENANT_ID, INVALID_ID)
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "The document for tenantId: #{AUTHORIZED_TENANT_ID} with document (batch) ID: #{INVALID_ID} was not found"
+    end
+
+    it 'Integrator ID can not view a batch created with a different Integrator ID' do
+      #Create Batch
+      @batch_prefix = 'batch'
+      @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
+      @batch_template = {
+        name: @batch_name,
+        topic: BATCH_INPUT_TOPIC,
+        dataType: "#{DATA_TYPE}",
+        invalidThreshold: "#{INVALIDTHRESHOLD}".to_i,
+        metadata: {
+          "compression": "gzip",
+          "finalRecordCount": 20
+        }
+      }
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @new_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Batch Created With ID: #{@new_batch_id}")
+
+      #Modify Batch Integrator ID
+      update_batch_script = {
+        script: {
+          source: 'ctx._source.integratorId = params.integratorId',
+          lang: 'painless',
+          params: {
+            integratorId: 'modified-integrator-id'
+          }
+        }
+      }.to_json
+      response = es_batch_update(AUTHORIZED_TENANT_ID, @new_batch_id, update_batch_script)
+      response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['result']).to eql 'updated'
+      Logger.new(STDOUT).info('Batch Integrator ID updated to "modified-integrator-id"')
+
+      #Verify Integrator ID Modified
+      response = es_get_batch(AUTHORIZED_TENANT_ID, @new_batch_id)
+      response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['source']['integratorId']).to eql 'modified-integrator-id'
+
+      #Verify Batch Not Visible to Different Integrator ID
+      response = hri_get_batch(TENANT_ID, @new_batch_id)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to include 'does not match the data integratorId'
+    end
+
+    it 'Unauthorized - Missing Authorization' do
+      response = hri_get_batch(AUTHORIZED_TENANT_ID, @batch_id,{'Authorization' => nil })
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'Azure AD authentication returned 401'
+    end
+
+    it 'Unauthorized - Invalid Tenant ID' do
+      response = hri_get_batch(TENANT_ID, @batch_id)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+
+    it 'Unauthorized - No Roles' do
+      response = hri_get_batch(TENANT_ID_WITH_NO_ROLES, @batch_id)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'The access token must have one of these scopes: hri_consumer, hri_data_integrator'
+    end
+
+    it 'Unauthorized - Invalid Audience' do
+      response = hri_get_batch(TENANT_ID, @batch_id)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+
+    it 'Missing Batch ID With Ending Forward Slash' do
+      response = hri_custom_request("/tenants/#{AUTHORIZED_TENANT_ID}/batches//", nil, 'GET')
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['message']).to eql 'Not Found'
+    end
+
+  end
 
 
 
