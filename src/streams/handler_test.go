@@ -1,8 +1,8 @@
-/*
- * (C) Copyright IBM Corp. 2021
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// /*
+//  * (C) Copyright IBM Corp. 2021
+//  *
+//  * SPDX-License-Identifier: Apache-2.0
+//  */
 
 package streams
 
@@ -41,16 +41,12 @@ func (f fakeAuthValidator) GetValidatedClaimsForTenant(_ string, _ string) *resp
 	return f.errResp
 }
 
-/*func TestNewHandler(t *testing.T) {
+func TestNewHandler(t *testing.T) {
 	config := config.Config{
 		ConfigPath:      "",
-		OidcIssuer:      "",
-		JwtAudienceId:   "",
+		AzOidcIssuer:    "",
+		AzJwtAudienceId: "",
 		Validation:      false,
-		ElasticUrl:      "",
-		ElasticUsername: "",
-		ElasticPassword: "",
-		ElasticCert:     "",
 	}
 
 	handler := NewHandler(config).(*theHandler)
@@ -58,15 +54,16 @@ func (f fakeAuthValidator) GetValidatedClaimsForTenant(_ string, _ string) *resp
 
 	// Can't check partitionReaderFromConfig, because it's an anonymous function
 	// This asserts that they are the same function by memory address
-	assert.Equal(t, reflect.ValueOf(Create), reflect.ValueOf(handler.create))
-	assert.Equal(t, reflect.ValueOf(Delete), reflect.ValueOf(handler.delete))
-	assert.Equal(t, reflect.ValueOf(Get), reflect.ValueOf(handler.get))
-}*/
-func TestHandlerCreateStream(t *testing.T) {
+	assert.Equal(t, reflect.ValueOf(CreateStream), reflect.ValueOf(handler.createStream))
+	assert.Equal(t, reflect.ValueOf(DeleteStream), reflect.ValueOf(handler.deleteStream))
+	assert.Equal(t, reflect.ValueOf(GetStream), reflect.ValueOf(handler.getStream))
+}
+
+func TestHandlerCreate(t *testing.T) {
 	validConfig := config.Config{
-		/*KafkaProperties: map[string]string{
-			 "security.protocol": "sasl_ssl",
-		 },*/
+		AzKafkaProperties: map[string]string{
+			"security.protocol": "sasl_ssl",
+		},
 	}
 
 	validRequest := `{
@@ -102,7 +99,7 @@ func TestHandlerCreateStream(t *testing.T) {
 			},
 			tenantId:     "tenant_id",
 			streamId:     "stream_id",
-			bearerTokens: []string{validToken},
+			bearerTokens: []string{validAztoken},
 			expectedCode: http.StatusCreated,
 			expectedBody: `{"id":"stream_id"}`,
 		},
@@ -110,6 +107,9 @@ func TestHandlerCreateStream(t *testing.T) {
 			name: "failed create with no auth token",
 			handler: theHandler{
 				config: validConfig,
+				jwtValidator: fakeAuthValidator{
+					errResp: nil,
+				},
 				createStream: func(model.CreateStreamsRequest, string, string, bool, string, kafka.KafkaAdmin) ([]string, int, error) {
 					return []string{"in", "out", "invalid", "notification"}, http.StatusCreated, nil
 				},
@@ -133,7 +133,7 @@ func TestHandlerCreateStream(t *testing.T) {
 			},
 			tenantId:     "INVALID",
 			streamId:     "stream_id",
-			bearerTokens: []string{validToken},
+			bearerTokens: []string{validAztoken},
 			expectedCode: http.StatusBadRequest,
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\\n- tenantId \(url path parameter\) may only contain lower-case alpha-numeric chars and the following 2 special chars: '-', '_'"}`,
 		},
@@ -150,7 +150,7 @@ func TestHandlerCreateStream(t *testing.T) {
 			},
 			tenantId:     "tenant_id",
 			streamId:     "INVALID",
-			bearerTokens: []string{validToken},
+			bearerTokens: []string{validAztoken},
 			expectedCode: http.StatusBadRequest,
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\\n- id \(url path parameter\) may only contain lower-case alpha-numeric characters, no more than one '.', and the following 2 special chars: '-', '_'"}`,
 		},
@@ -168,7 +168,7 @@ func TestHandlerCreateStream(t *testing.T) {
 			request:      `{"cleanupPolicy": "bogus"}`,
 			tenantId:     "tenant_id",
 			streamId:     "stream_id",
-			bearerTokens: []string{validToken},
+			bearerTokens: []string{validAztoken},
 			expectedCode: http.StatusBadRequest,
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\\n- cleanupPolicy \(json field in request body\) must be one of \[delete compact\]\\n- numPartitions \(json field in request body\) is a required field\\n- retentionMs \(json field in request body\) is a required field"}`,
 		},
@@ -186,7 +186,7 @@ func TestHandlerCreateStream(t *testing.T) {
 			request:      `{`,
 			tenantId:     "tenant_id",
 			streamId:     "stream_id",
-			bearerTokens: []string{validToken},
+			bearerTokens: []string{validAztoken},
 			expectedCode: http.StatusBadRequest,
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"unable to parse request body due to unexpected EOF"}`,
 		},
@@ -206,7 +206,7 @@ func TestHandlerCreateStream(t *testing.T) {
 			createReturnCode:     http.StatusOK,
 			tenantId:             "tenant_id",
 			streamId:             "stream_id",
-			bearerTokens:         []string{validToken},
+			bearerTokens:         []string{validAztoken},
 			expectedCode:         http.StatusInternalServerError,
 			expectedBody:         `{"errorEventId":"test-request-id","errorDescription":"create failure message"}`,
 		},
@@ -227,7 +227,7 @@ func TestHandlerCreateStream(t *testing.T) {
 			createErrMessage:     "delete failure message",
 			tenantId:             "tenant_id",
 			streamId:             "stream_id",
-			bearerTokens:         []string{validToken},
+			bearerTokens:         []string{validAztoken},
 			expectedCode:         http.StatusInternalServerError,
 			expectedBody:         `{"errorEventId":"test-request-id","errorDescription":"create failure message\\ndelete failure message"}`,
 		},
@@ -275,7 +275,11 @@ func TestHandlerCreateStream(t *testing.T) {
 		})
 	}
 }
-func TestHandlerDeleteStream(t *testing.T) {
+
+func TestHandlerDelete(t *testing.T) {
+	// kafkaProperties := map[string]string{
+	// 	"security.protocol": "sasl_ssl",
+	// }
 
 	logwrapper.Initialize("error", os.Stdout)
 
@@ -292,12 +296,11 @@ func TestHandlerDeleteStream(t *testing.T) {
 		{
 			name: "happy path",
 			handler: theHandler{
-				config: config.Config{
-					Validation: true,
-					//KafkaProperties: kafkaProperties,
-				},
 				jwtValidator: fakeAuthValidator{
 					errResp: nil,
+				},
+				deleteStream: func(string, []string, kafka.KafkaAdmin) (int, error) {
+					return http.StatusOK, nil
 				},
 			},
 			tenantId: "tenant_id",
@@ -312,11 +315,10 @@ func TestHandlerDeleteStream(t *testing.T) {
 			expectedCode: http.StatusOK,
 		},
 		{
-			name: "Without bearer token",
+			name: "happy path without validation",
 			handler: theHandler{
-				config: config.Config{
-					Validation: true,
-					//KafkaProperties: kafkaProperties,
+				jwtValidator: fakeAuthValidator{
+					errResp: nil,
 				},
 			},
 			tenantId: "tenant_id",
@@ -324,20 +326,22 @@ func TestHandlerDeleteStream(t *testing.T) {
 			expectedStreamNames: []string{
 				"ingest.tenant_id.stream_id.in",
 				"ingest.tenant_id.stream_id.notification",
-				"ingest.tenant_id.stream_id.out",
-				"ingest.tenant_id.stream_id.invalid",
 			},
+			bearerTokens: []string{validAztoken},
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "failed delete with no auth token",
+			tenantId:     "tenant_id",
+			streamId:     "stream_id",
 			bearerTokens: []string{},
 			expectedCode: http.StatusUnauthorized,
+			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"missing header 'Authorization'"}`,
 		},
-
 		{
 			name: "failed with empty tenant id",
 			handler: theHandler{
-				config: config.Config{
-					Validation: true,
-					//KafkaProperties: kafkaProperties,
-				},
+				//config: validConfig,
 				jwtValidator: fakeAuthValidator{
 					errResp: nil,
 				},
@@ -345,17 +349,14 @@ func TestHandlerDeleteStream(t *testing.T) {
 			tenantId:            "",
 			streamId:            "stream_id",
 			expectedStreamNames: []string{},
-			bearerTokens:        []string{validToken},
+			bearerTokens:        []string{validAztoken},
 			expectedCode:        http.StatusBadRequest,
 			expectedBody:        `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\\n- tenantId \(url path parameter\) is a required field"}`,
 		},
 		{
 			name: "failed with empty stream id",
 			handler: theHandler{
-				config: config.Config{
-					Validation: true,
-					//KafkaProperties: kafkaProperties,
-				},
+				//config: validConfig,
 				jwtValidator: fakeAuthValidator{
 					errResp: nil,
 				},
@@ -363,17 +364,14 @@ func TestHandlerDeleteStream(t *testing.T) {
 			tenantId:            "tenant_id",
 			streamId:            "",
 			expectedStreamNames: []string{},
-			bearerTokens:        []string{validToken},
+			bearerTokens:        []string{validAztoken},
 			expectedCode:        http.StatusBadRequest,
 			expectedBody:        `{"errorEventId":"test-request-id","errorDescription":"invalid request arguments:\\n- id \(url path parameter\) is a required field"}`,
 		},
 		{
 			name: "delete failed",
 			handler: theHandler{
-				config: config.Config{
-					Validation: true,
-					//KafkaProperties: kafkaProperties,
-				},
+				//config: validConfig,
 				jwtValidator: fakeAuthValidator{
 					errResp: nil,
 				},
@@ -384,7 +382,7 @@ func TestHandlerDeleteStream(t *testing.T) {
 			},
 			tenantId:     "tenant_id",
 			streamId:     "stream_id",
-			bearerTokens: []string{validToken},
+			bearerTokens: []string{validAztoken},
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"delete failure message"}`,
 		},
@@ -429,7 +427,7 @@ func TestHandlerDeleteStream(t *testing.T) {
 	}
 }
 
-/*func TestHandlerGet(t *testing.T) {
+func TestHandlerGetStreams(t *testing.T) {
 	var validTenantId = "tenantA3"
 	var requestId = "req42"
 	var streamId1 = "CountChocula.qualifier330"
@@ -442,9 +440,9 @@ func TestHandlerDeleteStream(t *testing.T) {
 	}
 	emptyStreamsResults := []map[string]interface{}{}
 	validConfig := config.Config{
-		KafkaProperties: map[string]string{
-			"security.protocol": "sasl_ssl",
-		},
+		/*KafkaProperties: map[string]string{
+			 "security.protocol": "sasl_ssl",
+		 },*/
 	}
 	logwrapper.Initialize("error", os.Stdout)
 
@@ -460,12 +458,15 @@ func TestHandlerDeleteStream(t *testing.T) {
 			name: "happy path",
 			handler: theHandler{
 				config: validConfig,
-				get: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
+				jwtValidator: fakeAuthValidator{
+					errResp: nil,
+				},
+				getStream: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
 					return http.StatusOK, goodRequestStreams
 				},
 			},
 			tenantId:     validTenantId,
-			bearerTokens: []string{validToken},
+			bearerTokens: []string{validAztoken},
 			expectedCode: http.StatusOK,
 			expectedBody: `\[{"id":"CountChocula.qualifier330"},{"id":"PorcupinePaul"},{"id":"dataIntegrator887"}\]`,
 		},
@@ -473,12 +474,15 @@ func TestHandlerDeleteStream(t *testing.T) {
 			name: "list streams returns no results",
 			handler: theHandler{
 				config: validConfig,
-				get: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
+				jwtValidator: fakeAuthValidator{
+					errResp: nil,
+				},
+				getStream: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
 					return http.StatusOK, emptyStreamsResults
 				},
 			},
 			tenantId:     validTenantId,
-			bearerTokens: []string{validToken},
+			bearerTokens: []string{validAztoken},
 			expectedCode: http.StatusOK,
 			expectedBody: `\[\]`,
 		},
@@ -493,11 +497,14 @@ func TestHandlerDeleteStream(t *testing.T) {
 			name: "Return Bad Request for missing TenantId Param ",
 			handler: theHandler{
 				config: validConfig,
-				get: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
+				jwtValidator: fakeAuthValidator{
+					errResp: nil,
+				},
+				getStream: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
 					return http.StatusForbidden, map[string]interface{}{"NO_CALL": "This Function Should Never Get Called"}
 				},
 			},
-			bearerTokens: []string{validToken},
+			bearerTokens: []string{validAztoken},
 			expectedCode: http.StatusBadRequest,
 			expectedBody: `{"errorEventId":"req42","errorDescription":"invalid request arguments:\\n- tenantId \(url path parameter\) is a required field"}`,
 		},
@@ -505,13 +512,16 @@ func TestHandlerDeleteStream(t *testing.T) {
 			name: "List streams function call fails",
 			handler: theHandler{
 				config: validConfig,
-				get: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
+				jwtValidator: fakeAuthValidator{
+					errResp: nil,
+				},
+				getStream: func(string, string, kafka.KafkaAdmin) (int, interface{}) {
 					return http.StatusInternalServerError,
 						response.NewErrorDetail(requestId, "Error List Streams: Unable to connect to Kafka")
 				},
 			},
 			tenantId:     validTenantId,
-			bearerTokens: []string{validToken},
+			bearerTokens: []string{validAztoken},
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: `{"errorEventId":"req42","errorDescription":"Error List Streams: Unable to connect to Kafka"}`,
 		},
@@ -530,7 +540,7 @@ func TestHandlerDeleteStream(t *testing.T) {
 			context.SetParamValues(tt.tenantId)
 			context.Response().Header().Add(echo.HeaderXRequestID, requestId)
 
-			if assert.NoError(t, tt.handler.Get(context)) {
+			if assert.NoError(t, tt.handler.GetStream(context)) {
 				assert.Equal(t, tt.expectedCode, recorder.Code)
 				actualBody := strings.Trim(recorder.Body.String(), "\n")
 				matched, _ := regexp.MatchString(tt.expectedBody, actualBody)
@@ -540,4 +550,4 @@ func TestHandlerDeleteStream(t *testing.T) {
 			}
 		})
 	}
-}*/
+}
