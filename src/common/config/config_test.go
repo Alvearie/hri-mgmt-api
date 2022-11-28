@@ -254,3 +254,57 @@ func expectedConfigExists(c Config) bool {
 	// }
 	return false
 }
+
+func TestStringMap_Set(t *testing.T) {
+	type args struct {
+		s string
+	}
+	tests := []struct {
+		name    string
+		sm      *StringMap
+		args    args
+		wantErr bool
+	}{
+		{name: "t1",
+			sm:      &StringMap{"k": "v"},
+			args:    args{s: "string"},
+			wantErr: true,
+		},
+		{name: "t2",
+			sm:      &StringMap{"k": "v"},
+			args:    args{s: "k3:v3,"},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.sm.Set(tt.args.s); (err != nil) != tt.wantErr {
+				t.Errorf("StringMap.Set() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestStringSlice_Set(t *testing.T) {
+	type args struct {
+		s string
+	}
+	tests := []struct {
+		name    string
+		ss      *StringSlice
+		args    args
+		wantErr bool
+	}{
+		{name: "t1",
+			ss:   &StringSlice{"abc", "def"},
+			args: args{s: "string"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.ss.Set(tt.args.s); (err != nil) != tt.wantErr {
+				t.Errorf("StringSlice.Set() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

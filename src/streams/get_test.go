@@ -6,10 +6,19 @@
 package streams
 
 import (
+	"fmt"
+	"net/http"
+	"os"
+	"reflect"
 	"strings"
+	"testing"
 
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
+	"github.com/Alvearie/hri-mgmt-api/common/test"
 	cfk "github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/golang/mock/gomock"
 )
 
 var tenantId1 = "tenant1"
@@ -44,7 +53,6 @@ var goodMetadata = cfk.Metadata{
 	},
 }
 
-/*
 func TestGet(t *testing.T) {
 	logwrapper.Initialize("error", os.Stdout)
 
@@ -115,7 +123,7 @@ func TestGet(t *testing.T) {
 			MaxTimes(1)
 
 		t.Run(tc.name, func(t *testing.T) {
-			actualCode, actualBody := Get(requestId, tc.tenantId, mockService)
+			actualCode, actualBody := GetStream(requestId, tc.tenantId, mockService)
 			if actualCode != tc.expectedCode || !bodiesMatch(tc.expectedBody, actualBody) {
 				t.Errorf("Streams-Get() \n actual: %v,%v\n expected: %v,%v",
 					actualCode, actualBody, tc.expectedCode, tc.expectedBody)
@@ -157,7 +165,7 @@ func bodiesMatch(b1 interface{}, b2 interface{}) bool {
 	}
 
 	return true
-}*/
+}
 
 /*
 	Four things to note on the expected returned stream names:
@@ -166,7 +174,7 @@ func bodiesMatch(b1 interface{}, b2 interface{}) bool {
 	3. We should only get unique stream names for a tenant/dataIntegrator pairing, even though there are multiple topics
 	4. "dataIntegrator1.qualifier1" is a unique stream from "dataIntegrator1" and both should be returned
 */
-/*
+
 func TestGetStreamNames(t *testing.T) {
 	tenantId0 := "tenant"
 	tenant0WithQualifier := strings.Join([]string{tenantId0, streamId}, ".")
@@ -369,4 +377,3 @@ func TestGetStreamNames(t *testing.T) {
 		})
 	}
 }
-*/
