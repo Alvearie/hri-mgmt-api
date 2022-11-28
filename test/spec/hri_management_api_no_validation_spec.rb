@@ -17,7 +17,7 @@ describe 'HRI Management API Without Validation' do
   DATA_TYPE = 'rspec-batch'
   INVALIDTHRESHOLD = 10
   STATUS = 'started'
-  BATCH_INPUT_TOPIC = "ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.in"
+  BATCH_INPUT_TOPIC = "ingest.#{AUTHORIZED_TENANT_ID}.#{INTEGRATOR_ID}.in"
   KAFKA_TIMEOUT = 60
 
 
@@ -48,7 +48,7 @@ describe 'HRI Management API Without Validation' do
 
   def es_batch_update(index, batch_id, script)
     # wait_for waits for an index refresh to happen, so increase the standard timeout
-    rest_post("#{@hri_base_url}/#{index}-batches/_doc/#{batch_id}/_update?refresh=wait_for", script, @headers, @basic_auth.merge({ timeout: 120 }))
+    rest_post("#{@hri_base_url}/#{index}-batches/_doc/#{batch_id}/_update?refresh=wait_for", script, @headers, @basic_auth)
   end
 
   def hri_post_tenant(tenant_id, request_body = nil, override_headers = {})
@@ -137,12 +137,21 @@ describe 'HRI Management API Without Validation' do
     rest_get(url, headers)
   end
 
+  def hri_put_batch(tenant_id, batch_id, action, additional_params = {}, override_headers = {})
+    url = "#{@hri_base_url}/tenants/#{tenant_id}/batches/#{batch_id}/action/#{action}"
+    @az_token = get_access_token()
+    headers = { 'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+                'Authorization' => "Bearer #{@az_token}"}.merge(override_headers)
+    @request_helper.rest_put(url, additional_params.to_json, headers)
+  end
+
   def hri_post_batch(tenant_id, request_body, override_headers = {})
     url = "#{@hri_base_url}/tenants/#{tenant_id}/batches"
     @az_token = get_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
-                'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
+                'Authorization' => "Bearer #{@az_token}"}.merge(override_headers)
     rest_post(url, request_body, headers)
   end
 
@@ -258,10 +267,32 @@ describe 'HRI Management API Without Validation' do
     #raise "Health check failed: #{response.body}"
     #end
 
-    #Initialize Kafka Consumer
-    @kafka = Kafka.new(ENV['KAFKA_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['KAFKA_PASSWORD'], ssl_ca_certs_from_system: true)
-    @kafka_consumer = @kafka.consumer(group_id: 'rspec-mgmt-api-consumer')
-    @kafka_consumer.subscribe("ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.notification")
+    # #Initialize Kafka Consumer
+    # @kafka = Kafka.new(ENV['KAFKA_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['KAFKA_PASSWORD'], ssl_ca_certs_from_system: true)
+    # @kafka_consumer = @kafka.consumer(group_id: 'rspec-mgmt-api-consumer')
+    # @kafka_consumer.subscribe("ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.notification")
+
+    #Create Batch
+    @batch_prefix = "batch"
+    @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
+    create_batch = {
+      name: @batch_name,
+      topic: BATCH_INPUT_TOPIC,
+      status: STATUS,
+      dataType: "#{DATA_TYPE}",
+      invalidThreshold: "#{INVALIDTHRESHOLD}".to_i,
+      metadata: {
+        "compression": "gzip",
+        "finalRecordCount": 20
+      }
+    }
+    response = hri_post_batch(AUTHORIZED_TENANT_ID, create_batch.to_json)
+    expect(response.code).to eq 201
+    parsed_response = JSON.parse(response.body)
+    @batch_id = parsed_response['id']
+    puts parsed_response
+    Logger.new(STDOUT).info("New Batch Created With ID: #{@batch_id}")
+
 
     #Get AppId Access Tokens
     #@token_invalid_tenant = @app_id_helper.get_access_token('hri_integration_tenant_test_invalid', 'tenant_test_invalid')
@@ -1269,6 +1300,328 @@ describe 'HRI Management API Without Validation' do
 
   end
 
+  context 'PUT /tenants/{tenantId}/batches/{batchId}/action/sendComplete' do
+
+    before(:all) do
+      @expected_record_count = {
+        expectedRecordCount: 1,
+        metadata: {
+          "compression": "gzip",
+          "finalRecordCount": 15
+        }
+      }
+
+      @batch_prefix = 'batch'
+      @batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
+      @batch_template = {
+        name: @batch_name,
+        topic: BATCH_INPUT_TOPIC,
+        dataType: "#{DATA_TYPE}",
+        invalidThreshold: "#{INVALIDTHRESHOLD}".to_i,
+        metadata: {
+          "compression": "gzip",
+          "finalRecordCount": 20
+        }
+      }
+    end
+
+    it 'Success' do
+      #Create Batch
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @send_complete_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Send Complete Batch Created With ID: #{@send_complete_batch_id}")
+
+      #Set Batch Complete
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 200
+
+      #Verify Batch Complete
+      response = hri_get_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id)
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['status']).to eql 'completed'
+      expect(parsed_response['endDate']).to_not be_nil
+
+      #Verify Kafka Message
+      # Timeout.timeout(KAFKA_TIMEOUT) do
+      #   Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@send_complete_batch_id} and status: completed")
+      #   @kafka_consumer.each_message do |message|
+      #     parsed_message = JSON.parse(message.value)
+      #     if parsed_message['id'] == @send_complete_batch_id && parsed_message['status'] == 'completed'
+      #       @message_found = true
+      #       expect(parsed_message['dataType']).to eql DATA_TYPE
+      #       expect(parsed_message['id']).to eql @send_complete_batch_id
+      #       expect(parsed_message['name']).to eql @batch_name
+      #       expect(parsed_message['topic']).to eql BATCH_INPUT_TOPIC
+      #       expect(parsed_message['status']).to eql 'completed'
+      #       expect(DateTime.parse(parsed_message['startDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
+      #       expect(DateTime.parse(parsed_message['endDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
+      #       expect(parsed_message['metadata']['rspec1']).to eql 'test3'
+      #       expect(parsed_message['metadata']['rspec2']).to eql 'test4'
+      #       expect(parsed_message['metadata']['rspec4']['rspec4A']).to eql 'test4A'
+      #       expect(parsed_message['metadata']['rspec4']['rspec4B']).to eql 'テスト'
+      #       expect(parsed_message['metadata']['rspec3']).to be_nil
+      #       expect(parsed_message['expectedRecordCount']).to eq 1
+      #       expect(parsed_message['recordCount']).to eq 1
+      #       break
+      #     end
+      #   end
+      #   expect(@message_found).to be true
+      # end
+    end
+
+    it 'Success with recordCount' do
+      record_count = {
+        expectedRecordCount: 200,
+        metadata: {
+          "compression": "gzip",
+          "finalRecordCount": 20
+        }
+      }
+
+      #Create Batch
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @send_complete_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Send Complete Batch Created With ID: #{@send_complete_batch_id}")
+
+      #Set Batch Complete
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id, 'sendComplete', record_count)
+      expect(response.code).to eq 200
+
+      #Verify Batch Complete
+      response = hri_get_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id)
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['status']).to eql 'completed'
+      expect(parsed_response['endDate']).to_not be_nil
+
+      #Verify Kafka Message
+      # Timeout.timeout(KAFKA_TIMEOUT) do
+      #   Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@send_complete_batch_id} and status: completed")
+      #   @kafka_consumer.each_message do |message|
+      #     parsed_message = JSON.parse(message.value)
+      #     if parsed_message['id'] == @send_complete_batch_id && parsed_message['status'] == 'completed'
+      #       @message_found = true
+      #       expect(parsed_message['dataType']).to eql DATA_TYPE
+      #       expect(parsed_message['id']).to eql @send_complete_batch_id
+      #       expect(parsed_message['name']).to eql @batch_name
+      #       expect(parsed_message['topic']).to eql BATCH_INPUT_TOPIC
+      #       expect(parsed_message['status']).to eql 'completed'
+      #       expect(DateTime.parse(parsed_message['startDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
+      #       expect(DateTime.parse(parsed_message['endDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
+      #       expect(parsed_message['metadata']['rspec1']).to eql 'test3'
+      #       expect(parsed_message['metadata']['rspec2']).to eql 'test4'
+      #       expect(parsed_message['metadata']['rspec4']['rspec4A']).to eql 'test4A'
+      #       expect(parsed_message['metadata']['rspec4']['rspec4B']).to eql 'テスト'
+      #       expect(parsed_message['metadata']['rspec3']).to be_nil
+      #       expect(parsed_message['expectedRecordCount']).to eq 1
+      #       expect(parsed_message['recordCount']).to eq 1
+      #       break
+      #     end
+      #   end
+      #   expect(@message_found).to be true
+      # end
+    end
+
+    it 'Invalid Batch ID' do
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, INVALID_ID, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "error getting current Batch Status: The document for tenantId: #{AUTHORIZED_TENANT_ID} with document (batch) ID: #{INVALID_ID} was not found"
+    end
+
+    it 'Missing Record Count' do
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @batch_id, 'sendComplete', nil)
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- expectedRecordCount (json field in request body) must be present if recordCount (json field in request body) is not present\n- recordCount (json field in request body) must be present if expectedRecordCount (json field in request body) is not present"
+    end
+
+    it 'Invalid Record Count' do
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @batch_id, 'sendComplete', {expectedRecordCount: "1"})
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request param \"expectedRecordCount\": expected type int, but received type string"
+    end
+
+    it 'Missing Tenant ID' do
+      response = hri_put_batch(nil, @batch_id, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- tenantId (url path parameter) is a required field"
+    end
+
+    it 'Missing Batch ID' do
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, nil, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- id (url path parameter) is a required field"
+    end
+
+    it 'Missing Batch ID and Record Count' do
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, nil, 'sendComplete', nil)
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- expectedRecordCount (json field in request body) must be present if recordCount (json field in request body) is not present\n- id (url path parameter) is a required field\n- recordCount (json field in request body) must be present if expectedRecordCount (json field in request body) is not present"
+    end
+
+    it 'Conflict: Batch with a status other than started' do
+      #Create Batch
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @send_complete_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Send Complete Batch Created With ID: #{@send_complete_batch_id}")
+
+      # #Update Batch to Terminated Status
+      # update_batch_script = {
+      #   script: {
+      #     source: 'ctx._source.status = params.status',
+      #     lang: 'painless',
+      #     params: {
+      #       status: 'terminated'
+      #     }
+      #   }
+      # }.to_json
+      # response = es_batch_update(AUTHORIZED_TENANT_ID, @send_complete_batch_id, update_batch_script)
+      # response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
+      # parsed_response = JSON.parse(response.body)
+      # expect(parsed_response['result']).to eql 'updated'
+      # Logger.new(STDOUT).info('Batch status updated to "terminated"')
+      #
+      # #Verify Batch Status Updated
+      # response = es_get_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id)
+      # response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
+      # parsed_response = JSON.parse(response.body)
+      # expect(parsed_response['_source']['status']).to eql 'terminated'
+
+      #Attempt to complete batch
+      updated_status = hri_put_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id, 'terminate', @expected_record_count)
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 409
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "sendComplete failed, batch is in 'terminated' state"
+
+      # #Delete batch
+      # response = es_delete_batch(TENANT_ID, @send_complete_batch_id)
+      # expect(response.code).to eq 200
+    end
+
+    it 'Conflict: Batch that already has a completed status' do
+      #Create Batch
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @send_complete_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Send Complete Batch Created With ID: #{@send_complete_batch_id}")
+
+      # #Update Batch to Completed Status
+      # update_batch_script = {
+      #   script: {
+      #     source: 'ctx._source.status = params.status',
+      #     lang: 'painless',
+      #     params: {
+      #       status: 'completed'
+      #     }
+      #   }
+      # }.to_json
+      # response = es_batch_update(AUTHORIZED_TENANT_ID, @send_complete_batch_id, update_batch_script)
+      # response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
+      # parsed_response = JSON.parse(response.body)
+      # expect(parsed_response['result']).to eql 'updated'
+      updated_status = hri_put_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count)
+      Logger.new(STDOUT).info('Batch status updated to "completed"')
+
+      # #Verify Batch Status Updated
+      # response = es_get_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id)
+      # response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
+      # parsed_response = JSON.parse(response.body)
+      # expect(parsed_response['_source']['status']).to eql 'completed'
+
+      #Attempt to complete batch
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 409
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "sendComplete failed, batch is in 'completed' state"
+    end
+
+    it 'Integrator ID can not update batches created with a different Integrator ID' do
+      #Create Batch
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @send_complete_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Send Complete Batch Created With ID: #{@send_complete_batch_id}")
+
+      #Modify Batch Integrator ID
+      update_batch_script = {
+        script: {
+          source: 'ctx._source.integratorId = params.integratorId',
+          lang: 'painless',
+          params: {
+            integratorId: 'modified-integrator-id'
+          }
+        }
+      }.to_json
+      response = es_batch_update(AUTHORIZED_TENANT_ID, @send_complete_batch_id, update_batch_script)
+      response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['result']).to eql 'updated'
+      Logger.new(STDOUT).info('Batch Integrator ID updated to "modified-integrator-id"')
+
+      #Verify Integrator ID Modified
+      response = es_get_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id)
+      response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['_source']['integratorId']).to eql 'modified-integrator-id'
+
+      #Verify Batch Not Updated With Different Integrator ID
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @send_complete_batch_id, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to include "but owned by 'modified-integrator-id'"
+    end
+
+    it 'Unauthorized - Missing Authorization' do
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @batch_id, 'sendComplete', @expected_record_count, {'Authorization' => nil })
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'Azure AD authentication returned 401'
+    end
+
+    it 'Unauthorized - Invalid Tenant ID' do
+      response = hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+
+    it 'Unauthorized - No Roles' do
+      response = hri_put_batch(TENANT_ID_WITH_NO_ROLES, @batch_id, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "error getting current Batch Status: The document for tenantId: #{TENANT_ID_WITH_NO_ROLES} with document (batch) ID: #{@batch_id} was not found"
+    end
+
+    it 'Unauthorized - Consumer Role Can Not Update Batch Status' do
+      response = hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+
+    it 'Unauthorized - Invalid Audience' do
+      response = hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+
+  end
 
 
 
