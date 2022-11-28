@@ -5,7 +5,16 @@
  */
 package kafka
 
-/*
+import (
+	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/common/config"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/stretchr/testify/assert"
+)
+
 func TestNewHealthChecker(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -14,12 +23,12 @@ func TestNewHealthChecker(t *testing.T) {
 	}{
 		{
 			name:   "successful construction",
-			config: config.Config{KafkaBrokers: []string{"broker1", "broker2"}, KafkaProperties: config.StringMap{"message.max.bytes": "10000"}},
+			config: config.Config{AzKafkaBrokers: []string{"broker1", "broker2"}, AzKafkaProperties: config.StringMap{"message.max.bytes": "10000"}},
 			expErr: nil,
 		},
 		{
 			name:   "bad config",
-			config: config.Config{KafkaBrokers: []string{"broker1", "broker2"}, KafkaProperties: config.StringMap{"message.max.bytes": "bad_value"}},
+			config: config.Config{AzKafkaBrokers: []string{"broker1", "broker2"}, AzKafkaProperties: config.StringMap{"message.max.bytes": "bad_value"}},
 			expErr: fmt.Errorf("error constructing Kafka admin client: %w",
 				kafka.NewError(-186, "Invalid value for configuration property \"message.max.bytes\"", false)),
 		},
@@ -27,7 +36,7 @@ func TestNewHealthChecker(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewHealthChecker(tt.config)
+			_, err := HriHealthChecker(tt.config)
 
 			assert.Equal(t, tt.expErr, err)
 		})
@@ -110,4 +119,4 @@ func TestConfluentHealthChecker_Check(t *testing.T) {
 			assert.Equal(t, tt.expErr, err)
 		})
 	}
-}*/
+}

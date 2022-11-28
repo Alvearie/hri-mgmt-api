@@ -5,7 +5,18 @@
  */
 package kafka
 
-/*
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/common/config"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+	gomock "github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+)
+
 func TestNewConfluentWriter(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -13,13 +24,14 @@ func TestNewConfluentWriter(t *testing.T) {
 		expErr error
 	}{
 		{
+
 			name:   "successful construction",
-			config: config.Config{KafkaBrokers: []string{"broker1", "broker2"}, KafkaProperties: config.StringMap{"message.max.bytes": "10000"}},
+			config: config.Config{AzKafkaBrokers: []string{"broker1", "broker2"}, AzKafkaProperties: config.StringMap{"message.max.bytes": "10000"}},
 			expErr: nil,
 		},
 		{
 			name:   "bad config",
-			config: config.Config{KafkaBrokers: []string{"broker1", "broker2"}, KafkaProperties: config.StringMap{"message.max.bytes": "bad_value"}},
+			config: config.Config{AzKafkaBrokers: []string{"broker1", "broker2"}, AzKafkaProperties: config.StringMap{"message.max.bytes": "bad_value"}},
 			expErr: fmt.Errorf("error constructing Kafka producer: %w",
 				kafka.NewError(-186, "Invalid value for configuration property \"message.max.bytes\"", false)),
 		},
@@ -27,7 +39,7 @@ func TestNewConfluentWriter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewWriterFromConfig(tt.config)
+			_, err := NewWriterFromAzConfig(tt.config)
 
 			assert.Equal(t, tt.expErr, err)
 		})
@@ -136,4 +148,4 @@ func sendMessage(message *kafka.Message, channel chan kafka.Event) {
 // needed because you can't take the address of errors.New("")
 func errPtr(err error) *error {
 	return &err
-}*/
+}
