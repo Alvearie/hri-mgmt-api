@@ -6,18 +6,16 @@
 package auth
 
 import (
-	"encoding/json"
-	"fmt"
-	"reflect"
 	"testing"
 )
 
-func TestHasScope(t *testing.T) {
+func TestHasRole(t *testing.T) {
 	scopeToFind := "hri_data_integrator"
 
 	tests := []struct {
 		name     string
 		scope    string
+		roles    []string
 		expected bool
 	}{
 		{
@@ -54,12 +52,17 @@ func TestHasScope(t *testing.T) {
 			scope:    scopeToFind + " hri_consumer",
 			expected: true,
 		},
+		{
+			name:     "In String",
+			roles:    []string{scopeToFind},
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			claims := HriClaims{Scope: tt.scope}
-			actual := claims.HasScope(scopeToFind)
+			claims := HriAzClaims{Scope: tt.scope, Roles: tt.roles}
+			actual := claims.HasRole(scopeToFind)
 			if actual != tt.expected {
 				t.Fatalf("Unexpected result.\nexpected: %v\nactual  :\n%v", tt.expected, actual)
 			}
@@ -67,32 +70,42 @@ func TestHasScope(t *testing.T) {
 	}
 }
 
-func TestUnmarshalClaims(t *testing.T) {
-	testScope := "testScope"
-	testSubject := "testSubject"
-	testAudience := "testAudience"
-	jwtTokenJson := fmt.Sprintf(`
-	{
-		"scope": "%s",
-		"sub": "%s",
-		"aud": ["%s"]
-	}`, testScope, testSubject, testAudience)
+func TestGetAuthRole(t *testing.T) {
 
-	claims := HriClaims{}
-	err := json.Unmarshal([]byte(jwtTokenJson), &claims)
-	if err != nil {
-		t.Fatal(err.Error())
+	tests := []struct {
+		name     string
+		role     string
+		expected string
+	}{
+		{
+			name:     "Default",
+			role:     "Test String",
+			expected: "Test String",
+		},
+		{
+			name:     "HriIntegrator",
+			role:     HriIntegrator,
+			expected: Hri + TenantScopePrefix + tenantId + DataIntegrator,
+		},
+		{
+			name:     "HriConsumer",
+			role:     HriConsumer,
+			expected: Hri + TenantScopePrefix + tenantId + DataConsumer,
+		},
+		{
+			name:     "HriInternal",
+			role:     HriInternal,
+			expected: Hri + TenantScopePrefix + tenantId + DataInternal,
+		},
 	}
 
-	if !reflect.DeepEqual(claims.Scope, testScope) {
-		t.Fatalf("Unexpected result.\nexpected: %v\nactual  : %v", testScope, claims.Scope)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 
-	if !reflect.DeepEqual(claims.Subject, testSubject) {
-		t.Fatalf("Unexpected result.\nexpected: %v\nactual  : %v", testSubject, claims.Subject)
-	}
-
-	if !reflect.DeepEqual(claims.Audience, []string{testAudience}) {
-		t.Fatalf("Unexpected result.\nexpected: %v\nactual  : %v", []string{testAudience}, claims.Audience)
+			actual := GetAuthRole(tenantId, tt.role)
+			if actual != tt.expected {
+				t.Fatalf("Unexpected result.\nexpected: %v\nactual  :\n%v", tt.expected, actual)
+			}
+		})
 	}
 }
