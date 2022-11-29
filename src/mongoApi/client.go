@@ -18,6 +18,7 @@ import (
 
 func GetMongoCollection(collectionName string) *mongo.Collection {
 	return db.Collection(collectionName)
+
 }
 
 func GetTenantWithBatchesSuffix(tenantId string) string {
@@ -43,7 +44,11 @@ func DatabaseHealthCheck(client *mongo.Collection) (string, string) {
 	var result bson.D
 	client.Database().RunCommand(context.TODO(), command).Decode(&result)
 	fmt.Println(result)
-	return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value)
+	if result != nil {
+		return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value)
+	} else {
+		return "", ""
+	}
 }
 
 func HriDatabaseHealthCheck(client *mongo.Collection) (string, string, error) {
@@ -53,6 +58,10 @@ func HriDatabaseHealthCheck(client *mongo.Collection) (string, string, error) {
 	return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value), err
 }
 
-func TenantIdFromIndex(tenantIndex string) string {
-	return strings.TrimSuffix(tenantIndex, "-batches")
+// func TenantIdFromIndex(tenantIndex string) string {
+// 	return strings.TrimSuffix(tenantIndex, "-batches")
+// }
+
+func TenantIdWithSuffix(tenant string) string {
+	return strings.TrimSuffix(tenant, "-batches")
 }

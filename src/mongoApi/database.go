@@ -21,6 +21,8 @@ var (
 	db *mongo.Database
 )
 
+var HriCollection *mongo.Collection
+
 // Connect ...
 func ConnectFromConfig(config config.Config) error {
 	prefix := "MongoClient"
@@ -43,5 +45,7 @@ func ConnectFromConfig(config config.Config) error {
 	}
 	db = cl.Database(config.MongoDBName)
 	fmt.Println("Database Connected to", db.Name())
+
+	HriCollection = GetMongoCollection(config.MongoColName)
 	return nil
 }

@@ -11,7 +11,6 @@ import (
 
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"net/http"
@@ -21,22 +20,22 @@ import (
 )
 
 func GetTenants(
-	requestId string,
-	mongoClient *mongo.Collection) (int, interface{}) {
+	requestId string) (int, interface{}) {
 
 	prefix := "tenants/GetTenants"
 	logger := logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Tenants Get (All)")
 
 	tenantsMap := make(map[string]interface{})
-	var tenantsList []model.GetTenantId
+
+	var tenantsArray []model.GetTenants
 
 	projection := bson.D{
 		{"tenantId", 1},
 		{"_id", 0},
 	}
 
-	cursor, err := mongoClient.Find(
+	cursor, err := mongoApi.HriCollection.Find(
 		context.TODO(),
 		bson.D{},
 		options.Find().SetProjection(projection),
@@ -46,16 +45,16 @@ func GetTenants(
 		return http.StatusBadRequest, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, "Could not retrieve tenants")
 	}
 
-	if err = cursor.All(context.TODO(), &tenantsList); err != nil {
+	if err = cursor.All(context.TODO(), &tenantsArray); err != nil {
 		return http.StatusBadRequest, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, "Could not retrieve tenants")
 	}
 
 	tenenatsIdList := []model.GetTenantId{}
 
-	for _, tenantRecord := range tenantsList {
+	for _, tenantRecord := range tenantsArray {
 
 		if strings.Contains(tenantRecord.TenantId, "-batches") {
-			tenenatsIdList = append(tenenatsIdList, model.GetTenantId{TenantId: mongoApi.TenantIdFromIndex(tenantRecord.TenantId)})
+			tenenatsIdList = append(tenenatsIdList, model.GetTenantId{TenantId: mongoApi.TenantIdWithSuffix(tenantRecord.TenantId)})
 		}
 	}
 
