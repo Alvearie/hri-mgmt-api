@@ -1,0 +1,65 @@
+# You must fill out these values. See https://pages.github.ibm.com/wffh-hri/docs/deployment.html
+# for more details.
+
+## Management API values #######################################################
+VALIDATION: false
+
+## ingress values ###############################################################
+ingress:
+  enabled: true
+  host: hri-1.wh-wcm.dev.watson-health.ibm.com
+  tlsSecretName: hri-mgmt-api-tls
+  
+## New Relic APM ###########################################################
+newRelic:
+  enabled: false
+  appName: hri-dev1-mgmt-api
+  licenseKey: 8c5ad080674084ee365511f8fd0d3d193d553048
+
+# cloudApiKey is required to setup external cloud services
+#cloudApiKey: <o-hri_dev1_ibm_cloud_apikey>
+
+## Kubernetes TLS Settings #####################################################
+security:
+  tls:
+    enabled: true
+    secretName: hri-mgmt-api-tls
+
+## AppId ###################################################################
+# JWT_AUDIENCE_ID: 21e7d376-9cdb-4a9d-a11f-9b76c007244d
+# appid:
+  # setupEnabled: false
+
+image:
+  repository: hidptsteastusazcrqlc.azurecr.io/hri-mgmt-api/mgmt-api
+  tag: v4.1
+  pullSecretOverride: hridockerconfig
+  pullPolicy: Always
+
+## Overwrite image to HRI VPC container registry
+#initImage:
+  #initRepository: us.icr.io/wh-hri-dev-cr/hri/init-services
+  #pullSecret: default-us-icr-io
+  
+AZ_OIDC_ISSUER: https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/
+AZ_JWT_AUDIENCE_ID: "c33ac4da-21c6-426b-abcc-27e24ff1ccf9"
+MONGODB_URI: <o-az-mongo-uri>
+AZ_KAFKA_PROPERTIES:
+- "security.protocol:sasl_ssl"
+- "sasl.mechanism:PLAIN"
+- "sasl.username:<o-az-kafka-username>"
+- "sasl.password:<o-az-kafka-password>"
+- "ssl.endpoint.identification.algorithm:https"
+MONGODB_NAME: "HRI-DEV"
+AZ_KAFKA_BROKERS:
+- "wn3-tls-hi.jad2revccccubh5rkzzspwwhwe.bx.internal.cloudapp.net:9093"
+- "wn2-tls-hi.jad2revccccubh5rkzzspwwhwe.bx.internal.cloudapp.net:9093"
+- "wn1-tls-hi.jad2revccccubh5rkzzspwwhwe.bx.internal.cloudapp.net:9093"
+- "wn0-tls-hi.jad2revccccubh5rkzzspwwhwe.bx.internal.cloudapp.net:9093" 
+MONGOCOL1_NAME: "HRI-Mgmt" 
+CA_LOCATION: "/mgmt-api-release/cert/client.cert.pem"
+dockerconfig: 
+hdicert: 
+tlscert: 
+tlskey: 
+
