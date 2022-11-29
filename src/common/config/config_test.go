@@ -5,6 +5,7 @@
  */
 package config
 
+/*
 import (
 	"errors"
 	"fmt"
@@ -254,3 +255,4 @@ func expectedConfigExists(c Config) bool {
 	// }
 	return false
 }
+*/
