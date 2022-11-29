@@ -17,9 +17,7 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/labstack/echo/v4"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Handler interface {
@@ -35,10 +33,11 @@ type Handler interface {
 type theHandler struct {
 	config config.Config
 	//Added as part of Azure porting
-	createTenant  func(string, string, *mongo.Collection) (int, interface{})
-	getTenantById func(string, string, *mongo.Collection) (int, interface{})
-	getTenants    func(string, *mongo.Collection) (int, interface{})
-	deleteTenant  func(string, string, *mongo.Collection) (int, interface{})
+	createTenant  func(string, string) (int, interface{})
+	getTenantById func(string, string) (int, interface{})
+	getTenants    func(string) (int, interface{})
+	deleteTenant  func(string, string) (int, interface{})
+	jwtValidator  auth.TenantValidator
 }
 
 func NewHandler(config config.Config) Handler {
@@ -49,6 +48,7 @@ func NewHandler(config config.Config) Handler {
 		getTenantById: GetTenantById,
 		getTenants:    GetTenants,
 		deleteTenant:  DeleteTenant,
+		jwtValidator:  auth.NewTenantValidator(config.AzOidcIssuer, config.AzJwtAudienceId),
 	}
 }
 
@@ -59,7 +59,6 @@ func (h *theHandler) CreateTenant(c echo.Context) error {
 	prefix := "az/tenants/handler/create"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
-	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
 	// bind & validate request body
 	var request model.CreateTenant
 	if err := c.Bind(&request); err != nil {
@@ -79,13 +78,13 @@ func (h *theHandler) CreateTenant(c echo.Context) error {
 	}
 
 	//Add JWT Token validation
-	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 
 	if errResp != nil {
 		return c.JSON(errResp.Code, errResp.Body)
 	}
 
-	return c.JSON(h.createTenant(requestId, request.TenantId, mongoApi.GetMongoCollection(h.config.MongoColName)))
+	return c.JSON(h.createTenant(requestId, request.TenantId))
 }
 
 func (h *theHandler) GetTenants(c echo.Context) error {
@@ -96,14 +95,12 @@ func (h *theHandler) GetTenants(c echo.Context) error {
 	logger.Debugln("Start Tenant_List Handler")
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 
-	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
-
-	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 	if errResp != nil {
 		return c.JSON(errResp.Code, response.NewErrorDetail(requestId, errResp.Body.ErrorDescription))
 	}
 
-	return c.JSON(h.getTenants(requestId, mongoApi.GetMongoCollection(h.config.MongoColName)))
+	return c.JSON(h.getTenants(requestId))
 
 }
 
@@ -115,16 +112,16 @@ func (h *theHandler) GetTenantById(c echo.Context) error {
 	logger.Debugln("Start Tenant_GetTenantById Handler")
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 
-	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
+	//jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
 
 	//Add JWT Token validation
-	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 	tenantId := c.Param(param.TenantId)
 	if errResp != nil {
 		return c.JSON(errResp.Code, errResp.Body)
 	}
 
-	return c.JSON(h.getTenantById(requestId, tenantId, mongoApi.GetMongoCollection(h.config.MongoColName)))
+	return c.JSON(h.getTenantById(requestId, tenantId))
 }
 
 func (h *theHandler) DeleteTenant(c echo.Context) error {
@@ -139,14 +136,12 @@ func (h *theHandler) DeleteTenant(c echo.Context) error {
 	tenantId := c.Param(param.TenantId)
 
 	// check bearer token
-	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
-
 	//Add JWT Token validation
-	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 	if errResp != nil {
 		return c.JSON(errResp.Code, errResp.Body)
 	}
-	code, body := h.deleteTenant(requestId, tenantId, mongoApi.GetMongoCollection(h.config.MongoColName))
+	code, body := h.deleteTenant(requestId, tenantId)
 	if body == nil {
 		return c.NoContent(code)
 	} else {

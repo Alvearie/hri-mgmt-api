@@ -145,6 +145,10 @@ func createBatch(
 	}
 	total_count := len(returnResult.Batch) + 1
 	returnResult.Docs_count = strconv.Itoa(total_count)
+	//adding docs_deleted attribute
+	if len(returnResult.Batch) == 0 {
+		returnResult.Docs_deleted = 0
+	}
 	updatedBatchInfo := UpdateBatchInfo(batch, integratorId, batchId)
 
 	if nil != returnResult.Batch {
