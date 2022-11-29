@@ -58,8 +58,8 @@ AZ_KAFKA_BROKERS:
 - "wn0-tls-hi.jad2revccccubh5rkzzspwwhwe.bx.internal.cloudapp.net:9093" 
 MONGOCOL1_NAME: "HRI-Mgmt" 
 CA_LOCATION: "/mgmt-api-release/cert/client.cert.pem"
-dockerconfig: 
-hdicert: 
-tlscert: 
-tlskey: 
+dockerconfig: <o-az-hri-docker>
+hdicert: <o-az-hri-hdi-cert>
+tlscert: <o-az-hri-tls-cert>
+tlskey: <o-az-hri-tls-key>
 
