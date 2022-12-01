@@ -5,69 +5,57 @@
  */
 package tenants
 
-/*
-func TestGet(t *testing.T) {
-	logwrapper.Initialize("error", os.Stdout)
+import (
+	"testing"
 
-	requestId := "request_id_1"
-	elasticErrMsg := "elasticErrMsg"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
+	"github.com/Alvearie/hri-mgmt-api/mongoApi"
+	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
+)
 
-	id := make(map[string]interface{})
-	id2 := make(map[string]interface{})
-	id3 := make(map[string]interface{})
-	var indices []interface{}
-	id["id"] = "pi001"
-	indices = append(indices, id)
-	id2["id"] = "pi002"
-	indices = append(indices, id2)
-	id3["id"] = "qatenant"
-	indices = append(indices, id3)
+func TestFind(t *testing.T) {
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
 
-	tests := []struct {
-		name         string
-		ft           *test.FakeTransport
-		expectedBody interface{}
-		expectedCode int
-	}{
-		{
-			name: "bad-response",
-			ft: test.NewFakeTransport(t).AddCall(
-				"/_cat/indices",
-				test.ElasticCall{
-					ResponseErr: errors.New(elasticErrMsg),
-				},
-			),
-			expectedBody: response.NewErrorDetail(requestId, fmt.Sprintf("Could not retrieve tenants: [500] elasticsearch client error: %s", elasticErrMsg)),
-			expectedCode: http.StatusInternalServerError,
-		},
-		{
-			name: "simple",
-			ft: test.NewFakeTransport(t).AddCall(
-				"/_cat/indices",
-				test.ElasticCall{
-					RequestQuery: "format=json&h=index",
-					ResponseBody: `[{"index":"pi001-batches"},{"index":"searchguard"},{"index":"pi002-batches"},{"index":"qatenant-batches"}]`,
-				},
-			),
-			expectedBody: map[string]interface{}{"results": indices},
-			expectedCode: http.StatusOK,
-		},
-	}
+	requestId := "request-Id1"
+	tenantsMap := make(map[string]interface{})
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+		tenantId1 := "test-batches"
+		tenantId2 := "provider1234-batches"
+		tenantId3 := "pentest-batches"
+		tenantId4 := "test123-batches"
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			esClient, err := elastic.ClientFromTransport(tt.ft)
-			if err != nil {
-				t.Error(err)
-			}
-
-			code, body := Get(requestId, esClient)
-			if code != tt.expectedCode {
-				t.Errorf("Get() = %d, expected %d", code, tt.expectedCode)
-			}
-			if !reflect.DeepEqual(body, tt.expectedBody) {
-				t.Errorf("Get() = %v, expected %v", body, tt.expectedBody)
-			}
+		tenant1 := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{"tenantId", tenantId1},
 		})
-	}
-}*/
+
+		tenant2 := mtest.CreateCursorResponse(1, "foo.bar", mtest.NextBatch, bson.D{
+			{"tenantId", tenantId2},
+		})
+		tenant3 := mtest.CreateCursorResponse(1, "foo.bar", mtest.NextBatch, bson.D{
+			{"tenantId", tenantId3},
+		})
+		tenant4 := mtest.CreateCursorResponse(1, "foo.bar", mtest.NextBatch, bson.D{
+			{"tenantId", tenantId4},
+		})
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(tenant1, tenant2, tenant3, tenant4, killCursors)
+
+		tenants, response := GetTenants(requestId)
+		tenenatsIdList := []model.GetTenantId{}
+
+		tenantsMap["results"] = []model.GetTenantId{}
+		tenenatsIdList = append(tenenatsIdList, model.GetTenantId{TenantId: mongoApi.TenantIdWithSuffix(tenantId1)})
+		tenenatsIdList = append(tenenatsIdList, model.GetTenantId{TenantId: mongoApi.TenantIdWithSuffix(tenantId2)})
+		tenenatsIdList = append(tenenatsIdList, model.GetTenantId{TenantId: mongoApi.TenantIdWithSuffix(tenantId3)})
+		tenenatsIdList = append(tenenatsIdList, model.GetTenantId{TenantId: mongoApi.TenantIdWithSuffix(tenantId4)})
+
+		tenantsMap["results"] = tenenatsIdList
+		assert.NotNil(t, tenants)
+		assert.NotNil(t, response)
+		//assert.Equal(t, tenantsMap, response)
+	})
+}
