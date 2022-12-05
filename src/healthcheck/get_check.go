@@ -14,7 +14,6 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const hriServiceUnavailableMsg string = "HRI Service Temporarily Unavailable | error Detail: %v"
@@ -23,13 +22,13 @@ const serviceUnavailableMsg string = "HRI Service Temporarily Unavailable | erro
 const notReported string = "NotReported"
 const noStatusReported = "NONE/" + notReported
 
-func GetCheck(requestId string, client *mongo.Collection, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
+func GetCheck(requestId string, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
 	prefix := "hrihealthcheck/getCheck"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Infof("Prepare HRI HealthCheck - CosmosDB (No Input Params)")
 
 	//1. Do Mongo healthCheck call
-	health_status, _, err := mongoApi.HriDatabaseHealthCheck(client)
+	health_status, _, err := mongoApi.HriDatabaseHealthCheck(mongoApi.HriCollection)
 
 	if err != nil {
 		return http.StatusServiceUnavailable, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusServiceUnavailable, logger, "Could not perform Cosmos health check")

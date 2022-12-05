@@ -13,9 +13,7 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
-	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/labstack/echo/v4"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Handler interface {
@@ -26,7 +24,7 @@ type Handler interface {
 // logic and other methods that reach out to external services like creating the Kafka partition reader.
 type theHandler struct {
 	config         configPkg.Config
-	hriHealthcheck func(string, *mongo.Collection, kafka.HealthChecker) (int, *response.ErrorDetail)
+	hriHealthcheck func(string, kafka.HealthChecker) (int, *response.ErrorDetail)
 }
 
 func NewHandler(config configPkg.Config) Handler {
@@ -50,7 +48,7 @@ func (h *theHandler) HriHealthcheck(c echo.Context) error {
 	}
 	defer healthChecker.Close()
 
-	code, errorDetail := h.hriHealthcheck(requestId, mongoApi.GetMongoCollection(h.config.MongoColName), healthChecker)
+	code, errorDetail := h.hriHealthcheck(requestId, healthChecker)
 	if errorDetail != nil {
 		return c.JSON(http.StatusInternalServerError, errorDetail)
 	}
