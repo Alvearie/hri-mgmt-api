@@ -7,16 +7,17 @@ package main
 
 import (
 	"errors"
-	"github.com/Alvearie/hri-mgmt-api/common/model"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
-	"github.com/labstack/echo/v4"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"runtime/debug"
 	"strings"
 	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/common/model"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
+	"github.com/Alvearie/hri-mgmt-api/common/test"
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConfigureMgmtServerErrors(t *testing.T) {

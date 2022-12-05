@@ -6,17 +6,26 @@
 
 package healthcheck
 
-/*
+import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"reflect"
+	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/common/config"
+	"github.com/Alvearie/hri-mgmt-api/common/kafka"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
+	"github.com/Alvearie/hri-mgmt-api/common/response"
+	"github.com/Alvearie/hri-mgmt-api/common/test"
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
+)
+
 func TestNewHandler(t *testing.T) {
 	config := config.Config{
-		ConfigPath:      "",
-		OidcIssuer:      "",
-		JwtAudienceId:   "",
-		Validation:      false,
-		ElasticUrl:      "",
-		ElasticUsername: "",
-		ElasticPassword: "",
-		ElasticCert:     "",
+		ConfigPath: "",
+		Validation: false,
 	}
 
 	handler := NewHandler(config).(*theHandler)
@@ -24,10 +33,17 @@ func TestNewHandler(t *testing.T) {
 
 	// Can't check partitionReaderFromConfig, because it's an anonymous function
 	// This asserts that they are the same function by memory address
-	assert.Equal(t, reflect.ValueOf(Get), reflect.ValueOf(handler.healthcheck))
+	assert.Equal(t, reflect.ValueOf(GetCheck), reflect.ValueOf(handler.hriHealthcheck))
 }
 
 func TestHealthcheckHandler(t *testing.T) {
+	validConfig := config.Config{
+		ConfigPath:        "",
+		AzKafkaBrokers:    []string{"broker1", "broker2"},
+		AzKafkaProperties: config.StringMap{"message.max.bytes": "10000"},
+		Validation:        false,
+	}
+
 	tests := []struct {
 		name         string
 		handler      *theHandler
@@ -37,8 +53,8 @@ func TestHealthcheckHandler(t *testing.T) {
 		{
 			name: "Good healthcheck",
 			handler: &theHandler{
-				config: config.Config{},
-				healthcheck: func(requestId string, client *elasticsearch.Client, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
+				config: validConfig,
+				hriHealthcheck: func(requestId string, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
 					return http.StatusOK, nil
 				},
 			},
@@ -49,27 +65,19 @@ func TestHealthcheckHandler(t *testing.T) {
 			name: "Bad healthcheck",
 			handler: &theHandler{
 				config: config.Config{},
-				healthcheck: func(requestId string, client *elasticsearch.Client, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
-					return http.StatusServiceUnavailable, response.NewErrorDetail(requestId, "Elastic not available")
+				hriHealthcheck: func(requestId string, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
+					return http.StatusServiceUnavailable, response.NewErrorDetail(requestId, "Cosmos not available")
 				},
 			},
-			expectedCode: http.StatusServiceUnavailable,
-			expectedBody: "{\"errorEventId\":\"" + requestId + "\",\"errorDescription\":\"Elastic not available\"}\n",
-		},
-		{
-			name: "Elastic client error",
-			handler: &theHandler{
-				config:      config.Config{ElasticUrl: "https://an.invalid url.com/", ElasticCert: "Invalid Cert"},
-				healthcheck: nil,
-			},
 			expectedCode: http.StatusInternalServerError,
-			expectedBody: "{\"errorEventId\":\"" + requestId + "\",\"errorDescription\":\"cannot create client: cannot parse url: parse \\\"https://an.invalid url.com\\\": invalid character \\\" \\\" in host name\"}\n",
+			expectedBody: "{\"errorEventId\":\"" + requestId + "\",\"errorDescription\":\"Cosmos not available\"}\n",
 		},
+
 		{
 			name: "Kafka client error",
 			handler: &theHandler{
-				config:      config.Config{KafkaProperties: config.StringMap{"message.max.bytes": "bad_value"}},
-				healthcheck: nil,
+				config:         config.Config{AzKafkaProperties: config.StringMap{"message.max.bytes": "bad_value"}},
+				hriHealthcheck: nil,
 			},
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: "{\"errorEventId\":\"" + requestId + "\",\"errorDescription\":\"error constructing Kafka admin client: Invalid value for configuration property \\\"message.max.bytes\\\"\"}\n",
@@ -84,10 +92,10 @@ func TestHealthcheckHandler(t *testing.T) {
 			context, recorder := test.PrepareHeadersContextRecorder(request, e)
 			context.Response().Header().Add(echo.HeaderXRequestID, requestId)
 
-			if assert.NoError(t, tt.handler.Healthcheck(context)) {
+			if assert.NoError(t, tt.handler.HriHealthcheck(context)) {
 				assert.Equal(t, tt.expectedCode, recorder.Code)
 				assert.Equal(t, tt.expectedBody, recorder.Body.String())
 			}
 		})
 	}
-}*/
+}

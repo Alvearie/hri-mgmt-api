@@ -26,7 +26,7 @@ type fakeAction struct {
 	body            interface{}
 }
 
-func (fake fakeAction) sendComplete(_ string, request *model.SendCompleteRequest, _ auth.HriClaims, _ *elasticsearch.Client, _ kafka.Writer, currentStatus status.BatchStatus) (int, interface{}) {
+func (fake fakeAction) sendComplete(_ string, request *model.SendCompleteRequest, _ auth.HriAzClaims, _ *elasticsearch.Client, _ kafka.Writer, currentStatus status.BatchStatus) (int, interface{}) {
 	if !reflect.DeepEqual(fake.expectedRequest, request) {
 		fake.t.Errorf("Request is not equal expected:\n\tExpected: %v\n\tActual:   %v", fake.expectedRequest, request)
 	}
@@ -36,7 +36,7 @@ func (fake fakeAction) sendComplete(_ string, request *model.SendCompleteRequest
 	return fake.code, fake.body
 }
 
-func (fake fakeAction) terminate(_ string, request *model.TerminateRequest, _ auth.HriClaims, _ *elasticsearch.Client, _ kafka.Writer, currentStatus status.BatchStatus) (int, interface{}) {
+func (fake fakeAction) terminate(_ string, request *model.TerminateRequest, _ auth.HriAzClaims, _ *elasticsearch.Client, _ kafka.Writer, currentStatus status.BatchStatus) (int, interface{}) {
 	if !reflect.DeepEqual(fake.expectedRequest, request) {
 		fake.t.Errorf("Request is not equal expected:\n\tExpected: %v\n\tActual:   %v", fake.expectedRequest, request)
 	}
@@ -46,7 +46,7 @@ func (fake fakeAction) terminate(_ string, request *model.TerminateRequest, _ au
 	return fake.code, fake.body
 }
 
-func (fake fakeAction) processingComplete(_ string, request *model.ProcessingCompleteRequest, _ auth.HriClaims, _ *elasticsearch.Client, _ kafka.Writer, currentStatus status.BatchStatus) (int, interface{}) {
+func (fake fakeAction) processingComplete(_ string, request *model.ProcessingCompleteRequest, _ auth.HriAzClaims, _ *elasticsearch.Client, _ kafka.Writer, currentStatus status.BatchStatus) (int, interface{}) {
 	if !reflect.DeepEqual(fake.expectedRequest, request) {
 		fake.t.Errorf("Request is not equal expected:\n\tExpected: %v\n\tActual:   %v", fake.expectedRequest, request)
 	}
@@ -56,7 +56,7 @@ func (fake fakeAction) processingComplete(_ string, request *model.ProcessingCom
 	return fake.code, fake.body
 }
 
-func (fake fakeAction) fail(_ string, request *model.FailRequest, _ auth.HriClaims, _ *elasticsearch.Client, _ kafka.Writer, currentStatus status.BatchStatus) (int, interface{}) {
+func (fake fakeAction) fail(_ string, request *model.FailRequest, _ auth.HriAzClaims, _ *elasticsearch.Client, _ kafka.Writer, currentStatus status.BatchStatus) (int, interface{}) {
 	if !reflect.DeepEqual(fake.expectedRequest, request) {
 		fake.t.Errorf("Request is not equal expected:\n\tExpected: %v\n\tActual:   %v", fake.expectedRequest, request)
 	}

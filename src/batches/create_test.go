@@ -310,7 +310,7 @@ func TestBuildBatchInfo(t *testing.T) {
 		InvalidThreshold: batchInvalidThreshold,
 	}
 
-	validClaims := auth.HriClaims{Scope: auth.HriIntegrator, Subject: integratorId}
+	validClaims := auth.HriAzClaims{Scope: auth.HriIntegrator, Subject: integratorId}
 
 	validBatchInfo := map[string]interface{}{
 		param.Name:             batchName,
@@ -348,26 +348,26 @@ func TestBuildBatchInfo(t *testing.T) {
 	testCases := []struct {
 		name              string
 		batch             model.CreateBatch
-		claims            auth.HriClaims
+		claims            auth.HriAzClaims
 		expectedBatchInfo map[string]interface{}
 		expErr            error
 	}{
 		{
 			name:              "Success valid Batch",
 			batch:             validBatch,
-			claims:            auth.HriClaims{Scope: auth.HriConsumer, Subject: integratorId},
+			claims:            auth.HriAzClaims{Scope: auth.HriConsumer, Subject: integratorId},
 			expectedBatchInfo: validBatchInfo,
 		},
 		{
 			name:              "No Invalid Threshold Batch",
 			batch:             validBatchNoThreshold,
-			claims:            auth.HriClaims{Scope: auth.HriConsumer, Subject: integratorId},
+			claims:            auth.HriAzClaims{Scope: auth.HriConsumer, Subject: integratorId},
 			expectedBatchInfo: batchInfoNoThreshold,
 		},
 		{
 			name:              "Nil Metadata Batch Success",
 			batch:             validBatchNoMetadata,
-			claims:            auth.HriClaims{Scope: auth.HriConsumer, Subject: integratorId},
+			claims:            auth.HriAzClaims{Scope: auth.HriConsumer, Subject: integratorId},
 			expectedBatchInfo: batchInfoNoMetadata,
 		},
 	}
