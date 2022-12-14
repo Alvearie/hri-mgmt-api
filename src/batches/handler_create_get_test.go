@@ -6,6 +6,21 @@
 
 package batches
 
+import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
+	"github.com/Alvearie/hri-mgmt-api/common/config"
+	"github.com/Alvearie/hri-mgmt-api/common/model"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
+	"github.com/Alvearie/hri-mgmt-api/common/response"
+	"github.com/Alvearie/hri-mgmt-api/common/test"
+	"github.com/stretchr/testify/assert"
+)
+
 const topic = "ingest.08.claims.phil.collins"
 const startDate = "2020-10-30T12:34:00Z"
 
@@ -822,15 +837,149 @@ func (f fakeAuthValidator) GetValidatedClaims(_ string, _ string, _ string) (aut
 // 		}
 // 	})
 // }
-/*
+
 func createDefaultTestConfig() config.Config {
 	config := config.Config{}
 	config.ConfigPath = "/some/fake/path"
-	config.OidcIssuer = "https://us-south.appid.blorg.forg"
-	config.JwtAudienceId = "1234-990-g-catnip-e9ec09a5b2f3"
+	config.AzOidcIssuer = "https://us-south.appid.blorg.forg"
+	config.AzJwtAudienceId = "1234-990-g-catnip-e9ec09a5b2f3"
 	config.Validation = false
-	config.ElasticUrl = "https://elastic-JanetJackson.com"
-	config.ElasticServiceCrn = "elasticUsername"
-	config.KafkaBrokers = []string{"broker-1", "broker-2", "broker-DefLeppard", "broker-CoreyHart"}
+	config.AzKafkaBrokers = []string{"broker-1", "broker-2", "broker-DefLeppard", "broker-CoreyHart"}
 	return config
-}*/
+}
+
+type fakeAuthValidator struct {
+	claims  auth.HriAzClaims
+	errResp *response.ErrorDetailResponse
+}
+
+func (f fakeAuthValidator) GetValidatedRoles(_ string, _ string, _ string) (auth.HriAzClaims, *response.ErrorDetailResponse) {
+	return f.claims, f.errResp
+}
+
+func createDefaultTestConfigAuthDisabled() config.Config {
+	config := config.Config{}
+	config.ConfigPath = "/some/fake/path"
+	config.AzOidcIssuer = "https://us-south.appid.blorg.forg"
+	config.AzJwtAudienceId = "1234-990-g-catnip-e9ec09a5b2f3"
+	config.Validation = false
+	config.AzKafkaBrokers = []string{"broker-1", "broker-2", "broker-DefLeppard", "broker-CoreyHart"}
+	config.AuthDisabled = true
+	return config
+}
+
+func Test_myHandler_Get(t *testing.T) {
+	var testConfig = createDefaultTestConfig()
+	var AuthDisabledconfig = createDefaultTestConfigAuthDisabled()
+	validTenantId := "tenant_33-z"
+	// invalidTenantId := "BAD-93TENant-1"
+	// unauthorizedTenantId := "unauthorized_tenant"
+
+	tests := []struct {
+		name         string
+		handler      theHandler
+		tenantId     string
+		nameParam    string
+		statusParam  string
+		gteDateParam string
+		lteDateParam string
+		sizeParam    string
+		fromParam    string
+		responseCode int
+		responseBody string
+	}{
+		{
+			name: "success case minimal",
+			handler: theHandler{
+				config: testConfig,
+				jwtBatchValidator: fakeAuthValidator{
+					claims:  auth.HriAzClaims{},
+					errResp: nil,
+				},
+				getBatch: func(string, model.GetBatch, auth.HriAzClaims) (int, interface{}) {
+					return http.StatusOK, map[string]interface{}{"total": float64(1), "results": []interface{}{map[string]interface{}{"id": "uuid", "dataType": "rspec-batch", "invalidThreshold": float64(-1), "name": "mybatch", "startDate": "01/02/2019", "status": "started", "topic": "ingest.test.claims.in", "integratorId": "modified-integrator-id", "metadata": map[string]interface{}{"rspec1": "test1"}}}}
+				},
+			},
+			tenantId:     validTenantId,
+			responseCode: http.StatusOK,
+			responseBody: "{\"results\":[{\"dataType\":\"rspec-batch\",\"id\":\"uuid\",\"integratorId\":\"modified-integrator-id\",\"invalidThreshold\":-1,\"metadata\":{\"rspec1\":\"test1\"},\"name\":\"mybatch\",\"startDate\":\"01/02/2019\",\"status\":\"started\",\"topic\":\"ingest.test.claims.in\"}],\"total\":1}\n",
+		},
+		{
+			name: "success case",
+			handler: theHandler{
+				config: testConfig,
+				jwtBatchValidator: fakeAuthValidator{
+					//claims:  auth.HriAzClaims{},
+					errResp: response.NewErrorDetailResponse(http.StatusBadRequest, "test-request-id", "jwtValidator error"),
+				},
+				getBatch: func(string, model.GetBatch, auth.HriAzClaims) (int, interface{}) {
+					return http.StatusBadRequest, map[string]interface{}{"total": float64(1), "results": []interface{}{map[string]interface{}{"id": "uuid", "dataType": "rspec-batch", "invalidThreshold": float64(-1), "name": "mybatch", "startDate": "01/02/2019", "status": "started", "topic": "ingest.test.claims.in", "integratorId": "modified-integrator-id", "metadata": map[string]interface{}{"rspec1": "test1"}}}}
+				},
+			},
+			tenantId:     validTenantId,
+			responseCode: http.StatusBadRequest,
+			responseBody: "{\"errorEventId\":\"\",\"errorDescription\":\"jwtValidator error\"}\n",
+		},
+		{
+			name: "AuthDisabledconfig",
+			handler: theHandler{
+				config: AuthDisabledconfig,
+				jwtBatchValidator: fakeAuthValidator{
+					claims:  auth.HriAzClaims{},
+					errResp: nil,
+				},
+				getBatch: func(string, model.GetBatch, auth.HriAzClaims) (int, interface{}) {
+					return http.StatusOK, map[string]interface{}{"total": float64(1), "results": []interface{}{map[string]interface{}{"id": "uuid", "dataType": "rspec-batch", "invalidThreshold": float64(-1), "name": "mybatch", "startDate": "01/02/2019", "status": "started", "topic": "ingest.test.claims.in", "integratorId": "modified-integrator-id", "metadata": map[string]interface{}{"rspec1": "test1"}}}}
+				},
+			},
+			tenantId:     validTenantId,
+			responseCode: http.StatusOK,
+			responseBody: "{\"results\":[{\"dataType\":\"rspec-batch\",\"id\":\"uuid\",\"integratorId\":\"modified-integrator-id\",\"invalidThreshold\":-1,\"metadata\":{\"rspec1\":\"test1\"},\"name\":\"mybatch\",\"startDate\":\"01/02/2019\",\"status\":\"started\",\"topic\":\"ingest.test.claims.in\"}],\"total\":1}\n",
+		},
+		{
+			name: "NoConfig",
+			handler: theHandler{
+				jwtBatchValidator: fakeAuthValidator{
+					claims:  auth.HriAzClaims{},
+					errResp: nil,
+				},
+				getBatch: func(string, model.GetBatch, auth.HriAzClaims) (int, interface{}) {
+					return http.StatusOK, map[string]interface{}{"total": float64(1), "results": []interface{}{map[string]interface{}{"id": "uuid", "dataType": "rspec-batch", "invalidThreshold": float64(-1), "name": "mybatch", "startDate": "01/02/2019", "status": "started", "topic": "ingest.test.claims.in", "integratorId": "modified-integrator-id", "metadata": map[string]interface{}{"rspec1": "test1"}}}}
+				},
+			},
+			tenantId:     validTenantId,
+			responseCode: http.StatusOK,
+			responseBody: "{\"results\":[{\"dataType\":\"rspec-batch\",\"id\":\"uuid\",\"integratorId\":\"modified-integrator-id\",\"invalidThreshold\":-1,\"metadata\":{\"rspec1\":\"test1\"},\"name\":\"mybatch\",\"startDate\":\"01/02/2019\",\"status\":\"started\",\"topic\":\"ingest.test.claims.in\"}],\"total\":1}\n",
+		},
+	}
+
+	e := test.GetTestServer()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q := make(url.Values)
+			queryParams := [][]string{
+				{param.Name, tt.nameParam},
+				{param.Status, tt.statusParam},
+				{param.GteDate, tt.gteDateParam},
+				{param.LteDate, tt.lteDateParam},
+				{param.Size, tt.sizeParam},
+				{param.From, tt.fromParam},
+			}
+			for _, paramPair := range queryParams {
+				if len(paramPair[1]) > 0 {
+					q.Set(paramPair[0], paramPair[1])
+				}
+			}
+
+			request := httptest.NewRequest(http.MethodGet, "/?"+q.Encode(), nil)
+			context, recorder := test.PrepareHeadersContextRecorder(request, e)
+			context.SetPath("/hri/tenants/:" + param.TenantId + "/batches")
+			context.SetParamNames(param.TenantId)
+			context.SetParamValues(tt.tenantId)
+			if assert.NoError(t, tt.handler.GetBatch(context)) {
+				assert.Equal(t, tt.responseCode, recorder.Code)
+				assert.Equal(t, tt.responseBody, recorder.Body.String())
+			}
+		})
+	}
+}
