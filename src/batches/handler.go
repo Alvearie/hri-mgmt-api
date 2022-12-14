@@ -42,7 +42,7 @@ type theHandler struct {
 	createBatch             func(string, model.CreateBatch, auth.HriAzClaims, *mongo.Collection, kafka.Writer) (int, interface{})
 	getByBatchId            func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
 	getTenantByIdNoAuth     func(string, model.GetByIdBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
-	getBatch                func(string, model.GetBatch, auth.HriAzClaims, *mongo.Collection) (int, interface{})
+	getBatch                func(string, model.GetBatch, auth.HriAzClaims) (int, interface{})
 	sendStatusComplete      func(string, *model.SendCompleteRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
 	sendFail                func(string, *model.FailRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
 	terminateBatch          func(string, *model.TerminateRequest, auth.HriAzClaims, *mongo.Collection, kafka.Writer, status.BatchStatus) (int, interface{})
@@ -333,11 +333,11 @@ func (h *theHandler) GetBatch(c echo.Context) error {
 			return c.JSON(errResp.Code, response.NewErrorDetail(requestId, errResp.Body.ErrorDescription))
 		}
 
-		return c.JSON(h.getBatch(requestId, request, claims, mongoApi.GetMongoCollection(h.config.MongoColName)))
+		return c.JSON(h.getBatch(requestId, request, claims))
 	} else {
 		logger.Debugln("Auth Disabled - calling GetNoAuth()")
 		var emptyClaims = auth.HriAzClaims{}
-		return c.JSON(h.getBatch(requestId, request, emptyClaims, mongoApi.GetMongoCollection(h.config.MongoColName)))
+		return c.JSON(h.getBatch(requestId, request, emptyClaims))
 	}
 }
 
