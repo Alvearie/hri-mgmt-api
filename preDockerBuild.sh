@@ -1,2 +1,2 @@
-export gitPAC=${f_alvearie_test}
+export gitPAC=${f-alvearie-test}
 echo $gitPAC
