@@ -6,278 +6,33 @@
 package batches
 
 import (
+	"errors"
+	"os"
 	"testing"
 
 	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
+	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
+	"github.com/Alvearie/hri-mgmt-api/mongoApi"
+	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 )
 
-// func TestCreate(t *testing.T) {
-// 	logwrapper.Initialize("error", os.Stdout)
-
-// 	requestId := "reqZxQ9706"
-// 	tenantId := "tenant123"
-// 	integratorId := "integratorId"
-// 	batchId := "batch654"
-// 	batchName := "monkeeName"
-// 	batchDataType := "pikachu"
-// 	topicBase := "batchFunTopic"
-// 	inputTopic := topicBase + inputSuffix
-// 	batchMetadata := map[string]interface{}{"batchContact": "Samuel L. Jackson", "finalRecordCount": 200}
-// 	batchInvalidThreshold := 10
-
-// 	validBatch := model.CreateBatch{
-// 		TenantId:         tenantId,
-// 		Name:             batchName,
-// 		Topic:            inputTopic,
-// 		DataType:         batchDataType,
-// 		InvalidThreshold: batchInvalidThreshold,
-// 		Metadata:         batchMetadata,
-// 	}
-
-// 	validClaims := auth.HriClaims{Scope: auth.HriIntegrator, Subject: integratorId}
-// 	var elasticErrMsg = "elasticErrMsg"
-
-// 	validBatchKafkaMetadata := map[string]interface{}{
-// 		param.BatchId:          batchId,
-// 		param.Name:             batchName,
-// 		param.IntegratorId:     integratorId,
-// 		param.Topic:            inputTopic,
-// 		param.DataType:         batchDataType,
-// 		param.Status:           status.Started.String(),
-// 		param.StartDate:        "ignored",
-// 		param.Metadata:         batchMetadata,
-// 		param.InvalidThreshold: batchInvalidThreshold,
-// 	}
-
-// 	elasticIndexRequestBody, err := json.Marshal(map[string]interface{}{
-// 		param.Name:             batchName,
-// 		param.IntegratorId:     integratorId,
-// 		param.Topic:            inputTopic,
-// 		param.DataType:         batchDataType,
-// 		param.Status:           status.Started.String(),
-// 		param.StartDate:        test.DatePattern,
-// 		param.Metadata:         batchMetadata,
-// 		param.InvalidThreshold: batchInvalidThreshold,
-// 	})
-// 	if err != nil {
-// 		t.Fatal("Unable to marshal expected elastic Index request body")
-// 	}
-
-// 	testCases := []struct {
-// 		name         string
-// 		requestId    string
-// 		batch        model.CreateBatch
-// 		claims       auth.HriClaims
-// 		transport    *test.FakeTransport
-// 		writerError  error
-// 		expectedCode int
-// 		expectedBody interface{}
-// 		kafkaValue   map[string]interface{}
-// 	}{
-// 		{
-// 			name:         "unauthorized",
-// 			requestId:    requestId,
-// 			batch:        validBatch,
-// 			claims:       auth.HriClaims{Scope: auth.HriConsumer, Subject: integratorId},
-// 			transport:    test.NewFakeTransport(t),
-// 			expectedCode: http.StatusUnauthorized,
-// 			expectedBody: response.NewErrorDetail(requestId, fmt.Sprintf(auth.MsgIntegratorRoleRequired, "create")),
-// 		},
-// 		{
-// 			name:         "empty-subject",
-// 			requestId:    requestId,
-// 			batch:        validBatch,
-// 			claims:       auth.HriClaims{Scope: auth.HriIntegrator, Subject: ""},
-// 			transport:    test.NewFakeTransport(t),
-// 			expectedCode: http.StatusUnauthorized,
-// 			expectedBody: response.NewErrorDetail(requestId, "JWT access token 'sub' claim must be populated."),
-// 		},
-// 		{
-// 			name:      "elastic-error-response",
-// 			requestId: requestId,
-// 			batch:     validBatch,
-// 			claims:    validClaims,
-// 			transport: test.NewFakeTransport(t).AddCall(
-// 				fmt.Sprintf("/%s-batches/_doc", tenantId),
-// 				test.ElasticCall{
-// 					RequestBody: string(elasticIndexRequestBody),
-// 					ResponseErr: errors.New(elasticErrMsg),
-// 				},
-// 			),
-// 			expectedCode: http.StatusInternalServerError,
-// 			expectedBody: response.NewErrorDetail(requestId,
-// 				fmt.Sprintf("Batch creation failed: [500] elasticsearch client error: %s", elasticErrMsg),
-// 			),
-// 			kafkaValue: validBatchKafkaMetadata,
-// 		},
-// 		{
-// 			name:      "writer-error",
-// 			requestId: requestId,
-// 			batch:     validBatch,
-// 			claims:    validClaims,
-// 			transport: test.NewFakeTransport(t).AddCall(
-// 				fmt.Sprintf("/%s-batches/_doc", tenantId),
-// 				test.ElasticCall{
-// 					RequestBody:  string(elasticIndexRequestBody),
-// 					ResponseBody: fmt.Sprintf(`{"%s": "%s"}`, esparam.EsDocId, batchId),
-// 				},
-// 			).AddCall(
-// 				fmt.Sprintf("/%s-batches/_doc/%s", tenantId, batchId),
-// 				test.ElasticCall{},
-// 			),
-// 			writerError:  errors.New("Unable to write to Kafka"),
-// 			expectedCode: http.StatusInternalServerError,
-// 			expectedBody: response.NewErrorDetail(requestId, "Unable to write to Kafka"),
-// 			kafkaValue:   validBatchKafkaMetadata,
-// 		},
-// 		{
-// 			name:      "happy-path-good-request",
-// 			requestId: requestId,
-// 			batch:     validBatch,
-// 			claims:    validClaims,
-// 			transport: test.NewFakeTransport(t).AddCall(
-// 				fmt.Sprintf("/%s-batches/_doc", tenantId),
-// 				test.ElasticCall{
-// 					RequestBody:  string(elasticIndexRequestBody),
-// 					ResponseBody: fmt.Sprintf(`{"%s": "%s"}`, esparam.EsDocId, batchId),
-// 				},
-// 			),
-// 			expectedCode: http.StatusCreated,
-// 			expectedBody: map[string]interface{}{param.BatchId: batchId},
-// 			kafkaValue:   validBatchKafkaMetadata,
-// 		},
-// 	}
-
-// 	for _, tc := range testCases {
-// 		client, err := elastic.ClientFromTransport(tc.transport)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-
-// 		writer := test.FakeWriter{
-// 			T:             t,
-// 			ExpectedTopic: topicBase + notificationSuffix,
-// 			ExpectedKey:   batchId,
-// 			ExpectedValue: tc.kafkaValue,
-// 			Error:         tc.writerError,
-// 		}
-
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			actualCode, actualBody := Create(tc.requestId, tc.batch, tc.claims, client, writer)
-// 			if actualCode != tc.expectedCode || !reflect.DeepEqual(tc.expectedBody, actualBody) {
-// 				//notify/print error event as test result
-// 				t.Errorf("Batches-Create()\n   actual: %v,%v\n expected: %v,%v", actualCode, actualBody, tc.expectedCode, tc.expectedBody)
-// 			}
-// 			tc.transport.VerifyCalls()
-// 		})
-// 	}
-// }
-
-// func TestCreateNoAuth(t *testing.T) {
-// 	logwrapper.Initialize("error", os.Stdout)
-
-// 	requestId := "reqAc887"
-// 	tenantId := "tenant03"
-// 	batchId := "batch20"
-// 	batchName := "hallNOates"
-// 	batchDataType := "Snorkel"
-// 	topicBase := "batchSadTopic"
-// 	integratorId := auth.NoAuthFakeIntegrator
-// 	inputTopic := topicBase + inputSuffix
-// 	batchMetadata := map[string]interface{}{"batchContact": "Sergio Leone", "finalRecordCount": 200}
-// 	batchInvalidThreshold := 5
-
-// 	validBatch := model.CreateBatch{
-// 		Name:             batchName,
-// 		TenantId:         tenantId,
-// 		Topic:            inputTopic,
-// 		DataType:         batchDataType,
-// 		InvalidThreshold: batchInvalidThreshold,
-// 		Metadata:         batchMetadata,
-// 	}
-
-// 	validBatchKafkaMetadata := map[string]interface{}{
-// 		param.BatchId:          batchId,
-// 		param.Name:             batchName,
-// 		param.IntegratorId:     integratorId,
-// 		param.Topic:            inputTopic,
-// 		param.DataType:         batchDataType,
-// 		param.Status:           status.Started.String(),
-// 		param.StartDate:        "ignored",
-// 		param.Metadata:         batchMetadata,
-// 		param.InvalidThreshold: batchInvalidThreshold,
-// 	}
-
-// 	elasticIndexRequestBody, err := json.Marshal(map[string]interface{}{
-// 		param.Name:             batchName,
-// 		param.IntegratorId:     integratorId,
-// 		param.Topic:            inputTopic,
-// 		param.DataType:         batchDataType,
-// 		param.Status:           status.Started.String(),
-// 		param.StartDate:        test.DatePattern,
-// 		param.Metadata:         batchMetadata,
-// 		param.InvalidThreshold: batchInvalidThreshold,
-// 	})
-// 	if err != nil {
-// 		t.Fatal("Unable to marshal expected elastic Index request body")
-// 	}
-
-// 	testCases := []struct {
-// 		name         string
-// 		requestId    string
-// 		batch        model.CreateBatch
-// 		transport    *test.FakeTransport
-// 		writerError  error
-// 		expectedCode int
-// 		expectedBody interface{}
-// 		kafkaValue   map[string]interface{}
-// 	}{
-// 		{
-// 			name:      "happy-path-good-request",
-// 			requestId: requestId,
-// 			batch:     validBatch,
-// 			transport: test.NewFakeTransport(t).AddCall(
-// 				fmt.Sprintf("/%s-batches/_doc", tenantId),
-// 				test.ElasticCall{
-// 					RequestBody:  string(elasticIndexRequestBody),
-// 					ResponseBody: fmt.Sprintf(`{"%s": "%s"}`, esparam.EsDocId, batchId),
-// 				},
-// 			),
-// 			expectedCode: http.StatusCreated,
-// 			expectedBody: map[string]interface{}{param.BatchId: batchId},
-// 			kafkaValue:   validBatchKafkaMetadata,
-// 		},
-// 	}
-
-// 	for _, tc := range testCases {
-// 		eClient, err := elastic.ClientFromTransport(tc.transport)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-
-// 		kWriter := test.FakeWriter{
-// 			T:             t,
-// 			ExpectedTopic: topicBase + notificationSuffix,
-// 			ExpectedKey:   batchId,
-// 			ExpectedValue: tc.kafkaValue,
-// 			Error:         tc.writerError,
-// 		}
-
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			actualCode, actualBody := CreateNoAuth(tc.requestId, tc.batch, auth.HriClaims{}, eClient, kWriter)
-// 			if actualCode != tc.expectedCode || !reflect.DeepEqual(tc.expectedBody, actualBody) {
-// 				//print error event as test result
-// 				t.Errorf("Batches-CreateNoAuth()\n  actual: %v,%v\n expected: %v,%v",
-// 					actualCode, actualBody, tc.expectedCode, tc.expectedBody)
-// 			}
-// 			tc.transport.VerifyCalls()
-// 		})
-// 	}
-// }
+func TestCreate1(t *testing.T) {
+	validBatchMetadata := map[string]interface{}{"batchContact": "The_Village_People", "finalRecordCount": 18}
+	validBatchZero := model.CreateBatch{
+		Name:             batchName,
+		Topic:            "inputTopic",
+		DataType:         batchDataType,
+		InvalidThreshold: 0,
+		Metadata:         validBatchMetadata,
+	}
+	UpdateBatchInfo(validBatchZero, "integrator-id", "batchid")
+}
 
 func TestBuildBatchInfo(t *testing.T) {
 	integratorId := "integratorId3"
@@ -287,12 +42,20 @@ func TestBuildBatchInfo(t *testing.T) {
 	inputTopic := topicBase + inputSuffix
 	validBatchMetadata := map[string]interface{}{"batchContact": "The_Village_People", "finalRecordCount": 18}
 	batchInvalidThreshold := 42
+	batchInvalidThresholdZero := 0
 
 	validBatch := model.CreateBatch{
 		Name:             batchName,
 		Topic:            inputTopic,
 		DataType:         batchDataType,
 		InvalidThreshold: batchInvalidThreshold,
+		Metadata:         validBatchMetadata,
+	}
+	validBatchZero := model.CreateBatch{
+		Name:             batchName,
+		Topic:            inputTopic,
+		DataType:         batchDataType,
+		InvalidThreshold: batchInvalidThresholdZero,
 		Metadata:         validBatchMetadata,
 	}
 
@@ -333,7 +96,16 @@ func TestBuildBatchInfo(t *testing.T) {
 		param.Metadata:         validBatchMetadata,
 		param.InvalidThreshold: -1,
 	}
-
+	batchInfoNoThresholdZero := map[string]interface{}{
+		param.Name:             batchName,
+		param.IntegratorId:     integratorId,
+		param.Topic:            inputTopic,
+		param.DataType:         batchDataType,
+		param.Status:           status.Started.String(),
+		param.StartDate:        test.DatePattern,
+		param.Metadata:         validBatchMetadata,
+		param.InvalidThreshold: -1,
+	}
 	batchInfoNoMetadata := map[string]interface{}{
 		param.Name:             batchName,
 		param.IntegratorId:     integratorId,
@@ -369,6 +141,12 @@ func TestBuildBatchInfo(t *testing.T) {
 			batch:             validBatchNoMetadata,
 			claims:            auth.HriAzClaims{Scope: auth.HriConsumer, Subject: integratorId},
 			expectedBatchInfo: batchInfoNoMetadata,
+		},
+		{
+			name:              "Zero",
+			batch:             validBatchZero,
+			claims:            auth.HriAzClaims{Scope: auth.HriConsumer, Subject: integratorId},
+			expectedBatchInfo: batchInfoNoThresholdZero,
 		},
 	}
 
@@ -409,4 +187,189 @@ func batchInfoNotEqual(expectedBatchInfo map[string]interface{},
 		}
 	}
 	return false
+}
+
+func TestCreate21q(t *testing.T) {
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+	logwrapper.Initialize("error", os.Stdout)
+
+	requestId := "reqZxQ9706"
+	tenantId := "tenant123"
+	integratorId := "integratorId"
+	batchId := "batch654"
+	batchName := "monkeeName"
+	batchDataType := "pikachu"
+	topicBase := "batchFunTopic"
+	inputTopic := topicBase + inputSuffix
+	batchMetadata := map[string]interface{}{"batchContact": "Sony Yadav", "finalRecordCount": 200}
+	batchInvalidThreshold := 10
+
+	validBatch := model.CreateBatch{
+		TenantId:         tenantId,
+		Name:             batchName,
+		Topic:            inputTopic,
+		DataType:         batchDataType,
+		InvalidThreshold: batchInvalidThreshold,
+		Metadata:         batchMetadata,
+	}
+
+	validBatchKafkaMetadata := map[string]interface{}{
+		param.BatchId:          batchId,
+		param.Name:             batchName,
+		param.IntegratorId:     integratorId,
+		param.Topic:            inputTopic,
+		param.DataType:         batchDataType,
+		param.Status:           status.Started.String(),
+		param.StartDate:        "ignored",
+		param.Metadata:         batchMetadata,
+		param.InvalidThreshold: batchInvalidThreshold,
+	}
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		subject := "dataIntegrator1"
+
+		claim := auth.HriAzClaims{Scope: auth.HriIntegrator, Roles: []string{auth.HriIntegrator, "hri_tenant_tenant123_data_integrator"}, Subject: subject}
+
+		writer := test.FakeWriter{
+			T:             t,
+			ExpectedTopic: topicBase + notificationSuffix,
+			ExpectedKey:   batchId,
+			ExpectedValue: validBatchKafkaMetadata,
+			Error:         nil,
+		}
+		tenants, response := CreateBatch(requestId, validBatch, claim, writer)
+
+		assert.NotNil(t, tenants)
+		assert.NotNil(t, response)
+		assert.Equal(t, tenants, 404)
+	})
+	mt.Run("empty claim", func(mt *mtest.T) {
+
+		subject := "dataIntegrator1"
+		// roles := []string{auth.HriConsumer, auth.DataConsumer, auth.DataIntegrator, auth.DataInternal, "hri_tenant_134340_data_integrator", "hri_tenant_134340_data_consumer"}
+
+		claim := auth.HriAzClaims{Scope: auth.HriIntegrator, Roles: []string{}, Subject: subject}
+
+		writer := test.FakeWriter{
+			T:             t,
+			ExpectedTopic: topicBase + notificationSuffix,
+			ExpectedKey:   batchId,
+			ExpectedValue: validBatchKafkaMetadata,
+			Error:         nil,
+		}
+		tenants, response := CreateBatch(requestId, validBatch, claim, writer)
+
+		assert.NotNil(t, tenants)
+		assert.NotNil(t, response)
+		assert.Equal(t, tenants, 401)
+	})
+
+	mt.Run("Subject_empty", func(mt *mtest.T) {
+
+		subject := ""
+		// roles := []string{auth.HriConsumer, auth.DataConsumer, auth.DataIntegrator, auth.DataInternal, "hri_tenant_134340_data_integrator", "hri_tenant_134340_data_consumer"}
+
+		claim := auth.HriAzClaims{Scope: auth.HriIntegrator, Roles: []string{auth.HriIntegrator, "hri_tenant_tenant123_data_integrator"}, Subject: subject}
+
+		writer := test.FakeWriter{
+			T:             t,
+			ExpectedTopic: topicBase + notificationSuffix,
+			ExpectedKey:   batchId,
+			ExpectedValue: validBatchKafkaMetadata,
+			Error:         nil,
+		}
+		tenants, response := CreateBatch(requestId, validBatch, claim, writer)
+
+		assert.NotNil(t, tenants)
+		assert.NotNil(t, response)
+		// assert.Equal(t, tenants, 200)
+	})
+	mt.Run("CreateBatchNoAuth", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+		subject := "integratorId"
+
+		claim := auth.HriAzClaims{Scope: auth.HriIntegrator, Roles: []string{auth.HriIntegrator, "hri_tenant_tenant123_data_integrator"}, Subject: subject}
+
+		writer := test.FakeWriter{
+			T:             t,
+			ExpectedTopic: topicBase + notificationSuffix,
+			ExpectedKey:   batchId,
+			ExpectedValue: validBatchKafkaMetadata,
+			Error:         nil,
+		}
+		tenants, response := CreateBatchNoAuth(requestId, validBatch, claim, writer)
+
+		assert.NotNil(t, tenants)
+		assert.NotNil(t, response)
+		// assert.Equal(t, tenants, 200)
+	})
+}
+func TestCreate21(t *testing.T) {
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+	logwrapper.Initialize("error", os.Stdout)
+
+	requestId := "reqZxQ9706"
+	tenantId := "tenant123"
+	integratorId := "integratorId"
+	batchId := "batch654"
+	batchName := "monkeeName"
+	batchDataType := "pikachu"
+	topicBase := "batchFunTopic"
+	inputTopic := topicBase + inputSuffix
+	batchMetadata := map[string]interface{}{"batchContact": "Sony Yadav", "finalRecordCount": 200}
+	batchInvalidThreshold := 10
+
+	validBatch := model.CreateBatch{
+		TenantId:         tenantId,
+		Name:             batchName,
+		Topic:            inputTopic,
+		DataType:         batchDataType,
+		InvalidThreshold: batchInvalidThreshold,
+		Metadata:         batchMetadata,
+	}
+
+	validBatchKafkaMetadata := map[string]interface{}{
+		param.BatchId:          batchId,
+		param.Name:             batchName,
+		param.IntegratorId:     integratorId,
+		param.Topic:            inputTopic,
+		param.DataType:         batchDataType,
+		param.Status:           status.Started.String(),
+		param.StartDate:        "ignored",
+		param.Metadata:         batchMetadata,
+		param.InvalidThreshold: batchInvalidThreshold,
+	}
+
+	mt.Run("success1", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+		batchId = "batch654"
+
+		subject := "dataIntegrator1"
+
+		claim := auth.HriAzClaims{Scope: auth.HriIntegrator, Roles: []string{auth.HriIntegrator, "hri_tenant_tenant123_data_integrator"}, Subject: subject}
+
+		writer := test.FakeWriter{
+			T:             t,
+			ExpectedTopic: topicBase + notificationSuffix,
+			ExpectedKey:   batchId,
+			ExpectedValue: validBatchKafkaMetadata,
+			Error:         errors.New("Unable to write to Kafka"),
+		}
+
+		tenant1 := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{"tenantId", "tenant123"},
+		})
+
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(tenant1, killCursors)
+
+		CreateBatch(requestId, validBatch, claim, writer)
+
+		// assert.NotNil(t, tenants)
+		// assert.NotNil(t, response)
+		// assert.Equal(t, tenants, 500)
+	})
 }

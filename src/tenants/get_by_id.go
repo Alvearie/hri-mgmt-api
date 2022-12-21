@@ -35,7 +35,7 @@ func GetTenantById(
 		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, msg)
 	}
 
-	healthOk, datasize := mongoApi.DatabaseHealthCheck(mongoApi.HriCollection)
+	healthOk, datasize := mongoApi.DatabaseHealthCheck()
 	tenantResponse.Index = returnTenetResult.TenantId
 	tenantResponse.Uuid = returnTenetResult.Uuid
 	if returnTenetResult.Docs_count == "" {

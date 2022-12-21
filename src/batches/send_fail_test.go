@@ -6,8 +6,10 @@
 package batches
 
 import (
-	"github.com/Alvearie/hri-mgmt-api/common/model"
-	"github.com/Alvearie/hri-mgmt-api/common/test"
+	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/mongoApi"
+	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 )
 
 // func TestFail_GetUpdateScript(t *testing.T) {
@@ -299,15 +301,40 @@ import (
 // 	}
 // }
 
-func getTestFailRequest(actualRecordCount int, invalidRecordCount int, failureMsg string) *model.FailRequest {
-	request := model.FailRequest{
-		ProcessingCompleteRequest: model.ProcessingCompleteRequest{
-			TenantId:           test.ValidTenantId,
-			BatchId:            test.ValidBatchId,
-			ActualRecordCount:  &actualRecordCount,
-			InvalidRecordCount: &invalidRecordCount,
-		},
-		FailureMessage: failureMsg,
-	}
-	return &request
+// func getTestFailRequest(actualRecordCount int, invalidRecordCount int, failureMsg string) *model.FailRequest {
+// 	request := model.FailRequest{
+// 		ProcessingCompleteRequest: model.ProcessingCompleteRequest{
+// 			TenantId:           test.ValidTenantId,
+// 			BatchId:            test.ValidBatchId,
+// 			ActualRecordCount:  &actualRecordCount,
+// 			InvalidRecordCount: &invalidRecordCount,
+// 		},
+// 		FailureMessage: failureMsg,
+// 	}
+// 	return &request
+// }
+
+func TestCreate214q(t *testing.T) {
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		// subject := "dataIntegrator1"
+
+		// claim := auth.HriAzClaims{Scope: auth.HriIntegrator, Roles: []string{auth.HriIntegrator, "hri_tenant_tenant123_data_integrator"}, Subject: subject}
+
+		// writer := test.FakeWriter{
+		// 	T:             t,
+		// 	ExpectedTopic: topicBase + notificationSuffix,
+		// 	ExpectedKey:   "batchId",
+		// 	// ExpectedValue: "validBatchKafkaMetadata",
+		// 	Error: nil,
+		// }
+		// tenants, response := CreateBatch(requestId, validBatch, claim, writer)
+
+		// assert.NotNil(t, tenants)
+		// assert.NotNil(t, response)
+		// assert.Equal(t, tenants, 404)
+	})
 }

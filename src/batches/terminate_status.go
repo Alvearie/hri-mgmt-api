@@ -21,14 +21,12 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func TerminateBatch(
 	requestId string,
 	request *model.TerminateRequest,
 	claims auth.HriAzClaims,
-	client *mongo.Collection,
 	writer kafka.Writer,
 	currentStatus status.BatchStatus) (int, interface{}) {
 
@@ -44,14 +42,13 @@ func TerminateBatch(
 	}
 
 	var subject = claims.Subject
-	return terminateBatch(requestId, request, subject, logger, client, writer, currentStatus)
+	return terminateBatch(requestId, request, subject, logger, writer, currentStatus)
 }
 
 func TerminateBatchNoAuth(
 	requestId string,
 	request *model.TerminateRequest,
 	_ auth.HriAzClaims,
-	esClient *mongo.Collection,
 	writer kafka.Writer,
 	currentStatus status.BatchStatus) (int, interface{}) {
 
@@ -60,13 +57,12 @@ func TerminateBatchNoAuth(
 	logger.Debugln("Start Batch Terminate (No Auth)")
 
 	var subject = auth.NoAuthFakeIntegrator
-	return terminateBatch(requestId, request, subject, logger, esClient, writer, currentStatus)
+	return terminateBatch(requestId, request, subject, logger, writer, currentStatus)
 }
 
 func terminateBatch(requestId string, request *model.TerminateRequest,
 	claimsSubject string,
 	logger logrus.FieldLogger,
-	client *mongo.Collection,
 	writer kafka.Writer,
 	currentStatus status.BatchStatus) (int, interface{}) {
 
@@ -74,7 +70,7 @@ func terminateBatch(requestId string, request *model.TerminateRequest,
 	var getBatchRequest = model.GetByIdBatch{TenantId: request.TenantId, BatchId: request.BatchId}
 	var updateRequest = map[string]interface{}{}
 
-	getByIdCode, getByIdBody := GetByBatchIdNoAuth(requestId, getBatchRequest, claims, client)
+	getByIdCode, getByIdBody := GetByBatchIdNoAuth(requestId, getBatchRequest, claims)
 
 	if getByIdCode != 200 {
 		return getByIdCode, getByIdBody
@@ -96,7 +92,7 @@ func terminateBatch(requestId string, request *model.TerminateRequest,
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, errMsg)
 	}
 
-	errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId, updateRequest, client, writer, currentStatus)
+	errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId, updateRequest, writer, currentStatus)
 	if errResp != nil {
 		return errResp.Code, errResp.Body
 	}

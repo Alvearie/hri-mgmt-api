@@ -22,7 +22,6 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func buildBatchInfo(batch model.CreateBatch, integrator string) map[string]interface{} {
@@ -72,7 +71,6 @@ func CreateBatchNoAuth(
 	requestId string,
 	batch model.CreateBatch,
 	_ auth.HriAzClaims,
-	mongoClient *mongo.Collection,
 	kafkaWriter kafka.Writer) (int, interface{}) {
 
 	var prefix = "batches/create_no_auth"
@@ -80,13 +78,12 @@ func CreateBatchNoAuth(
 	logger.Debugln("Start Batch Create (Without Auth)")
 
 	var integratorId = auth.NoAuthFakeIntegrator
-	return createBatch(requestId, batch, integratorId, mongoClient, kafkaWriter, logger)
+	return createBatch(requestId, batch, integratorId, kafkaWriter, logger)
 }
 func CreateBatch(
 	requestId string,
 	batch model.CreateBatch,
 	claims auth.HriAzClaims,
-	mongoClient *mongo.Collection,
 	kafkaWriter kafka.Writer) (int, interface{}) {
 
 	prefix := "batches/create"
@@ -108,14 +105,13 @@ func CreateBatch(
 	}
 
 	var subject = claims.Subject
-	return createBatch(requestId, batch, subject, mongoClient, kafkaWriter, logger)
+	return createBatch(requestId, batch, subject, kafkaWriter, logger)
 }
 
 func createBatch(
 	requestId string,
 	batch model.CreateBatch,
 	integratorId string,
-	mongoClient *mongo.Collection,
 	kafkaWriter kafka.Writer,
 	logger logrus.FieldLogger) (int, interface{}) {
 
@@ -131,7 +127,7 @@ func createBatch(
 
 	logger.Debugf("Successfully built BatchInfo for batch name: %s", batch.Name)
 
-	mongoClient.FindOne(ctx, filter).Decode(&returnResult)
+	mongoApi.HriCollection.FindOne(ctx, filter).Decode(&returnResult)
 	//fmt.Println("find by id result ", res)
 	if returnResult.TenantId == "" {
 		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound,
@@ -172,10 +168,10 @@ func createBatch(
 	}
 
 	//update batchInfo to tenantId after writing to kafkatopic successfully
-	result, err := mongoClient.UpdateOne(ctx, bson.M{"_id": returnResult.Uuid}, bson.M{"$set": returnResult})
+	result, UpdateErr := mongoApi.HriCollection.UpdateOne(ctx, bson.M{"_id": returnResult.Uuid}, bson.M{"$set": returnResult})
 
 	logger.Debugf("Updated result count", result.ModifiedCount)
-	if err != nil {
+	if UpdateErr != nil {
 		return http.StatusInternalServerError, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusBadRequest,
 			logger, errMsg)
 	}
