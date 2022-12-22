@@ -385,3 +385,103 @@ func Test_myHandler_Send_status_complete(t *testing.T) {
 		})
 	}
 }
+
+func Test_myHandler_Process_Complete(t *testing.T) {
+	validConfig := config.Config{}
+
+	logwrapper.Initialize("error", os.Stdout)
+
+	tests := []struct {
+		name         string
+		handler      theHandler
+		tenantId     string
+		batchId      string
+		requestBody  string
+		expectedCode int
+	}{
+		{
+			name: "happy path",
+			handler: theHandler{
+				config: validConfig,
+				jwtBatchValidator: fakeAuthValidator{
+					errResp: nil,
+				},
+				processingCompleteBatch: func(string, *model.ProcessingCompleteRequest, auth.HriAzClaims, kafka.Writer) (int, interface{}) {
+					return http.StatusOK, nil
+				},
+			},
+			tenantId:     "1_a-tenant-id",
+			batchId:      "test-batch-id",
+			requestBody:  `{"actualRecordCount":100,"invalidRecordCount":10}`,
+			expectedCode: 200,
+		},
+	}
+
+	e := test.GetTestServer()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			request := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(tt.requestBody))
+			context, recorder := test.PrepareHeadersContextRecorder(request, e)
+			context.SetPath("/hri/tenant/:tenantId/batches/:batchId/action/processingComplete")
+			context.SetParamNames(param.TenantId, param.BatchId)
+			context.SetParamValues(tt.tenantId, tt.batchId)
+			context.Response().Header().Add(echo.HeaderXRequestID, requestId)
+
+			if assert.NoError(t, tt.handler.ProcessingCompleteBatch(context)) {
+				assert.Equal(t, tt.expectedCode, recorder.Code)
+				// assert.Equal(t, tt.expectedBody, recorder.Body.String())
+			}
+		})
+	}
+}
+
+func Test_myHandler_terminate(t *testing.T) {
+	validConfig := config.Config{}
+
+	logwrapper.Initialize("error", os.Stdout)
+
+	tests := []struct {
+		name         string
+		handler      theHandler
+		tenantId     string
+		batchId      string
+		requestBody  string
+		expectedCode int
+	}{
+		{
+			name: "happy path",
+			handler: theHandler{
+				config: validConfig,
+				jwtBatchValidator: fakeAuthValidator{
+					errResp: nil,
+				},
+				terminateBatch: func(string, *model.TerminateRequest, auth.HriAzClaims, kafka.Writer) (int, interface{}) {
+					return http.StatusOK, nil
+				},
+			},
+			tenantId:     "1_a-tenant-id",
+			batchId:      "test-batch-id",
+			requestBody:  `{"metadata":{"field1":"field1","field2":10}}`,
+			expectedCode: 200,
+		},
+	}
+
+	e := test.GetTestServer()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			request := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(tt.requestBody))
+			context, recorder := test.PrepareHeadersContextRecorder(request, e)
+			context.SetPath("/hri/tenant/:tenantId/batches/:batchId/action/terminate")
+			context.SetParamNames(param.TenantId, param.BatchId)
+			context.SetParamValues(tt.tenantId, tt.batchId)
+			context.Response().Header().Add(echo.HeaderXRequestID, requestId)
+
+			if assert.NoError(t, tt.handler.TerminateBatch(context)) {
+				assert.Equal(t, tt.expectedCode, recorder.Code)
+				// assert.Equal(t, tt.expectedBody, recorder.Body.String())
+			}
+		})
+	}
+}

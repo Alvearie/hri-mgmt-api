@@ -7,10 +7,8 @@
 package batches
 
 import (
-	"fmt"
 	"net/http"
 
-	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
@@ -18,7 +16,6 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/labstack/echo/v4"
-	"github.com/sirupsen/logrus"
 )
 
 const msgGetByIdErr string = "error getting current Batch Status: %s"
@@ -208,27 +205,27 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 
 // get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
 // Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
-func getBatchStatus(h *theHandler, requestId string, getBatchRequest model.GetByIdBatch, logger logrus.FieldLogger) (status.BatchStatus, *response.ErrorDetailResponse) {
+// func getBatchStatus(h *theHandler, requestId string, getBatchRequest model.GetByIdBatch, logger logrus.FieldLogger) (status.BatchStatus, *response.ErrorDetailResponse) {
 
-	var claims = auth.HriAzClaims{} //Always use the empty claims (NoAuth) option
-	getByIdCode, responseBody := h.getTenantByIdNoAuth(requestId, getBatchRequest, claims)
-	if getByIdCode != http.StatusOK { //error getting current Batch Info
-		var errDetail = responseBody.(*response.ErrorDetail)
-		newErrMsg := fmt.Sprintf(msgGetByIdErr, errDetail.ErrorDescription)
-		logger.Errorln(newErrMsg)
+// 	var claims = auth.HriAzClaims{} //Always use the empty claims (NoAuth) option
+// 	getByIdCode, responseBody := h.getTenantByIdNoAuth(requestId, getBatchRequest, claims)
+// 	if getByIdCode != http.StatusOK { //error getting current Batch Info
+// 		var errDetail = responseBody.(*response.ErrorDetail)
+// 		newErrMsg := fmt.Sprintf(msgGetByIdErr, errDetail.ErrorDescription)
+// 		logger.Errorln(newErrMsg)
 
-		return status.Unknown, response.NewErrorDetailResponse(getByIdCode, requestId, newErrMsg)
-	}
+// 		return status.Unknown, response.NewErrorDetailResponse(getByIdCode, requestId, newErrMsg)
+// 	}
 
-	currentStatus, extractErr := ExtractBatchStatus(responseBody)
-	if extractErr != nil {
-		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-		logger.Errorln(errMsg)
-		return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	}
+// 	currentStatus, extractErr := ExtractBatchStatus(responseBody)
+// 	if extractErr != nil {
+// 		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+// 		logger.Errorln(errMsg)
+// 		return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+// 	}
 
-	return currentStatus, nil
-}
+// 	return currentStatus, nil
+// }
 
 func (h *theHandler) GetByBatchId(c echo.Context) error {
 	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
