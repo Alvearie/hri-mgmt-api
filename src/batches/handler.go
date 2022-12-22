@@ -43,8 +43,8 @@ type theHandler struct {
 	getBatch                func(string, model.GetBatch, auth.HriAzClaims) (int, interface{})
 	sendStatusComplete      func(string, *model.SendCompleteRequest, auth.HriAzClaims, kafka.Writer) (int, interface{})
 	sendFail                func(string, *model.FailRequest, auth.HriAzClaims, kafka.Writer) (int, interface{})
-	terminateBatch          func(string, *model.TerminateRequest, auth.HriAzClaims, kafka.Writer, status.BatchStatus) (int, interface{})
-	processingCompleteBatch func(string, *model.ProcessingCompleteRequest, auth.HriAzClaims, kafka.Writer, status.BatchStatus) (int, interface{})
+	terminateBatch          func(string, *model.TerminateRequest, auth.HriAzClaims, kafka.Writer) (int, interface{})
+	processingCompleteBatch func(string, *model.ProcessingCompleteRequest, auth.HriAzClaims, kafka.Writer) (int, interface{})
 }
 
 // NewHandler This struct is designed to make unit testing easier. It has function references for the calls to backend
@@ -358,10 +358,10 @@ func (h *theHandler) TerminateBatch(c echo.Context) error {
 	}
 	defer kafkaWriter.Close()
 
-	getBatchRequest := model.GetByIdBatch{
-		TenantId: request.TenantId,
-		BatchId:  request.BatchId,
-	}
+	// getBatchRequest := model.GetByIdBatch{
+	// 	TenantId: request.TenantId,
+	// 	BatchId:  request.BatchId,
+	// }
 	var code int
 	var body interface{}
 	var claims = auth.HriAzClaims{}
@@ -378,11 +378,11 @@ func (h *theHandler) TerminateBatch(c echo.Context) error {
 		logger.Debugln("Auth Disabled - call TerminateNoAuth()")
 	}
 
-	currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, logger)
-	if getStatusErr != nil {
-		return c.JSON(getStatusErr.Code, getStatusErr.Body)
-	}
-	code, body = h.terminateBatch(requestId, &request, claims, kafkaWriter, currentStatus)
+	// currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, logger)
+	// if getStatusErr != nil {
+	// 	return c.JSON(getStatusErr.Code, getStatusErr.Body)
+	// }
+	code, body = h.terminateBatch(requestId, &request, claims, kafkaWriter)
 
 	if body != nil {
 		return c.JSON(code, body)
@@ -414,10 +414,10 @@ func (h *theHandler) ProcessingCompleteBatch(c echo.Context) error {
 	}
 	defer kafkaWriter.Close()
 
-	getBatchRequest := model.GetByIdBatch{
-		TenantId: request.TenantId,
-		BatchId:  request.BatchId,
-	}
+	// getBatchRequest := model.GetByIdBatch{
+	// 	TenantId: request.TenantId,
+	// 	BatchId:  request.BatchId,
+	// }
 	var code int
 	var body interface{}
 	var claims = auth.HriAzClaims{}
@@ -435,12 +435,12 @@ func (h *theHandler) ProcessingCompleteBatch(c echo.Context) error {
 		logger.Debugln("Auth Disabled - call ProcessingCompleteNoAuth()")
 	}
 
-	currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, logger)
-	if getStatusErr != nil {
-		return c.JSON(getStatusErr.Code, getStatusErr.Body)
-	}
+	// currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, logger)
+	// if getStatusErr != nil {
+	// 	return c.JSON(getStatusErr.Code, getStatusErr.Body)
+	// }
 
-	code, body = h.processingCompleteBatch(requestId, &request, claims, kafkaWriter, currentStatus)
+	code, body = h.processingCompleteBatch(requestId, &request, claims, kafkaWriter)
 
 	if body != nil {
 		return c.JSON(code, body)

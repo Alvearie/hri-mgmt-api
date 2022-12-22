@@ -27,8 +27,7 @@ func TerminateBatch(
 	requestId string,
 	request *model.TerminateRequest,
 	claims auth.HriAzClaims,
-	writer kafka.Writer,
-	currentStatus status.BatchStatus) (int, interface{}) {
+	writer kafka.Writer) (int, interface{}) {
 
 	prefix := "batches/terminate"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
@@ -42,29 +41,27 @@ func TerminateBatch(
 	}
 
 	var subject = claims.Subject
-	return terminateBatch(requestId, request, subject, logger, writer, currentStatus)
+	return terminateBatch(requestId, request, subject, logger, writer)
 }
 
 func TerminateBatchNoAuth(
 	requestId string,
 	request *model.TerminateRequest,
 	_ auth.HriAzClaims,
-	writer kafka.Writer,
-	currentStatus status.BatchStatus) (int, interface{}) {
+	writer kafka.Writer) (int, interface{}) {
 
 	prefix := "batches/TerminateNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Terminate (No Auth)")
 
 	var subject = auth.NoAuthFakeIntegrator
-	return terminateBatch(requestId, request, subject, logger, writer, currentStatus)
+	return terminateBatch(requestId, request, subject, logger, writer)
 }
 
 func terminateBatch(requestId string, request *model.TerminateRequest,
 	claimsSubject string,
 	logger logrus.FieldLogger,
-	writer kafka.Writer,
-	currentStatus status.BatchStatus) (int, interface{}) {
+	writer kafka.Writer) (int, interface{}) {
 
 	var claims = auth.HriAzClaims{}
 	var getBatchRequest = model.GetByIdBatch{TenantId: request.TenantId, BatchId: request.BatchId}
@@ -77,7 +74,12 @@ func terminateBatch(requestId string, request *model.TerminateRequest,
 	}
 
 	batchDetail, ok := getByIdBody.(map[string]interface{})
-
+	currentStatus, extractErr := ExtractBatchStatus(batchDetail)
+	if extractErr != nil {
+		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+		logger.Errorln(errMsg)
+		return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+	}
 	if status.Started.String() != batchDetail[param.Status] {
 		errMsg := fmt.Sprintf("terminate failed, batch is in '%s' state", batchDetail[param.Status].(string))
 		logger.Errorln(errMsg)
