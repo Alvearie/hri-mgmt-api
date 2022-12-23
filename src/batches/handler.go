@@ -159,8 +159,6 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 
 	request.Validation = h.config.Validation
 
-	// mongoClient := mongoApi.GetMongoCollection(h.config.MongoColName)
-
 	kafkaWriter, err := kafka.NewWriterFromAzConfig(h.config)
 	if err != nil {
 		logger.Errorln(err.Error())
@@ -168,10 +166,6 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 	}
 	defer kafkaWriter.Close()
 
-	// getBatchRequest := model.GetByIdBatch{
-	// 	TenantId: request.TenantId,
-	// 	BatchId:  request.BatchId,
-	// }
 	var code int
 	var body interface{}
 	var claims = auth.HriAzClaims{}
@@ -189,11 +183,6 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 		logger.Debugln("Auth Disabled - call SendCompleteNoAuth()")
 	}
 
-	// currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, logger)
-	// if getStatusErr != nil {
-	// 	return c.JSON(getStatusErr.Code, getStatusErr.Body)
-	// }
-
 	code, body = h.sendStatusComplete(requestId, &request, claims, kafkaWriter)
 
 	if body != nil {
@@ -205,27 +194,6 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 
 // get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
 // Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
-// func getBatchStatus(h *theHandler, requestId string, getBatchRequest model.GetByIdBatch, logger logrus.FieldLogger) (status.BatchStatus, *response.ErrorDetailResponse) {
-
-// 	var claims = auth.HriAzClaims{} //Always use the empty claims (NoAuth) option
-// 	getByIdCode, responseBody := h.getTenantByIdNoAuth(requestId, getBatchRequest, claims)
-// 	if getByIdCode != http.StatusOK { //error getting current Batch Info
-// 		var errDetail = responseBody.(*response.ErrorDetail)
-// 		newErrMsg := fmt.Sprintf(msgGetByIdErr, errDetail.ErrorDescription)
-// 		logger.Errorln(newErrMsg)
-
-// 		return status.Unknown, response.NewErrorDetailResponse(getByIdCode, requestId, newErrMsg)
-// 	}
-
-// 	currentStatus, extractErr := ExtractBatchStatus(responseBody)
-// 	if extractErr != nil {
-// 		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-// 		logger.Errorln(errMsg)
-// 		return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-// 	}
-
-// 	return currentStatus, nil
-// }
 
 func (h *theHandler) GetByBatchId(c echo.Context) error {
 	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
@@ -243,7 +211,6 @@ func (h *theHandler) GetByBatchId(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
 	}
 
-	// mongoClient := mongoApi.GetMongoCollection(h.config.MongoColName)
 	if h.config.AuthDisabled == false { //Auth Enabled
 		//JWT claims validation
 
@@ -355,10 +322,6 @@ func (h *theHandler) TerminateBatch(c echo.Context) error {
 	}
 	defer kafkaWriter.Close()
 
-	// getBatchRequest := model.GetByIdBatch{
-	// 	TenantId: request.TenantId,
-	// 	BatchId:  request.BatchId,
-	// }
 	var code int
 	var body interface{}
 	var claims = auth.HriAzClaims{}
@@ -375,10 +338,6 @@ func (h *theHandler) TerminateBatch(c echo.Context) error {
 		logger.Debugln("Auth Disabled - call TerminateNoAuth()")
 	}
 
-	// currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, logger)
-	// if getStatusErr != nil {
-	// 	return c.JSON(getStatusErr.Code, getStatusErr.Body)
-	// }
 	code, body = h.terminateBatch(requestId, &request, claims, kafkaWriter)
 
 	if body != nil {
@@ -411,10 +370,6 @@ func (h *theHandler) ProcessingCompleteBatch(c echo.Context) error {
 	}
 	defer kafkaWriter.Close()
 
-	// getBatchRequest := model.GetByIdBatch{
-	// 	TenantId: request.TenantId,
-	// 	BatchId:  request.BatchId,
-	// }
 	var code int
 	var body interface{}
 	var claims = auth.HriAzClaims{}
@@ -431,11 +386,6 @@ func (h *theHandler) ProcessingCompleteBatch(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call ProcessingCompleteNoAuth()")
 	}
-
-	// currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, logger)
-	// if getStatusErr != nil {
-	// 	return c.JSON(getStatusErr.Code, getStatusErr.Body)
-	// }
 
 	code, body = h.processingCompleteBatch(requestId, &request, claims, kafkaWriter)
 

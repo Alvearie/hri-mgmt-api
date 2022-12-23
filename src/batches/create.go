@@ -123,12 +123,11 @@ func createBatch(
 
 	errMsg := "Batch creation failed for Tenant " + batch.TenantId
 	batchInfo := buildBatchInfo(batch, integratorId)
-	//jsonBatchInfo, err := json.Marshal(batchInfo)
 
 	logger.Debugf("Successfully built BatchInfo for batch name: %s", batch.Name)
 
 	mongoApi.HriCollection.FindOne(ctx, filter).Decode(&returnResult)
-	//fmt.Println("find by id result ", res)
+
 	if returnResult.TenantId == "" {
 		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound,
 			logger, errMsg)

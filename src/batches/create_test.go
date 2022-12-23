@@ -22,7 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 )
 
-func TestCreate1(t *testing.T) {
+func TestUpdateBatchInfo(t *testing.T) {
 	validBatchMetadata := map[string]interface{}{"batchContact": "The_Village_People", "finalRecordCount": 18}
 	validBatchZero := model.CreateBatch{
 		Name:             batchName,
@@ -189,7 +189,7 @@ func batchInfoNotEqual(expectedBatchInfo map[string]interface{},
 	return false
 }
 
-func TestCreate21q(t *testing.T) {
+func TestCreate(t *testing.T) {
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
 	defer mt.Close()
 	logwrapper.Initialize("error", os.Stdout)
@@ -202,7 +202,7 @@ func TestCreate21q(t *testing.T) {
 	batchDataType := "pikachu"
 	topicBase := "batchFunTopic"
 	inputTopic := topicBase + inputSuffix
-	batchMetadata := map[string]interface{}{"batchContact": "Sony Yadav", "finalRecordCount": 200}
+	batchMetadata := map[string]interface{}{"batchContact": "TestName", "finalRecordCount": 200}
 	batchInvalidThreshold := 10
 
 	validBatch := model.CreateBatch{
@@ -225,7 +225,7 @@ func TestCreate21q(t *testing.T) {
 		param.Metadata:         batchMetadata,
 		param.InvalidThreshold: batchInvalidThreshold,
 	}
-	mt.Run("success", func(mt *mtest.T) {
+	mt.Run("createBatch404", func(mt *mtest.T) {
 		mongoApi.HriCollection = mt.Coll
 
 		subject := "dataIntegrator1"
@@ -248,7 +248,6 @@ func TestCreate21q(t *testing.T) {
 	mt.Run("empty claim", func(mt *mtest.T) {
 
 		subject := "dataIntegrator1"
-		// roles := []string{auth.HriConsumer, auth.DataConsumer, auth.DataIntegrator, auth.DataInternal, "hri_tenant_134340_data_integrator", "hri_tenant_134340_data_consumer"}
 
 		claim := auth.HriAzClaims{Scope: auth.HriIntegrator, Roles: []string{}, Subject: subject}
 
@@ -269,7 +268,6 @@ func TestCreate21q(t *testing.T) {
 	mt.Run("Subject_empty", func(mt *mtest.T) {
 
 		subject := ""
-		// roles := []string{auth.HriConsumer, auth.DataConsumer, auth.DataIntegrator, auth.DataInternal, "hri_tenant_134340_data_integrator", "hri_tenant_134340_data_consumer"}
 
 		claim := auth.HriAzClaims{Scope: auth.HriIntegrator, Roles: []string{auth.HriIntegrator, "hri_tenant_tenant123_data_integrator"}, Subject: subject}
 
@@ -284,7 +282,7 @@ func TestCreate21q(t *testing.T) {
 
 		assert.NotNil(t, tenants)
 		assert.NotNil(t, response)
-		// assert.Equal(t, tenants, 200)
+
 	})
 	mt.Run("CreateBatchNoAuth", func(mt *mtest.T) {
 		mongoApi.HriCollection = mt.Coll
@@ -303,47 +301,10 @@ func TestCreate21q(t *testing.T) {
 
 		assert.NotNil(t, tenants)
 		assert.NotNil(t, response)
-		// assert.Equal(t, tenants, 200)
+
 	})
-}
-func TestCreate21(t *testing.T) {
-	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
-	defer mt.Close()
-	logwrapper.Initialize("error", os.Stdout)
 
-	requestId := "reqZxQ9706"
-	tenantId := "tenant123"
-	integratorId := "integratorId"
-	batchId := "batch654"
-	batchName := "monkeeName"
-	batchDataType := "pikachu"
-	topicBase := "batchFunTopic"
-	inputTopic := topicBase + inputSuffix
-	batchMetadata := map[string]interface{}{"batchContact": "Sony Yadav", "finalRecordCount": 200}
-	batchInvalidThreshold := 10
-
-	validBatch := model.CreateBatch{
-		TenantId:         tenantId,
-		Name:             batchName,
-		Topic:            inputTopic,
-		DataType:         batchDataType,
-		InvalidThreshold: batchInvalidThreshold,
-		Metadata:         batchMetadata,
-	}
-
-	validBatchKafkaMetadata := map[string]interface{}{
-		param.BatchId:          batchId,
-		param.Name:             batchName,
-		param.IntegratorId:     integratorId,
-		param.Topic:            inputTopic,
-		param.DataType:         batchDataType,
-		param.Status:           status.Started.String(),
-		param.StartDate:        "ignored",
-		param.Metadata:         batchMetadata,
-		param.InvalidThreshold: batchInvalidThreshold,
-	}
-
-	mt.Run("success1", func(mt *mtest.T) {
+	mt.Run("kafkaErr", func(mt *mtest.T) {
 		mongoApi.HriCollection = mt.Coll
 		batchId = "batch654"
 
@@ -366,10 +327,8 @@ func TestCreate21(t *testing.T) {
 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
 		mt.AddMockResponses(tenant1, killCursors)
 
-		CreateBatch(requestId, validBatch, claim, writer)
+		tenants, _ := CreateBatch(requestId, validBatch, claim, writer)
 
-		// assert.NotNil(t, tenants)
-		// assert.NotNil(t, response)
-		// assert.Equal(t, tenants, 500)
+		assert.Equal(t, tenants, 500)
 	})
 }
