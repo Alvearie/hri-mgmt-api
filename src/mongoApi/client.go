@@ -62,10 +62,6 @@ func HriDatabaseHealthCheck() (string, string, error) {
 	}
 }
 
-// func TenantIdFromIndex(tenantIndex string) string {
-// 	return strings.TrimSuffix(tenantIndex, "-batches")
-// }
-
 func TenantIdWithSuffix(tenant string) string {
 	return strings.TrimSuffix(tenant, "-batches")
 }

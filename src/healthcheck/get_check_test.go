@@ -21,8 +21,18 @@ const requestId string = "testRequestId"
 func TestGetCheck(t *testing.T) {
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
 	defer mt.Close()
-	requestId := "request_id_1"
 
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+		mt.AddMockResponses(mtest.CreateSuccessResponse(bson.D{{"key", "value"}, {"key", "1"}, {"key", "1"}, {"health_status", "1"}, {"key", "1"}, {"key", "1"}}...))
+
+		kafkaHealthChecker := fakeKafkaHealthChecker{}
+		statusCode, err := GetCheck(requestId, kafkaHealthChecker)
+
+		assert.Nil(t, err)
+		assert.Equal(t, statusCode, http.StatusOK)
+
+	})
 	mt.Run("GetCheckStatusServiceUnavailable", func(mt *mtest.T) {
 
 		mongoApi.HriCollection = mt.Coll
@@ -32,7 +42,7 @@ func TestGetCheck(t *testing.T) {
 		assert.Equal(t, statusCode, http.StatusServiceUnavailable)
 
 	})
-	mt.Run("GetCheckStatusServiceUnavailable1", func(mt *mtest.T) {
+	mt.Run("GetCheckStatusServiceUnavailable_KafkaClusterError", func(mt *mtest.T) {
 
 		mongoApi.HriCollection = mt.Coll
 		kafkaHealthChecker := fakeKafkaHealthChecker{
@@ -57,23 +67,6 @@ func TestGetCheck(t *testing.T) {
 
 	})
 
-}
-func TestGetCheck1(t *testing.T) {
-	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
-	defer mt.Close()
-	requestId := "request_id_1"
-
-	mt.Run("success", func(mt *mtest.T) {
-		mongoApi.HriCollection = mt.Coll
-		mt.AddMockResponses(mtest.CreateSuccessResponse(bson.D{{"key", "value"}, {"key", "1"}, {"key", "1"}, {"key", "1"}, {"key", "1"}, {"key", "1"}}...))
-
-		kafkaHealthChecker := fakeKafkaHealthChecker{}
-		statusCode, err := GetCheck(requestId, kafkaHealthChecker)
-
-		assert.Nil(t, err)
-		assert.Equal(t, statusCode, http.StatusOK)
-
-	})
 }
 
 type fakeKafkaHealthChecker struct {

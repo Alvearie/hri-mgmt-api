@@ -298,7 +298,7 @@ func TestGetValidatedClaimsHappyPath(t *testing.T) {
 	err := validator.GetValidatedClaimsForTenant(requestId, authorization)
 
 	assert.Nil(t, err)
-	// assert.Equal(t, hriClaims, claims)
+
 }
 
 func TestGetValidatedRolesHappyPath(t *testing.T) {

@@ -18,12 +18,11 @@ import (
 )
 
 var (
-	db *mongo.Database
+	db            *mongo.Database
+	HriCollection *mongo.Collection
+	err           error
+	cl            *mongo.Client
 )
-
-var HriCollection *mongo.Collection
-var err error
-var cl *mongo.Client
 
 // Connect ...
 func ConnectFromConfig(config config.Config) error {
