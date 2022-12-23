@@ -14,14 +14,8 @@ import (
 )
 
 const (
-	validToken   = "BEaRer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjUyMTA4MTQ0LCJleHAiOjI1NTIxMTE3NDR9.XxTTNBtgjX48iCM4FaV_hhhGenzhzrUaTWn6ooepK14" // expires in 2050
-	expiredToken = "bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNDUyMTA4MTQ0LCJleHAiOjE1NTIxMTE3NDR9.JCYxVQmkSoHtmcpl_AjIH_SD2fDDQvldwYyCU0xQcYw"
-	noExpToken   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjUyMTA4MTQ0fQ.iUGPxRd1eRNE4vIfFDtL_wynCj6Qdw6Os9YB0OMpFCE"
-	invalidToken = "bearer INVALID"
+	validToken = "BEaRer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjUyMTA4MTQ0LCJleHAiOjI1NTIxMTE3NDR9.XxTTNBtgjX48iCM4FaV_hhhGenzhzrUaTWn6ooepK14" // expires in 2050
 
-	expiredTokenErrMsg = "Must supply an unexpired token:.*"
-	noExpErrMsg        = "unexpected error parsing bearer token, could not parse expiration time"
-	invalidTokenErrMsg = "unexpected error parsing bearer token:.*"
 )
 
 func TestNewAdminClientFromConfig(t *testing.T) {

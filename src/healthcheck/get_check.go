@@ -22,13 +22,16 @@ const serviceUnavailableMsg string = "HRI Service Temporarily Unavailable | erro
 const notReported string = "NotReported"
 const noStatusReported = "NONE/" + notReported
 
+var health_status string
+var err error
+
 func GetCheck(requestId string, healthChecker kafka.HealthChecker) (int, *response.ErrorDetail) {
 	prefix := "hrihealthcheck/getCheck"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Infof("Prepare HRI HealthCheck - CosmosDB (No Input Params)")
 
 	//1. Do Mongo healthCheck call
-	health_status, _, err := mongoApi.HriDatabaseHealthCheck(mongoApi.HriCollection)
+	health_status, _, err = mongoApi.HriDatabaseHealthCheck()
 
 	if err != nil {
 		return http.StatusServiceUnavailable, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusServiceUnavailable, logger, "Could not perform Cosmos health check")

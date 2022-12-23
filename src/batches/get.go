@@ -50,7 +50,6 @@ func getBatch(requestId string, params model.GetBatch, noAuthFlag bool, claims *
 	var ctx = context.Background()
 	var filter = bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId)}
 	var returnTenetResult model.GetBatchTenantDetail
-	//var tenantResponse model.TenatGetResponse
 
 	mongoApi.HriCollection.FindOne(ctx, filter).Decode(&returnTenetResult)
 

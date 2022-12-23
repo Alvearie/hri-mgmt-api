@@ -18,7 +18,6 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Attempts to run the updateRequest on the specified batch
@@ -28,7 +27,7 @@ func updateBatchStatus(requestId string,
 	tenantId string,
 	batchId string,
 	updateRequest map[string]interface{},
-	client *mongo.Collection,
+
 	kafkaWriter kafka.Writer,
 	currentStatus status.BatchStatus) *response.ErrorDetailResponse {
 	prefix := "batches/updateStatus"
@@ -42,7 +41,7 @@ func updateBatchStatus(requestId string,
 		{"batch.id", batchId},
 	}
 
-	updateResponse, updateErr := client.UpdateMany(
+	updateResponse, updateErr := mongoApi.HriCollection.UpdateMany(
 		context.Background(),
 		filter,
 		updateRequest, // request body
@@ -56,7 +55,7 @@ func updateBatchStatus(requestId string,
 
 	}
 
-	batchMap, errResp := getBatchMetaData(requestId, tenantId, batchId, client, logger)
+	batchMap, errResp := getBatchMetaData(requestId, tenantId, batchId, logger)
 	if errResp != nil {
 		msg := fmt.Sprintf("updated document not returned in Cosmos response: %s", errResp.Body.ErrorDescription)
 		logger.Errorln(msg)
@@ -74,7 +73,7 @@ func updateBatchStatus(requestId string,
 		if err != nil { //Write to Elastic Failed, try to Revert Batch Status
 			kafkaErrMsg := fmt.Sprintf("error writing batch notification to kafka: %s", err.Error())
 			logger.Errorln(kafkaErrMsg)
-			revertErr := revertStatus(requestId, tenantId, batchId, client, currentStatus, logger)
+			revertErr := revertStatus(requestId, tenantId, batchId, currentStatus, logger)
 			if revertErr != nil {
 				return revertErr
 			}
@@ -99,7 +98,6 @@ func updateBatchStatus(requestId string,
 func revertStatus(requestId string,
 	tenantId string,
 	batchId string,
-	client *mongo.Collection,
 	currentStatus status.BatchStatus,
 	logger logrus.FieldLogger) *response.ErrorDetailResponse {
 
@@ -120,7 +118,7 @@ func revertStatus(requestId string,
 
 	for attemptNum < 7 { //Retry Up to 5 Times (Total # attempts => 6)
 
-		updateResponse, updateErr := client.UpdateOne(
+		updateResponse, updateErr := mongoApi.HriCollection.UpdateOne(
 			context.Background(),
 			filter,
 			updateRequest,
@@ -134,7 +132,7 @@ func revertStatus(requestId string,
 
 			attemptNum += 1
 		} else if updateResponse.ModifiedCount == 1 {
-			batch, _ := getBatchMetaData(requestId, tenantId, batchId, client, logger)
+			batch, _ := getBatchMetaData(requestId, tenantId, batchId, logger)
 			var debugMsg = fmt.Sprintf("Revert batch Status back to %s succeeded: %s",
 				currentStatus, batch)
 			logger.Debugln(debugMsg)

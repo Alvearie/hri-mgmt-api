@@ -20,15 +20,13 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func SendStatusComplete(requestId string,
 	request *model.SendCompleteRequest,
 	claims auth.HriAzClaims,
-	mongoClient *mongo.Collection,
 	writer kafka.Writer,
-	currentStatus status.BatchStatus) (int, interface{}) {
+) (int, interface{}) {
 	prefix := "batches/sendComplete"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
@@ -42,44 +40,48 @@ func SendStatusComplete(requestId string,
 	//We know claims Must be Non-nil because the handler checks for that before we reach this point
 	var claimSubj = claims.Subject
 
-	return sendStatusComplete(requestId, request, claimSubj, mongoClient, writer, logger, currentStatus)
+	return sendStatusComplete(requestId, request, claimSubj, writer, logger)
 }
 
 func SendStatusCompleteNoAuth(
 	requestId string,
 	request *model.SendCompleteRequest,
 	_ auth.HriAzClaims,
-	client *mongo.Collection,
 	writer kafka.Writer,
-	currentStatus status.BatchStatus) (int, interface{}) {
+) (int, interface{}) {
 	prefix := "batches/sendStatusCompleteNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
 	//claims == nil --> NO Auth (Auth is NOT Enabled)
 	var subject = auth.NoAuthFakeIntegrator
 
-	return sendStatusComplete(requestId, request, subject, client, writer, logger, currentStatus)
+	return sendStatusComplete(requestId, request, subject, writer, logger)
 }
 
 func sendStatusComplete(
 	requestId string,
 	request *model.SendCompleteRequest,
 	claimSubj string,
-	client *mongo.Collection,
 	kafkaWriter kafka.Writer,
 	logger logrus.FieldLogger,
-	currentStatus status.BatchStatus) (int, interface{}) {
+) (int, interface{}) {
 
-	batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, client, logger)
+	batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 	if err != nil {
 		return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
+	}
+	currentStatus, extractErr := ExtractBatchStatus(batch_metaData)
+	if extractErr != nil {
+		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+		logger.Errorln(errMsg)
+		return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
 	}
 	// Can only transition if the batch is in the 'started' state
 	if batch_metaData[param.Status] == status.Started.String() && batch_metaData[param.IntegratorId] == claimSubj {
 		updateRequest := getSendCompleteUpdateRequest(request, claimSubj, requestId)
 
 		errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId,
-			updateRequest, client, kafkaWriter, currentStatus)
+			updateRequest, kafkaWriter, currentStatus)
 		if errResp != nil {
 			return errResp.Code, errResp.Body
 		}
@@ -166,14 +168,14 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 
 }
 
-func getBatchMetaData(requestId string, tenantId string, batchId string, mongoClient *mongo.Collection, logger logrus.FieldLogger) (map[string]interface{}, *response.ErrorDetailResponse) {
+func getBatchMetaData(requestId string, tenantId string, batchId string, logger logrus.FieldLogger) (map[string]interface{}, *response.ErrorDetailResponse) {
 	//Always use the empty claims (NoAuth) option
 	var claims = auth.HriAzClaims{}
 	getBatchRequest := model.GetByIdBatch{
 		TenantId: tenantId,
 		BatchId:  batchId,
 	}
-	getByIdCode, batch := GetByBatchIdNoAuth(requestId, getBatchRequest, claims, mongoClient)
+	getByIdCode, batch := GetByBatchIdNoAuth(requestId, getBatchRequest, claims)
 	if getByIdCode != http.StatusOK { //error getting current Batch Info
 		newErrMsg := fmt.Sprintf(msgGetByIdErr, " Error getting current Batch Info")
 		logger.Errorln(newErrMsg)

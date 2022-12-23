@@ -25,6 +25,7 @@ func TestCreateTenant(t *testing.T) {
 
 	mt.Run("success", func(mt *mtest.T) {
 		mongoApi.HriCollection = mt.Coll
+
 		expectedTenant := model.CreateTenantRequest{
 			//ID:       primitive.NewObjectID(),
 			TenantId:     "test-batches",
