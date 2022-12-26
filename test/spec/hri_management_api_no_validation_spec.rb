@@ -10,7 +10,10 @@ describe 'HRI Management API Without Validation' do
   INVALID_ID = 'INVALID'
   TENANT_ID = 'test0211'
   AUTHORIZED_TENANT_ID = 'provider1234'
-  TENANT_ID_WITH_NO_ROLES = 'provider237'
+  TENANT_ID_WITH_NO_ROLES = 'aztest'
+  TENANT_WITH_DATA_INTEGRATOR_ROLE = 'qatest'
+  TENANT_WITH_DATA_CONSUMER_ROLE = 'provider237'
+  TENANT_WITH_INTEGRATOR_CONSUMER_ROLE = 'test123'
   INTEGRATOR_ID = 'claims'
   TEST_TENANT_ID = "rspec-#{'-'.delete('.')}-test-tenant".downcase
   TEST_INTEGRATOR_ID = "rspec-#{'-'.delete('.')}-test-integrator".downcase
@@ -19,7 +22,6 @@ describe 'HRI Management API Without Validation' do
   STATUS = 'started'
   BATCH_INPUT_TOPIC = "ingest.#{AUTHORIZED_TENANT_ID}.#{INTEGRATOR_ID}.in"
   KAFKA_TIMEOUT = 60
-
 
   def initialize(mongodb_credentials = {})
     @headers = { 'Content-Type': 'application/json' }
@@ -30,11 +32,11 @@ describe 'HRI Management API Without Validation' do
   end
 
   def get_client_id_and_secret()
-    return ['c33ac4da-21c6-426b-abcc-27e24ff1ccf9', 'GxF8Q~XfZyLRQBZ4mjwgEogVWwGjtzJh7ZPzgagw']
+    return ['c33ac4da-21c6-426b-abcc-27e24ff1ccf9','GxF8Q~XfZyLRQBZ4mjwgEogVWwGjtzJh7ZPzgagw']
   end
 
   def get_access_token()
-    credentials = get_client_id_and_secret()
+    credentials = get_client_id_and_secret
     response = @request_helper.rest_post("https://login.microsoftonline.com/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/oauth2/v2.0/token",{'grant_type' => 'client_credentials','scope' => 'c33ac4da-21c6-426b-abcc-27e24ff1ccf9/.default', 'client_secret' => 'GxF8Q~XfZyLRQBZ4mjwgEogVWwGjtzJh7ZPzgagw', 'client_id' => 'c33ac4da-21c6-426b-abcc-27e24ff1ccf9'}, {'Content-Type' => 'application/x-www-form-urlencoded', 'Accept' => 'application/json', 'Authorization' => "Basic #{Base64.encode64("#{credentials[0]}:#{credentials[1]}").delete("\n")}" })
     raise 'App ID token request failed' unless response.code == 200
     #puts "This is the generated token ==============================>  "
@@ -243,11 +245,14 @@ describe 'HRI Management API Without Validation' do
     puts JSON.parse(response.body).map { |topic| topic['name']}
   end
 
+
+
   before(:all) do
     @hri_base_url = "https://hri-1.wh-wcm.dev.watson-health.ibm.com/hri"
     @request_helper = HRITestHelpers::RequestHelper.new
     #@elastic = HRITestHelpers::ElasticHelper.new({url: ENV['ELASTIC_URL'], username: ENV['ELASTIC_USERNAME'], password: ENV['ELASTIC_PASSWORD']})
-    @iam_token = get_access_token()
+    #@iam_token = @azure_reusable_functions.get_access_token()
+    #@azure_reusable_functions = HRITestHelpers::AzureReusableFunctions.new()
     #@azure_token = HRITestHelpers::AppIDHelper.new(get_access_token(@appid_url, @appid_tenant))
     #@mgmt_api_helper = HRITestHelpers::MgmtAPIHelper.new(@hri_base_url, @iam_token)
     #@hri_deploy_helper = HRIDeployHelper.new
@@ -920,7 +925,7 @@ describe 'HRI Management API Without Validation' do
     end
 
     it 'Unauthorized - Invalid Audience' do
-      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json, { 'Authorization' => "Bearer #{@token_invalid_audience}" })
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "Azure AD authentication returned 401"
@@ -1616,6 +1621,248 @@ describe 'HRI Management API Without Validation' do
 
     it 'Unauthorized - Invalid Audience' do
       response = hri_put_batch(TENANT_ID, @batch_id, 'sendComplete', @expected_record_count)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+  end
+
+  context 'PUT /tenants/{tenantId}/batches/{batchId}/action/terminate' do
+
+    before(:all) do
+      @batch_prefix = 'batch'
+      @terminate_batch_name = "#{@batch_prefix}-#{SecureRandom.uuid}"
+      @batch_template = {
+        name: @terminate_batch_name,
+        topic: BATCH_INPUT_TOPIC,
+        dataType: "#{DATA_TYPE}",
+        invalidThreshold: "#{INVALIDTHRESHOLD}".to_i,
+        metadata: {
+          "compression": "gzip",
+          "finalRecordCount": 20
+        }
+      }
+
+
+      @terminate_metadata = {
+        metadata: {
+          "compression": "gzip",
+          "finalRecordCount": 20
+        }
+      }
+    end
+
+    it 'Success' do
+      #Create Batch
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @terminate_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Terminate Batch Created With ID: #{@terminate_batch_id}")
+
+      #Terminate Batch
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @terminate_batch_id, 'terminate', @terminate_metadata)
+      expect(response.code).to eq 200
+
+      #Verify Batch Terminated
+      response = hri_get_batch(AUTHORIZED_TENANT_ID, @terminate_batch_id)
+      expect(response.code).to eq 200
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['status']).to eql 'terminated'
+      expect(parsed_response['endDate']).to_not be_nil
+
+      #Verify Kafka Message
+      # Timeout.timeout(KAFKA_TIMEOUT) do
+      #   Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@terminate_batch_id} and status: terminated")
+      #   @kafka_consumer.each_message do |message|
+      #     parsed_message = JSON.parse(message.value)
+      #     if parsed_message['id'] == @terminate_batch_id && parsed_message['status'] == 'terminated'
+      #       @message_found = true
+      #       expect(parsed_message['dataType']).to eql DATA_TYPE
+      #       expect(parsed_message['id']).to eql @terminate_batch_id
+      #       expect(parsed_message['name']).to eql @terminate_batch_name
+      #       expect(parsed_message['topic']).to eql BATCH_INPUT_TOPIC
+      #       expect(parsed_message['status']).to eql 'terminated'
+      #       expect(DateTime.parse(parsed_message['startDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
+      #       expect(DateTime.parse(parsed_message['endDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
+      #       expect(parsed_message['metadata']['rspec1']).to eql 'test3'
+      #       expect(parsed_message['metadata']['rspec2']).to eql 'test4'
+      #       expect(parsed_message['metadata']['rspec4']['rspec4A']).to eql 'test4A'
+      #       expect(parsed_message['metadata']['rspec4']['rspec4B']).to eql 'テスト'
+      #       expect(parsed_message['metadata']['rspec3']).to be_nil
+      #       break
+      #     end
+      #   end
+      #   expect(@message_found).to be true
+      # end
+    end
+
+    it 'Invalid Batch ID' do
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, INVALID_ID, 'terminate', nil)
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "error getting current Batch Status: The document for tenantId: #{AUTHORIZED_TENANT_ID} with document (batch) ID: #{INVALID_ID} was not found"
+    end
+
+    it 'Missing Tenant ID' do
+      response = hri_put_batch(nil, @batch_id, 'terminate', @expected_record_count)
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- tenantId (url path parameter) is a required field"
+    end
+
+    it 'Missing Batch ID' do
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, nil, 'terminate', @expected_record_count)
+      expect(response.code).to eq 400
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "invalid request arguments:\n- id (url path parameter) is a required field"
+    end
+
+    it 'Conflict: Batch with a status other than started' do
+      #Create Batch
+      response = hri_post_batch(TENANT_WITH_DATA_INTEGRATOR_ROLE, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @terminate_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Terminate Batch Created With ID: #{@terminate_batch_id}")
+
+      #Update Batch to Completed Status
+      # update_batch_script = {
+      #   script: {
+      #     source: 'ctx._source.status = params.status',
+      #     lang: 'painless',
+      #     params: {
+      #       status: 'completed'
+      #     }
+      #   }
+      # }.to_json
+      response = es_batch_update(TENANT_WITH_DATA_INTEGRATOR_ROLE, @terminate_batch_id, update_batch_script)
+      # response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['result']).to eql 'updated'
+      Logger.new(STDOUT).info('Batch status updated to "completed"')
+
+      #Verify Batch Status Updated
+      response = es_get_batch(TENANT_WITH_DATA_INTEGRATOR_ROLE, @terminate_batch_id)
+      response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['_source']['status']).to eql 'completed'
+
+      #Attempt to terminate batch
+      response = hri_put_batch(TENANT_WITH_DATA_INTEGRATOR_ROLE, @terminate_batch_id, 'terminate', nil)
+      expect(response.code).to eq 409
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "terminate failed, batch is in 'completed' state"
+
+      #Delete batch
+      response = es_delete_batch(TENANT_WITH_DATA_INTEGRATOR_ROLE, @terminate_batch_id)
+      expect(response.code).to eq 200
+    end
+
+    it 'Conflict: Batch that already has a terminated status' do
+      #Create Batch
+      response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @terminate_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Terminate Batch Created With ID: #{@terminate_batch_id}")
+
+      #Update Batch to Completed Status
+      update_batch_script = {
+        script: {
+          source: 'ctx._source.status = params.status',
+          lang: 'painless',
+          params: {
+            status: 'terminated'
+          }
+        }
+      }.to_json
+      response = es_batch_update(AUTHORIZED_TENANT_ID, @terminate_batch_id, update_batch_script)
+      response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['result']).to eql 'updated'
+      Logger.new(STDOUT).info('Batch status updated to "terminated"')
+
+      #Verify Batch Status Updated
+      response = es_get_batch(AUTHORIZED_TENANT_ID, @terminate_batch_id)
+      response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['_source']['status']).to eql 'terminated'
+
+      #Attempt to terminate batch
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @terminate_batch_id, 'terminate', nil)
+      expect(response.code).to eq 409
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "terminate failed, batch is in 'terminated' state"
+    end
+
+    it 'Integrator ID can not update batches created with a different Integrator ID' do
+      #Create Batch
+      response = hri_post_batch(TENANT_WITH_DATA_INTEGRATOR_ROLE, @batch_template.to_json)
+      expect(response.code).to eq 201
+      parsed_response = JSON.parse(response.body)
+      @terminate_batch_id = parsed_response['id']
+      Logger.new(STDOUT).info("New Terminate Batch Created With ID: #{@terminate_batch_id}")
+
+      #Modify Batch Integrator ID
+      update_batch_script = {
+        script: {
+          source: 'ctx._source.integratorId = params.integratorId',
+          lang: 'painless',
+          params: {
+            integratorId: 'modified-integrator-id'
+          }
+        }
+      }.to_json
+      response = es_batch_update(TENANT_WITH_DATA_INTEGRATOR_ROLE, @terminate_batch_id, update_batch_script)
+      response.nil? ? (raise 'Elastic batch update did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['result']).to eql 'updated'
+      Logger.new(STDOUT).info('Batch Integrator ID updated to "modified-integrator-id"')
+
+      #Verify Integrator ID Modified
+      response = es_get_batch(TENANT_WITH_DATA_INTEGRATOR_ROLE, @terminate_batch_id)
+      response.nil? ? (raise 'Elastic get batch did not return a response') : (expect(response.code).to eq 200)
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['_source']['integratorId']).to eql 'modified-integrator-id'
+
+      #Verify Batch Not Updated With Different Integrator ID
+      response = hri_put_batch(TENANT_WITH_DATA_INTEGRATOR_ROLE, @terminate_batch_id, 'terminate', nil, {'Authorization' => "Bearer #{@token_integrator_role_only}"})
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to include "but owned by 'modified-integrator-id'"
+    end
+
+    it 'Unauthorized - Missing Authorization' do
+      response = hri_put_batch(AUTHORIZED_TENANT_ID, @batch_id, 'terminate', nil,{'Authorization' => nil })
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'Azure AD authentication returned 401'
+    end
+
+    it 'Unauthorized - Invalid Tenant ID' do
+      response = hri_put_batch(TENANT_ID, @batch_id, 'terminate', nil)
+      expect(response.code).to eq 401
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."
+    end
+
+    it 'Unauthorized - No Roles' do
+      response = hri_put_batch(TENANT_ID_WITH_NO_ROLES, @batch_id, 'terminate', nil)
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "error getting current Batch Status: The document for tenantId: #{TENANT_ID_WITH_NO_ROLES} with document (batch) ID: #{@batch_id} was not found"
+    end
+
+    it 'Unauthorized - Consumer Role Can Not Update Batch Status' do
+      response = hri_put_batch(TENANT_WITH_DATA_CONSUMER_ROLE, @batch_id, 'terminate', nil)
+      expect(response.code).to eq 404
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql 'Must have hri_data_integrator role to terminate a batch'
+    end
+
+    it 'Unauthorized - Invalid Audience' do
+      response = hri_put_batch(TENANT_ID, @batch_id, 'terminate', nil)
       expect(response.code).to eq 401
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['errorDescription']).to eql "Unauthorized tenant access. Tenant '#{TENANT_ID}' is not included in the authorized roles:tenant_#{TENANT_ID}."

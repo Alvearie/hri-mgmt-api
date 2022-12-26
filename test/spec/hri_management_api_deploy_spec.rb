@@ -9,7 +9,7 @@ describe 'HRI Management API Deploy' do
   before(:all) do
     @request_helper = HRITestHelpers::RequestHelper.new
     @hri_deploy_helper = HRIDeployHelper.new
-    @hri_base_url = ENV['HRI_URL']
+    @hri_base_url = "https://hri-1.wh-wcm.dev.watson-health.ibm.com/hri"
     @exe_path = File.absolute_path(File.join(File.dirname(__FILE__), "../../src/hri"))
     @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "/"))
     @config_path = File.absolute_path(File.join(File.dirname(__FILE__), "test_config"))
