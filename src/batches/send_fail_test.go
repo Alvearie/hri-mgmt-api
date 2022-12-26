@@ -63,7 +63,7 @@ func TestFail200(t *testing.T) {
 	}
 	claims := auth.HriAzClaims{
 		Subject: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c",
-		Roles:   []string{"hri_data_internal", "hri_tenant_tid1_data_internal"},
+		Roles:   []string{"hri_internal", "hri_tenant_test_tenant_data_internal"},
 		Scope:   "hri_internal",
 	}
 
@@ -329,8 +329,9 @@ func TestSendFailClaimSubjNotEqualIntegratorId(t *testing.T) {
 		t.Errorf("SendFail() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
 }
+
 func TestSendFailStatusTerminateOrFail1(t *testing.T) {
-	expectedCode := 409
+	expectedCode := 404
 	arc := 12
 	irc := 23
 	processingCompleteRequest := model.ProcessingCompleteRequest{

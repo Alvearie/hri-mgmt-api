@@ -513,7 +513,7 @@ func TestSendCompletStatusNotStarted(t *testing.T) {
 			{"metadata", i},
 			{"id", "batchid1"},
 			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-			{"status", "complete"},
+			{"status", "completed"},
 			{"startDate", "2022-11-29T09:52:07Z"},
 		}
 
@@ -749,6 +749,59 @@ func TestSendCompleteValidationFalseMatadataNotNil(t *testing.T) {
 
 	code, _ := SendStatusComplete(requestId, &request, claims, writer)
 	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+	if code != expectedCode {
+		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+	}
+}
+
+func TestSendCompletExtractBatchStatus(t *testing.T) {
+	expectedCode := 500
+	e := 12
+	r := 23
+	request := model.SendCompleteRequest{
+		TenantId:            "tid1",
+		BatchId:             "batchid1",
+		ExpectedRecordCount: &e,
+		RecordCount:         &r,
+	}
+	claims := auth.HriAzClaims{
+		Subject: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c",
+		Roles:   []string{"hri_data_integrator", "hri_tenant_tid1_data_integrator"},
+	}
+
+	writer := test.FakeWriter{}
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
+
+		detailsMap := bson.D{
+			{Key: "name", Value: "rspec-pentest-batch"},
+			{"topic", "ingest.pentest.claims.in"},
+			{"dataType", "rspec-batch"},
+			{"invalidThreshold", 5},
+			{"metadata", i},
+			{"id", "batchid1"},
+			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
+			{"status", "complete"},
+			{"startDate", "2022-11-29T09:52:07Z"},
+		}
+
+		array1 := []bson.D{detailsMap}
+
+		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{"batch", array1},
+		})
+
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(first, killCursors)
+
+	})
+
+	code, _ := SendStatusComplete(requestId, &request, claims, writer)
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
