@@ -1,0 +1,128 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# workDir is the working directory for the mgmt-api
+workDir: /mgmt-api-release
+
+# OIDC_ISSUER is the base url of your OIDC service, e.g. for AppID: https://us-south.appid.cloud.ibm.com/oauth/v4/ec9bcf93-4863-46a7-bf66-19009b4e2ed8
+OIDC_ISSUER:
+
+# VALIDATION is the toggle for Flink validation processing & is enabled by default
+VALIDATION: true
+
+# ELASTIC_URL is the base URL to the Elasticsearch instance
+ELASTIC_URL:
+# ELASTIC_USERNAME & ELASTIC_PASSWORD are Elasticsearch credentials
+ELASTIC_USERNAME:
+ELASTIC_PASSWORD:
+# elasticTemplatePath is location of the template for batch indices
+elasticTemplatePath: "./batches.json"
+# ELASTIC_CERT is the TLS public certificate
+ELASTIC_CERT: ""
+# ELASTIC_CRN is the Elasticsearch service CRN
+ELASTIC_CRN:
+
+KAFKA_ADMIN_URL:
+# KAFKA_BROKERS is a list of Kafka brokers
+KAFKA_BROKERS:
+# KAFKA_PROPERTIES is a list of Kafka producer properties including connection credentials
+# See https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
+#KAFKA_PROPERTIES:
+
+LOG_LEVEL: INFO
+
+# The number of pods to run
+replicaCount: 2
+
+###This is the base url of iodc service which can be obtained from AAD registered application
+AZ_OIDC_ISSUER:
+
+# JWT_AUDIENCE_ID is the 'aud' (audience) value expected on JWT OAuth tokens. Required if appid.setupEnabled is false
+AZ_JWT_AUDIENCE_ID:
+
+##This is the connection string to access MongoDB. This can be obtained from Mongo DB service in azure
+MONGODB_URI: <o-az-mongo-uri>
+
+##This is the MongoSB database names
+MONGODB_NAME:
+
+#This is a list of kafka brokers can be ontained form ambari dashboard
+AZ_KAFKA_BROKERS:
+
+#This is the name of mongoDB collection
+MONGOCOL1_NAME:  
+
+
+# cloudApiKey is required to setup external cloud services
+cloudApiKey:
+
+## Kubernetes TLS Settings #####################################################
+security:
+  tls:
+    enabled: false
+    secretName:
+    # tls_cert and tls_key are the names of the TLS Certificate and Key files stored in the secret
+    tls_cert: tls.crt
+    tls_key: tls.key
+
+## image values ################################################################
+image:
+  repository: us.icr.io/wh-common-rns/hri/mgmt-api
+  tag: 3.2-3.1.2
+  pullPolicy: IfNotPresent
+  pullSecret:
+
+initImage:
+  initRepository: us.icr.io/wh-common-rns/hri/init-services
+  initTag: v3.2-1.0.2
+  pullPolicy: IfNotPresent
+  # If not set, will fall back to image.pullSecret
+  pullSecret:
+
+## ingress values ##############################################################
+ingress:
+  enabled: false
+  host:
+  tlsSecretName:
+
+## Required CD Toolchain values ################################################
+enableAnnotations: false
+annotations:
+  TOOLCHAIN_ID:
+  GIT_URL:
+  GIT_BRANCH:
+  GIT_COMMIT:
+  USER_NAME:
+  APPLICATION_VERSION:
+
+## Pod Specification for Node Affinity Requirement #############################
+nodeSelector:
+  worker-type: application
+
+## New Relic APM ###############################################################
+newRelic:
+  enabled: false
+  appName: 
+  licenseKey:
+
+# JWT_AUDIENCE_ID is the 'aud' (audience) value expected on JWT OAuth tokens. Required if appid.setupEnabled is false
+JWT_AUDIENCE_ID:
+
+## AppId ######################################################################
+appid:
+  setupEnabled: false
+  url:
+  tenant:
+  prefix:
+
+  
+##This is the client certificate for kafka client
+CA_LOCATION:
+
+#This is kafka client properties
+AZ_KAFKA_PROPERTIES:  
+
+dockerconfig: <o-az-hri-docker>
+hdicert: <o-az-hri-hdi-cert>
+tlscert: <o-az-hri-tls-cert>
+tlskey: <o-az-hri-tls-key>
