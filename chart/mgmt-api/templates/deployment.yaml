@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mgmt-api.fullname" . }}-deployment
+  {{- if .Values.enableAnnotations }}
+  annotations:
+    TOOLCHAIN_ID: {{ .Values.annotations.TOOLCHAIN_ID }}
+    GIT_URL: {{ .Values.annotations.GIT_URL }}
+    GIT_BRANCH: {{ .Values.annotations.GIT_BRANCH }}
+    GIT_COMMIT: {{ .Values.annotations.GIT_COMMIT }}
+    USER_NAME: {{ .Values.annotations.USER_NAME }}
+    APPLICATION_VERSION: {{ .Values.annotations.APPLICATION_VERSION }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "mgmt-api.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "mgmt-api.fullname" . }}
+        app.kubernetes.io/name: {{ include "mgmt-api.fullname" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum}}
+    spec:
+      {{- if .Values.image.pullSecretOverride }}
+      imagePullSecrets:
+        - name: {{ .Values.image.pullSecretOverride }}
+      {{- else if .Values.image.pullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.image.pullSecret }}
+      {{- end }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: ibm-cloud.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: {{ include "mgmt-api.fullname" . }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: worker-type
+                    operator: In
+                    values:
+                      - {{ index .Values.nodeSelector "worker-type" }}
+      containers:
+        - name: mgmt-api
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["--config-path", "./config/config.yml"]
+          {{- if .Values.appid.setupEnabled }}
+          env:
+            - name: JWT_AUDIENCE_ID
+              valueFrom:
+                  configMapKeyRef:
+                      name: {{ include "mgmt-api.fullname" . }}-init-config
+                      key: JWT_AUDIENCE_ID
+          {{- end }}
+          volumeMounts:
+            - name: {{ include "mgmt-api.fullname" . }}-config
+              mountPath: {{ .Values.workDir }}/config
+            {{- if .Values.security.tls.enabled }}
+            - name: {{ include "mgmt-api.fullname" . }}-tls
+              mountPath: {{ .Values.workDir }}/tls
+            {{- end }}
+            - name: {{ include "mgmt-api.fullname" . }}-hdicert
+              mountPath: {{ .Values.workDir }}/cert
+          ports:
+          - containerPort: 1323
+          readinessProbe:
+            initialDelaySeconds: 1
+            periodSeconds: 1
+            httpGet:
+              port: 1323
+              path: /alive
+              {{- if .Values.security.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
+          livenessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 1
+            httpGet:
+              port: 1323
+              path: /alive
+              {{- if .Values.security.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
+      volumes:
+        - name: {{ include "mgmt-api.fullname" . }}-config
+          secret:
+            secretName: {{ include "mgmt-api.fullname" . }}-config
+            items:
+            - key: config.yml
+              path: config.yml
+        {{- if .Values.security.tls.enabled }}
+        - name: {{ include "mgmt-api.fullname" . }}-tls
+          secret:
+            secretName: {{ include "mgmt-api.fullname" . }}-tls
+        - name: {{ include "mgmt-api.fullname" . }}-hdicert
+          secret:
+            secretName: {{ include "mgmt-api.fullname" . }}-hdicert    
+        {{- end }}

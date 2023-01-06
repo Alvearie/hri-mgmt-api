@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "mgmt-api.fullname" . }}-config
+  labels:
+    app: {{ include "mgmt-api.fullname" . }}
+type: Opaque
+stringData:
+  config.yml: |+
+    oidc-issuer: {{ .Values.OIDC_ISSUER }}
+    setup-appid: {{ .Values.appid.setupEnabled }}
+    {{- if .Values.appid.setupEnabled }}
+    appid-url: {{ .Values.appid.url }}
+    appid-tenant: {{ .Values.appid.tenant }}
+    {{- if .Values.appid.prefix }}
+    appid-prefix: {{ .Values.appid.prefix }}
+    {{- end }}
+    {{- else }}
+    jwt-audience-id: {{ .Values.JWT_AUDIENCE_ID }}
+    {{- end }}
+    validation: {{ .Values.VALIDATION }}
+    elastic-url: {{ .Values.ELASTIC_URL }}
+    elastic-username: {{ .Values.ELASTIC_USERNAME }}
+    elastic-password: {{ .Values.ELASTIC_PASSWORD }}
+    elastic-template-path: {{ .Values.elasticTemplatePath }}
+    elastic-cert: |+
+{{ .Values.ELASTIC_CERT | indent 6 }}
+    elastic-crn: "{{ .Values.ELASTIC_CRN }}"
+    new-relic-enabled: {{ .Values.newRelic.enabled }}
+    {{- if .Values.newRelic.enabled }}
+    new-relic-app-name: {{ .Values.newRelic.appName }}
+    new-relic-license-key: {{ .Values.newRelic.licenseKey }}
+    {{- end }}
+    cloud-api-key: {{ .Values.cloudApiKey }}
+    k8s-namespace: {{ .Release.Namespace }}
+    kafka-admin-url: {{ .Values.KAFKA_ADMIN_URL }}
+    kafka-brokers: {{- range .Values.KAFKA_BROKERS }}
+    - "{{.}}"
+    {{- end }}
+    {{- if .Values.AZ_KAFKA_PROPERTIES }}
+    az-kafka-properties:
+    {{- range .Values.AZ_KAFKA_PROPERTIES }}
+    - "{{.}}"
+    {{- end }}
+    {{- end }}
+    tls-enabled: {{ .Values.security.tls.enabled }}
+    {{- if .Values.security.tls.enabled }}
+    tls-cert-path: {{ .Values.workDir }}/tls/{{ .Values.security.tls.tls_cert }}
+    tls-key-path: {{ .Values.workDir }}/tls/{{ .Values.security.tls.tls_key }}
+    {{- end }}
+    log-level: {{ .Values.LOG_LEVEL }}
+    az-oidc-issuer: {{ .Values.AZ_OIDC_ISSUER }}
+    az-jwt-audience-id: {{ .Values.AZ_JWT_AUDIENCE_ID }}
+    mongoDb-uri: {{ .Values.MONGODB_URI }}
+    mongoDb-name: {{ .Values.MONGODB_NAME }}    
+    az-kafka-brokers: {{- range .Values.AZ_KAFKA_BROKERS }}
+    - "{{.}}"
+    {{- end }}
+    {{- if .Values.MONGOCOL1_NAME }}
+    mongoCol-name: {{ .Values.MONGOCOL1_NAME }}
+    ca-location: {{ .Values.CA_LOCATION }}
+    {{- end }}
