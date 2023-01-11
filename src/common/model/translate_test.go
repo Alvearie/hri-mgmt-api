@@ -1,19 +1,15 @@
-/**
- * (C) Copyright IBM Corp. 2021
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package model
 
 import (
 	"errors"
+	"reflect"
+	"testing"
+
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	entranslations "github.com/go-playground/validator/v10/translations/en"
 	"github.com/stretchr/testify/assert"
-	"reflect"
-	"testing"
 )
 
 func TestRegisterCustomTranslations(t *testing.T) {

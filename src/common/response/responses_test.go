@@ -1,17 +1,13 @@
-/**
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package response
 
 import (
-	"github.com/labstack/echo/v4"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetErrorDetail(t *testing.T) {

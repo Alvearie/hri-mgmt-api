@@ -1,13 +1,9 @@
-/**
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package kafka
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateTopicNames(t *testing.T) {
