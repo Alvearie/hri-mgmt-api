@@ -2,7 +2,6 @@ package logwrapper
 
 import (
 	"bytes"
-	//"bytes"
 	"io"
 	"os"
 	"testing"

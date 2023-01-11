@@ -11,7 +11,6 @@ const DateTimeFormat string = "2006-01-02T15:04:05Z"
 
 func ConvertToJSON(tenantId string, docCount string, docsDeleted int) model.CreateTenantRequest {
 	result := model.CreateTenantRequest{
-		//ID:            primitive.NewObjectID(),
 		TenantId:     tenantId,
 		Docs_count:   docCount,
 		Docs_deleted: docsDeleted,

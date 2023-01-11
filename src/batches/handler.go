@@ -90,14 +90,8 @@ func (h *theHandler) SendFail(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
 	}
 
-	// getBatchRequest := model.GetByIdBatch{
-	// 	TenantId: request.TenantId,
-	// 	BatchId:  request.BatchId,
-	// }
 	var code int
 	var body interface{}
-
-	// mongoClient := mongoApi.GetMongoCollection(h.config.MongoColName)
 
 	kafkaWriter, err := kafka.NewWriterFromAzConfig(h.config)
 	if err != nil {
@@ -120,11 +114,6 @@ func (h *theHandler) SendFail(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call FailNoAuth()")
 	}
-
-	// currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, logger)
-	// if getStatusErr != nil {
-	// 	return c.JSON(getStatusErr.Code, getStatusErr.Body)
-	// }
 
 	code, body = h.sendFail(requestId, &request, claims, kafkaWriter)
 
@@ -186,9 +175,6 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 	return c.NoContent(code)
 }
 
-// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
-// Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
-
 func (h *theHandler) GetByBatchId(c echo.Context) error {
 	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
 	prefix := "batches/handler/getById"
@@ -222,7 +208,6 @@ func (h *theHandler) GetByBatchId(c echo.Context) error {
 	}
 }
 
-// Added as part of Azure porting
 func (h *theHandler) CreateBatch(c echo.Context) error {
 	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
 	prefix := "batches/handler/create"

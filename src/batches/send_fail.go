@@ -53,6 +53,9 @@ func sendFail(requestId string, request *model.FailRequest,
 	logger logrus.FieldLogger,
 	writer kafka.Writer) (int, interface{}) {
 
+	// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
+	// Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
+
 	batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 	if err != nil {
 		return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)

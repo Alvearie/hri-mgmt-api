@@ -1,13 +1,10 @@
 package auth
 
 import (
-	"bytes"
 	context "context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"reflect"
 	"strconv"
 	"testing"
@@ -17,52 +14,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
-
-// this is for manual testing with a specific OIDC provider (AppID)
-
-func OidcLib(t *testing.T) {
-	const iss = "https://us-south.appid.cloud.ibm.com/oauth/v4/<appId_tenantId>"
-	const audienceId = "hri_application_id"
-	username := os.Getenv("APPID_USERNAME")
-	password := os.Getenv("APPID_PASSWORD")
-
-	// First get a token from AppID
-	request, err := http.NewRequest("POST", iss+"/token", bytes.NewBuffer([]byte("grant_type=client_credentials&audience="+audienceId)))
-	if err != nil {
-		t.Fatalf("Error creating new http request: %v", err)
-	}
-	request.SetBasicAuth(username, password)
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	client := http.Client{}
-	resp, err := client.Do(request)
-	if err != nil {
-		t.Fatalf("Error executing AppID token POST: %v", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		t.Fatalf("Non 200 from AppID token POST: %v", resp)
-	}
-
-	var body map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		t.Fatalf("Error decoding AppID token response: %v", err)
-	}
-
-	validator := theTenantValidator{
-		issuer:      iss,
-		audienceId:  audienceId,
-		providerNew: newProvider,
-	}
-
-	_, errResp := validator.getSignedToken(requestId, body["access_token"].(string))
-
-	if errResp != nil {
-		t.Fatalf("Error: %v", errResp)
-	}
-}
 
 type fakeClaimsHolder struct {
 	claims HriAzClaims
