@@ -1,8 +1,11 @@
 validation: true
-kafka-admin-url: "https://ibm.kafka.com"
 az-kafka-brokers:
   - "broker 1"
   - "broker 2"
+new-relic-enabled: true
+new-relic-app-name: "nrAppName"
+# New relic License Keys have to be 40 characters long
+new-relic-license-key: "nrLicenseKey0000000000000000000000000000"
 tls-enabled: true
 tls-cert-path: "./server-cert.pem"
 tls-key-path: "./server-key.pem"
