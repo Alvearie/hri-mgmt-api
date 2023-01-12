@@ -5,7 +5,6 @@ validation: true
 mongoDb-uri: "mongodb://hi"
 mongoDb-name: "HRI-DEV"
 mongoCol-name: "HRI-Mgmt"
-kafka-admin-url: https://twvyj4m0kft5j0mh.svc01.us-east.eventstreams.cloud.ibm.com
 az-kafka-properties:
   - "security.protocol:sasl_ssl"
   - "sasl.mechanism:PLAIN"
