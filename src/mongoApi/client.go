@@ -34,20 +34,8 @@ func LogAndBuildErrorDetailWithoutStatusCode(requestId string, logger logrus.Fie
 	return response.NewErrorDetail(requestId, err.Error())
 }
 
-func DatabaseHealthCheck() (string, string) {
-	command := bson.D{{"dbStats", 1}}
-	var result bson.D
-	HriCollection.Database().RunCommand(context.TODO(), command).Decode(&result)
-	fmt.Println(result)
-	if result != nil {
-		return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value)
-	} else {
-		return "", ""
-	}
-}
-
 func HriDatabaseHealthCheck() (string, string, error) {
-	command := bson.D{{"dbStats", 1}}
+	command := bson.D{{Key: "dbStats", Value: 1}}
 	var result bson.D
 	err := HriCollection.Database().RunCommand(context.TODO(), command).Decode(&result)
 	if result != nil {
