@@ -1,8 +1,3 @@
-/**
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package tenants
 
 import (
@@ -35,7 +30,7 @@ func TestGetTenantById(t *testing.T) {
 		}
 
 		mt.AddMockResponses(mtest.CreateCursorResponse(1, "getTenantById", mtest.FirstBatch, bson.D{
-			{"health", expectedTenant.Health},
+			{Key: "health", Value: expectedTenant.Health},
 			{"_id", expectedTenant.Uuid},
 			{"docs.count", expectedTenant.DocsCount},
 			{"docs.deleted", expectedTenant.DocsDeleted},

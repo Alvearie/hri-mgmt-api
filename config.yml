@@ -12,7 +12,7 @@ az-kafka-properties:
   - "sasl.password:KafkaAdmin-password"
   - "ssl.endpoint.identification.algorithm:https"
 
-ca-location: "./client.cert.pem/cert"  
+ca-location: "/client.cert.pem"  
 
 az-kafka-brokers:
   - "broker 1"
