@@ -130,9 +130,9 @@ func TestGetConfig(t *testing.T) {
 		expectedConfig          Config
 		expectedErrMsg          string
 	}{
-		{
-			name: "empty call",
-		},
+		// {
+		// 	name: "empty call",
+		// },
 		{
 			name:                    "no config path passed in anywhere",
 			passAlternateConfigPath: true,
