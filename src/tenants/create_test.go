@@ -28,9 +28,9 @@ func TestCreateTenant(t *testing.T) {
 		}
 
 		mt.AddMockResponses(mtest.CreateCursorResponse(1, "tenants", mtest.FirstBatch, bson.D{
-			{"tenantId", expectedTenant.TenantId},
-			{"docs.count", expectedTenant.Docs_count},
-			{"docs.deleted", expectedTenant.Docs_deleted},
+			{Key: "tenantId", Value: expectedTenant.TenantId},
+			{Key: "docs.count", Value: expectedTenant.Docs_count},
+			{Key: "docs.deleted", Value: expectedTenant.Docs_deleted},
 		}))
 
 		statusCode, res := CreateTenant(requestId, tenantId)
@@ -48,14 +48,13 @@ func TestCreateTenant(t *testing.T) {
 		}
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
-			{"value", bson.D{
-				{"tenantId", expectedTenant.TenantId},
-				{"docs.count", expectedTenant.Docs_count},
-				{"docs.deleted", expectedTenant.Docs_deleted},
+			{Key: "value", Value: bson.D{
+				{Key: "tenantId", Value: expectedTenant.TenantId},
+				{Key: "docs.count", Value: expectedTenant.Docs_count},
+				{Key: "docs.deleted", Value: expectedTenant.Docs_deleted},
 			}},
 		})
 		_, res := CreateTenant(requestId, tenantId2)
-		//respBody := map[string]interface{}{param.TenantId: tenantId}
 		assert.NotNil(t, res)
 
 	})

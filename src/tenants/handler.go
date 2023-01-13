@@ -15,7 +15,6 @@ import (
 )
 
 type Handler interface {
-	//Added as part of Azure porting
 	CreateTenant(echo.Context) error
 	GetTenantById(echo.Context) error
 	GetTenants(echo.Context) error
@@ -26,7 +25,7 @@ type Handler interface {
 // logic and other methods that reach out to external services like checking Elastic IAM credentials.
 type theHandler struct {
 	config config.Config
-	//Added as part of Azure porting
+
 	createTenant  func(string, string) (int, interface{})
 	getTenantById func(string, string) (int, interface{})
 	getTenants    func(string) (int, interface{})
@@ -37,7 +36,7 @@ type theHandler struct {
 func NewHandler(config config.Config) Handler {
 	return &theHandler{
 		config: config,
-		//Added as part of Azure porting
+
 		createTenant:  CreateTenant,
 		getTenantById: GetTenantById,
 		getTenants:    GetTenants,
@@ -105,8 +104,6 @@ func (h *theHandler) GetTenantById(c echo.Context) error {
 
 	logger.Debugln("Start Tenant_GetTenantById Handler")
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-
-	//jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
 
 	//Add JWT Token validation
 	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)

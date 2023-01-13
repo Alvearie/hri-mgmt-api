@@ -23,9 +23,6 @@ func CreateTenant(
 	var ctx = context.Background()
 	var filter = bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId)}
 	var returnResult model.CreateTenantRequest
-	/*update := bson.M{
-		"$set": bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId), "docs_count": "0", "docs_deleted": 0},
-	}*/
 
 	update := bson.M{
 		"$set": bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId)},
@@ -41,7 +38,6 @@ func CreateTenant(
 			fmt.Sprintf("Unable to create new tenant [%s]", tenantId+" - "+result.Error()))
 	}
 
-	// fmt.Printf("returnResult: %v\n", returnResult)
 	if returnResult.TenantId == mongoApi.GetTenantWithBatchesSuffix(tenantId) {
 		return http.StatusBadRequest, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusBadRequest, logger,
 			fmt.Sprintf("Unable to create new tenant as it already exists[%s]", tenantId))
