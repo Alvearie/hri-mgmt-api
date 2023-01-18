@@ -96,14 +96,8 @@ func (h *theHandler) SendFail(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.NewErrorDetail(requestId, err.Error()))
 	}
 
-	// getBatchRequest := model.GetByIdBatch{
-	// 	TenantId: request.TenantId,
-	// 	BatchId:  request.BatchId,
-	// }
 	var code int
 	var body interface{}
-
-	// mongoClient := mongoApi.GetMongoCollection(h.config.MongoColName)
 
 	kafkaWriter, err := kafka.NewWriterFromAzConfig(h.config)
 	if err != nil {
@@ -126,11 +120,6 @@ func (h *theHandler) SendFail(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call FailNoAuth()")
 	}
-
-	// currentStatus, getStatusErr := getBatchStatus(h, requestId, getBatchRequest, logger)
-	// if getStatusErr != nil {
-	// 	return c.JSON(getStatusErr.Code, getStatusErr.Body)
-	// }
 
 	code, body = h.sendFail(requestId, &request, claims, kafkaWriter)
 

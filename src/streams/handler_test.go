@@ -1,9 +1,3 @@
-// /*
-//  * (C) Copyright IBM Corp. 2021
-//  *
-//  * SPDX-License-Identifier: Apache-2.0
-//  */
-
 package streams
 
 import (
@@ -277,9 +271,6 @@ func TestHandlerCreate(t *testing.T) {
 }
 
 func TestHandlerDelete(t *testing.T) {
-	// kafkaProperties := map[string]string{
-	// 	"security.protocol": "sasl_ssl",
-	// }
 
 	logwrapper.Initialize("error", os.Stdout)
 
@@ -439,11 +430,7 @@ func TestHandlerGetStreams(t *testing.T) {
 		{param.StreamId: streamId3},
 	}
 	emptyStreamsResults := []map[string]interface{}{}
-	validConfig := config.Config{
-		/*KafkaProperties: map[string]string{
-			 "security.protocol": "sasl_ssl",
-		 },*/
-	}
+	validConfig := config.Config{}
 	logwrapper.Initialize("error", os.Stdout)
 
 	tests := []struct {
