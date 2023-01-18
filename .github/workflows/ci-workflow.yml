@@ -2,7 +2,7 @@ name: CI Workflow
 
 on:
   push:
-    branches: [ '**' ]
+    branches: [ '*develop*' ]
   workflow_dispatch:
 
 concurrency: ci-${{ github.ref }}
@@ -64,7 +64,7 @@ jobs:
         run: |
           gem install bundler
           BUNDLE_GEMFILE="./test/Gemfile" bundle install
-          gem specific_install -l https://github.com/Alvearie/hri-test-helpers.git main
+          # gem specific_install -l https://github.com/Alvearie/hri-test-helpers.git main
           gem install dredd_hooks
           ./run-dreddtests.sh
           curl -sL https://ibm.biz/idt-installer | bash
