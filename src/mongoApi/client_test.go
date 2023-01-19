@@ -51,19 +51,6 @@ func TestGetMongoCollection(t *testing.T) {
 	})
 }
 
-func TestDatabaseHealthCheck(t *testing.T) {
-
-	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
-	defer mt.Close()
-	mt.Run("success", func(mt *mtest.T) {
-		HriCollection = mt.Coll
-		db = mt.DB
-		res, res2 := DatabaseHealthCheck()
-		assert.NotNil(t, res)
-		assert.NotNil(t, res2)
-
-	})
-}
 func TestHriDatabaseHealthCheck(t *testing.T) {
 
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))

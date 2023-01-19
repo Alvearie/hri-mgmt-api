@@ -1,8 +1,3 @@
-/*
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package batches
 
 import (
@@ -36,9 +31,9 @@ func TestProcessComplete401(t *testing.T) {
 	}
 
 	code, _ := ProcessingCompleteBatch(requestId, &processingCompleteRequest, claims, writer)
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+
 	if code != expectedCode {
-		t.Errorf("SendFail() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+		t.Errorf("SendProcessingComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
 
 }
@@ -196,7 +191,6 @@ func TestProcessingCompleteRequestNoAuth200(t *testing.T) {
 		Roles:   []string{"hri_data_internal", "hri_tenant_tid1_data_internal"},
 		Scope:   "hri_internal",
 	}
-	//m := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
 
 	mdata := bson.M{"compression": "gzip", "finalRecordCount": 20}
 
@@ -339,7 +333,7 @@ func TestProcessingCompleteRequestStatusTerminateOrFail1(t *testing.T) {
 
 	code, _ := ProcessingCompleteBatch(requestId, &processingCompleteRequest, claims, writer)
 	if code != expectedCode {
-		t.Errorf("SendFail() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+		t.Errorf("SendProcessingComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
 }
 func TestProcessingCompleteRequestFail(t *testing.T) {
@@ -393,7 +387,7 @@ func TestProcessingCompleteRequestFail(t *testing.T) {
 
 	code, _ := ProcessingCompleteBatch(requestId, &processingCompleteRequest, claims, writer)
 	if code != expectedCode {
-		t.Errorf("SendFail() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+		t.Errorf("SendProcessingComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
 }
 

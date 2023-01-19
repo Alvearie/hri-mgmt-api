@@ -1,8 +1,3 @@
-/**
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package auth
 
 import (
@@ -25,7 +20,7 @@ type TenantValidator interface {
 	GetValidatedClaimsForTenant(requestId string, authorization string) *response.ErrorDetailResponse
 }
 
-// Added  as part of Azure parting
+// Added  as part of Azure porting
 type theTenantValidator struct {
 	issuer      string
 	audienceId  string
@@ -141,9 +136,8 @@ func (v theBatchValidator) GetValidatedRoles(requestId string, authorization str
 	claims := HriAzClaims{}
 
 	prefix := "auth/getValidatedRoles"
-	//logger := logwrapper.GetMyLogger(requestId, prefix)
-	fmt.Println(requestId, prefix)
-
+	logger := logwrapper.GetMyLogger(requestId, prefix)
+	logger.Infoln(requestId, prefix)
 	// verify that request has a signed OAuth JWT OIDC-compliant access token
 	token, errResp := v.getSignedToken(requestId, authorization)
 	if errResp != nil {
@@ -152,7 +146,7 @@ func (v theBatchValidator) GetValidatedRoles(requestId string, authorization str
 
 	// extract HRI-related claims from JWT access token
 	if err := token.Claims(&claims); err != nil {
-		fmt.Println(err.Error())
+		logger.Errorln(err.Error())
 		return claims, response.NewErrorDetailResponse(http.StatusUnauthorized, requestId, err.Error())
 	}
 

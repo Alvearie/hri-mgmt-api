@@ -1,8 +1,3 @@
-/**
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package tenants
 
 import (
@@ -34,8 +29,8 @@ func GetTenantById(
 		msg := "Tenant: " + tenantId + " not found"
 		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound, logger, msg)
 	}
-
-	healthOk, datasize := mongoApi.DatabaseHealthCheck()
+	//TO-DO{Handle error}
+	healthOk, datasize, _ := mongoApi.HriDatabaseHealthCheck()
 	tenantResponse.Index = returnTenetResult.TenantId
 	tenantResponse.Uuid = returnTenetResult.Uuid
 	if returnTenetResult.Docs_count == "" {

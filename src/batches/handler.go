@@ -1,9 +1,3 @@
-/*
- * (C) Copyright IBM Corp. 2021
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
 package batches
 
 import (
@@ -181,9 +175,6 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 	return c.NoContent(code)
 }
 
-// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
-// Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
-
 func (h *theHandler) GetByBatchId(c echo.Context) error {
 	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
 	prefix := "batches/handler/getById"
@@ -217,7 +208,6 @@ func (h *theHandler) GetByBatchId(c echo.Context) error {
 	}
 }
 
-// Added as part of Azure porting
 func (h *theHandler) CreateBatch(c echo.Context) error {
 	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
 	prefix := "batches/handler/create"

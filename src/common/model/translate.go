@@ -1,14 +1,10 @@
-/**
- * (C) Copyright IBM Corp. 2021
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package model
 
 import (
+	"strings"
+
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
-	"strings"
 )
 
 // Universal Translator Usage Docs:  https://pkg.go.dev/github.com/go-playground/universal-translator

@@ -4,7 +4,6 @@ require (
 	github.com/IBM/resource-controller-go-sdk-generator v1.0.1
 	github.com/confluentinc/confluent-kafka-go v1.8.2
 	github.com/coreos/go-oidc v2.2.1+incompatible
-	github.com/elastic/go-elasticsearch/v7 v7.11.0
 	github.com/go-playground/locales v0.14.0
 	github.com/go-playground/universal-translator v0.18.0
 	github.com/go-playground/validator/v10 v10.10.1

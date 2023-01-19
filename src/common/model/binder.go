@@ -1,17 +1,13 @@
-/**
- * (C) Copyright IBM Corp. 2021
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package model
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"regexp"
 	"strings"
+
+	"github.com/labstack/echo/v4"
 )
 
 type CustomBinder struct {
@@ -58,7 +54,8 @@ func (cb CustomBinder) Bind(i interface{}, c echo.Context) error {
 }
 
 // Example)  Original Err: "Unmarshal type error: expected=int, got=string, field=expectedRecordCount, offset=29, internal=json: cannot unmarshal string into Go struct field SendCompleteRequest.expectedRecordCount of type int"
-//                New Err: "invalid request param \"expectedRecordCount\": expected type int, but received type string"
+//
+//	New Err: "invalid request param \"expectedRecordCount\": expected type int, but received type string"
 func getRevisedUnmarshalErr(err echo.HTTPError) error {
 	internal := err.Internal.(*json.UnmarshalTypeError)
 	newErrStr := fmt.Sprintf(

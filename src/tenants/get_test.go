@@ -1,8 +1,3 @@
-/**
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package tenants
 
 import (
@@ -29,17 +24,17 @@ func TestFind(t *testing.T) {
 		tenantId4 := "test123-batches"
 
 		tenant1 := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-			{"tenantId", tenantId1},
+			{Key: "tenantId", Value: tenantId1},
 		})
 
 		tenant2 := mtest.CreateCursorResponse(1, "foo.bar", mtest.NextBatch, bson.D{
-			{"tenantId", tenantId2},
+			{Key: "tenantId", Value: tenantId2},
 		})
 		tenant3 := mtest.CreateCursorResponse(1, "foo.bar", mtest.NextBatch, bson.D{
-			{"tenantId", tenantId3},
+			{Key: "tenantId", Value: tenantId3},
 		})
 		tenant4 := mtest.CreateCursorResponse(1, "foo.bar", mtest.NextBatch, bson.D{
-			{"tenantId", tenantId4},
+			{Key: "tenantId", Value: tenantId4},
 		})
 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
 		mt.AddMockResponses(tenant1, tenant2, tenant3, tenant4, killCursors)
@@ -56,6 +51,6 @@ func TestFind(t *testing.T) {
 		tenantsMap["results"] = tenenatsIdList
 		assert.NotNil(t, tenants)
 		assert.NotNil(t, response)
-		//assert.Equal(t, tenantsMap, response)
+
 	})
 }

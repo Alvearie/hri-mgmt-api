@@ -1,21 +1,17 @@
-/**
- * (C) Copyright IBM Corp. 2021
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package model
 
 import (
 	"errors"
 	"fmt"
-	"github.com/go-playground/locales/en"
-	ut "github.com/go-playground/universal-translator"
-	"github.com/go-playground/validator/v10"
-	entranslations "github.com/go-playground/validator/v10/translations/en"
 	"reflect"
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/go-playground/locales/en"
+	ut "github.com/go-playground/universal-translator"
+	"github.com/go-playground/validator/v10"
+	entranslations "github.com/go-playground/validator/v10/translations/en"
 )
 
 // CustomValidator is our type setting of third party validator (go-playground Validator) that is compatible with Echo

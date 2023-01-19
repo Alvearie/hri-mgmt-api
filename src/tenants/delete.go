@@ -1,8 +1,3 @@
-/**
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package tenants
 
 import (
@@ -13,7 +8,6 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"go.mongodb.org/mongo-driver/bson"
 
-	// "fmt"
 	"net/http"
 )
 
@@ -25,7 +19,7 @@ func DeleteTenant(requestId string, tenantId string) (int, interface{}) {
 	var ctx = context.Background()
 	var filter = bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId)}
 
-	//make call to elastic to delete tenant
+	//make call to Cosmos to delete tenant
 	result, err := mongoApi.HriCollection.DeleteOne(ctx, filter)
 
 	if err != nil {

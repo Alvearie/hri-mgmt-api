@@ -1,8 +1,3 @@
-/**
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package batches
 
 import (
@@ -33,7 +28,7 @@ func updateBatchStatus(requestId string,
 	prefix := "batches/updateStatus"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Update Status")
-	//appending "-batches"
+
 	tenant_id := mongoApi.GetTenantWithBatchesSuffix(tenantId)
 
 	filter := bson.D{
@@ -70,7 +65,7 @@ func updateBatchStatus(requestId string,
 
 		err := kafkaWriter.Write(notificationTopic, batchId, updatedBatch)
 
-		if err != nil { //Write to Elastic Failed, try to Revert Batch Status
+		if err != nil { //Write to Kafka Failed, try to Revert Batch Status
 			kafkaErrMsg := fmt.Sprintf("error writing batch notification to kafka: %s", err.Error())
 			logger.Errorln(kafkaErrMsg)
 			revertErr := revertStatus(requestId, tenantId, batchId, currentStatus, logger)
@@ -93,8 +88,8 @@ func updateBatchStatus(requestId string,
 
 // Here we are reverting the Batch status to "currentStatus" in Cosmos. "currentStatus" is the
 // status that the Batch had BEFORE the update operation//
-// If the Revert attempt in Elastic fails, we retry up to 5 times.
-// TODO:enhacement
+// If the Revert attempt in Cosmos DB fails, we retry up to 5 times.
+// TODO:enhacement {Reduce/eliminate retries}
 func revertStatus(requestId string,
 	tenantId string,
 	batchId string,
