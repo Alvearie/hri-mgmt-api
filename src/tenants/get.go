@@ -26,8 +26,8 @@ func GetTenants(
 	var tenantsArray []model.GetTenants
 
 	projection := bson.D{
-		{"tenantId", 1},
-		{"_id", 0},
+		{Key: "tenantId", Value: 1},
+		{Key: "_id", Value: 0},
 	}
 
 	cursor, err := mongoApi.HriCollection.Find(

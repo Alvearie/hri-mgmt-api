@@ -316,7 +316,7 @@ func TestCreate(t *testing.T) {
 		}
 
 		tenant1 := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-			{"tenantId", "tenant123"},
+			{Key: "tenantId", Value: "tenant123"},
 		})
 
 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)

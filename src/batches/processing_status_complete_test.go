@@ -75,32 +75,32 @@ func TestProcessingComplete200(t *testing.T) {
 
 		detailsMap := bson.D{
 			{Key: "name", Value: "rspec-pentest-batch"},
-			{"topic", "ingest.pentest.claims.in"},
-			{"dataType", "rspec-batch"},
-			{"invalidThreshold", 5},
-			{"metadata", i},
-			{"id", "batchid1"},
-			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-			{"status", "sendCompleted"},
-			{"startDate", "2022-11-29T09:52:07Z"},
+			{Key: "topic", Value: "ingest.pentest.claims.in"},
+			{Key: "dataType", Value: "rspec-batch"},
+			{Key: "invalidThreshold", Value: 5},
+			{Key: "metadata", Value: i},
+			{Key: "id", Value: "batchid1"},
+			{Key: "integratorId", Value: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
+			{Key: "status", Value: "sendCompleted"},
+			{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
 		}
 
 		array1 := []bson.D{detailsMap}
 
 		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-			{"batch", array1},
+			{Key: "batch", Value: array1},
 		})
 
 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
 		mt.AddMockResponses(first, killCursors)
 
 		mt.AddMockResponses(bson.D{
-			{"ok", 1},
-			{"nModified", 1},
+			{Key: "ok", Value: 1},
+			{Key: "nModified", Value: 1},
 		})
 
 		second := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-			{"batch", array1},
+			{Key: "batch", Value: array1},
 		})
 
 		killCursors2 := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
@@ -150,19 +150,19 @@ func TestProcessingCompleteBatchStatusError(t *testing.T) {
 
 		detailsMap := bson.D{
 			{Key: "name", Value: "rspec-pentest-batch"},
-			{"topic", "ingest.pentest.claims.in"},
-			{"dataType", "rspec-batch"},
-			{"invalidThreshold", 5},
-			{"metadata", i},
-			{"id", "batchid1"},
-			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-			{"startDate", "2022-11-29T09:52:07Z"},
+			{Key: "topic", Value: "ingest.pentest.claims.in"},
+			{Key: "dataType", Value: "rspec-batch"},
+			{Key: "invalidThreshold", Value: 5},
+			{Key: "metadata", Value: i},
+			{Key: "id", Value: "batchid1"},
+			{Key: "integratorId", Value: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
+			{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
 		}
 
 		array1 := []bson.D{detailsMap}
 
 		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-			{"batch", array1},
+			{Key: "batch", Value: array1},
 		})
 
 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
@@ -211,32 +211,32 @@ func TestProcessingCompleteRequestNoAuth200(t *testing.T) {
 
 		detailsMap := bson.D{
 			{Key: "name", Value: "rspec-pentest-batch"},
-			{"topic", "ingest.pentest.claims.in"},
-			{"dataType", "rspec-batch"},
-			{"invalidThreshold", 5},
-			{"metadata", i},
-			{"id", "batchid1"},
-			{"integratorId", "NoAuthUnkIntegrator"},
-			{"status", "sendCompleted"},
-			{"startDate", "2022-11-29T09:52:07Z"},
+			{Key: "topic", Value: "ingest.pentest.claims.in"},
+			{Key: "dataType", Value: "rspec-batch"},
+			{Key: "invalidThreshold", Value: 5},
+			{Key: "metadata", Value: i},
+			{Key: "id", Value: "batchid1"},
+			{Key: "integratorId", Value: "NoAuthUnkIntegrator"},
+			{Key: "status", Value: "sendCompleted"},
+			{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
 		}
 
 		array1 := []bson.D{detailsMap}
 
 		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-			{"batch", array1},
+			{Key: "batch", Value: array1},
 		})
 
 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
 		mt.AddMockResponses(first, killCursors)
 
 		mt.AddMockResponses(bson.D{
-			{"ok", 1},
-			{"nModified", 1},
+			{Key: "ok", Value: 1},
+			{Key: "nModified", Value: 1},
 		})
 
 		second := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-			{"batch", array1},
+			{Key: "batch", Value: array1},
 		})
 
 		killCursors2 := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
@@ -279,20 +279,20 @@ func TestProcessingCompleteRequestClaimSubjNotEqualIntegratorId(t *testing.T) {
 
 		detailsMap := bson.D{
 			{Key: "name", Value: "rspec-pentest-batch"},
-			{"topic", "ingest.pentest.claims.in"},
-			{"dataType", "rspec-batch"},
-			{"invalidThreshold", 5},
-			{"metadata", i},
-			{"id", "batchid1"},
-			{"integratorId", "8b1e7a81-41b0-a170-ae19f843f27c"},
-			{"status", "started"},
-			{"startDate", "2022-11-29T09:52:07Z"},
+			{Key: "topic", Value: "ingest.pentest.claims.in"},
+			{Key: "dataType", Value: "rspec-batch"},
+			{Key: "invalidThreshold", Value: 5},
+			{Key: "metadata", Value: i},
+			{Key: "id", Value: "batchid1"},
+			{Key: "integratorId", Value: "8b1e7a81-41b0-a170-ae19f843f27c"},
+			{Key: "status", Value: "started"},
+			{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
 		}
 
 		array1 := []bson.D{detailsMap}
 
 		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-			{"batch", array1},
+			{Key: "batch", Value: array1},
 		})
 
 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
@@ -364,20 +364,20 @@ func TestProcessingCompleteRequestFail(t *testing.T) {
 
 		detailsMap := bson.D{
 			{Key: "name", Value: "rspec-pentest-batch"},
-			{"topic", "ingest.pentest.claims.in"},
-			{"dataType", "rspec-batch"},
-			{"invalidThreshold", 5},
-			{"metadata", i},
-			{"id", "batchid1"},
-			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-			{"status", "failed"},
-			{"startDate", "2022-11-29T09:52:07Z"},
+			{Key: "topic", Value: "ingest.pentest.claims.in"},
+			{Key: "dataType", Value: "rspec-batch"},
+			{Key: "invalidThreshold", Value: 5},
+			{Key: "metadata", Value: i},
+			{Key: "id", Value: "batchid1"},
+			{Key: "integratorId", Value: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
+			{Key: "status", Value: "failed"},
+			{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
 		}
 
 		array1 := []bson.D{detailsMap}
 
 		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-			{"batch", array1},
+			{Key: "batch", Value: array1},
 		})
 
 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
@@ -420,27 +420,27 @@ func TestProcessingCompleteupdateBatchStatusErr(t *testing.T) {
 
 		detailsMap := bson.D{
 			{Key: "name", Value: "rspec-pentest-batch"},
-			{"topic", "ingest.pentest.claims.in"},
-			{"dataType", "rspec-batch"},
-			{"invalidThreshold", 5},
-			{"metadata", i},
-			{"id", "batchid1"},
-			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-			{"status", "sendCompleted"},
-			{"startDate", "2022-11-29T09:52:07Z"},
+			{Key: "topic", Value: "ingest.pentest.claims.in"},
+			{Key: "dataType", Value: "rspec-batch"},
+			{Key: "invalidThreshold", Value: 5},
+			{Key: "metadata", Value: i},
+			{Key: "id", Value: "batchid1"},
+			{Key: "integratorId", Value: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
+			{Key: "status", Value: "sendCompleted"},
+			{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
 		}
 
 		array1 := []bson.D{detailsMap}
 
 		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-			{"batch", array1},
+			{Key: "batch", Value: array1},
 		})
 
 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
 		mt.AddMockResponses(first, killCursors)
 
 		mt.AddMockResponses(bson.D{
-			{"ok", 1},
+			{Key: "ok", Value: 1},
 		})
 
 	})
