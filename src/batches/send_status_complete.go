@@ -1,9 +1,3 @@
-/*
- * (C) Copyright IBM Corp. 2021
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
 package batches
 
 import (
@@ -25,8 +19,7 @@ import (
 func SendStatusComplete(requestId string,
 	request *model.SendCompleteRequest,
 	claims auth.HriAzClaims,
-	writer kafka.Writer,
-) (int, interface{}) {
+	writer kafka.Writer) (int, interface{}) {
 	prefix := "batches/sendComplete"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
@@ -47,8 +40,7 @@ func SendStatusCompleteNoAuth(
 	requestId string,
 	request *model.SendCompleteRequest,
 	_ auth.HriAzClaims,
-	writer kafka.Writer,
-) (int, interface{}) {
+	writer kafka.Writer) (int, interface{}) {
 	prefix := "batches/sendStatusCompleteNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
@@ -63,8 +55,7 @@ func sendStatusComplete(
 	request *model.SendCompleteRequest,
 	claimSubj string,
 	kafkaWriter kafka.Writer,
-	logger logrus.FieldLogger,
-) (int, interface{}) {
+	logger logrus.FieldLogger) (int, interface{}) {
 
 	batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 	if err != nil {
@@ -99,6 +90,7 @@ func sendStatusComplete(
 
 	return http.StatusOK, nil
 }
+
 func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj string, requestId string) map[string]interface{} {
 	var expectedRecordCount int
 	if request.ExpectedRecordCount != nil {

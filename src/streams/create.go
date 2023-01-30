@@ -1,8 +1,3 @@
-/**
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package streams
 
 import (
@@ -86,7 +81,7 @@ func CreateStream(
 func buildTopicSpecifications(topicNames []string, partitionCounts []int, config map[string]string) []cfk.TopicSpecification {
 
 	topicSpecs := make([]cfk.TopicSpecification, len(topicNames))
-	for i, _ := range topicNames {
+	for i := range topicNames {
 		topicSpecs[i] = cfk.TopicSpecification{
 			Topic:             topicNames[i],
 			NumPartitions:     partitionCounts[i],

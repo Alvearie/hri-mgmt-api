@@ -28,12 +28,12 @@ func updateBatchStatus(requestId string,
 	prefix := "batches/updateStatus"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Update Status")
-
+	//appending "-batches"
 	tenant_id := mongoApi.GetTenantWithBatchesSuffix(tenantId)
 
 	filter := bson.D{
-		{"tenantId", tenant_id},
-		{"batch.id", batchId},
+		{Key: "tenantId", Value: tenant_id},
+		{Key: "batch.id", Value: batchId},
 	}
 
 	updateResponse, updateErr := mongoApi.HriCollection.UpdateMany(
@@ -107,8 +107,8 @@ func revertStatus(requestId string,
 	}
 
 	filter := bson.D{
-		{"tenantId", tenant_id},
-		{"batch.id", batchId},
+		{Key: "tenantId", Value: tenant_id},
+		{Key: "batch.id", Value: batchId},
 	}
 
 	for attemptNum < 7 { //Retry Up to 5 Times (Total # attempts => 6)
@@ -120,8 +120,7 @@ func revertStatus(requestId string,
 		)
 
 		if updateErr != nil || updateResponse.ModifiedCount == 0 {
-			msg := fmt.Sprintf(revertErrMsg, attemptNum, currentStatus,
-				updateErr.Error())
+			msg := fmt.Sprintf(revertErrMsg, attemptNum, currentStatus, updateErr.Error())
 			logger.Errorln(msg)
 			fmt.Println(msg)
 

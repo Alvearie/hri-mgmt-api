@@ -114,7 +114,7 @@ func TestHandlerCreate(t *testing.T) {
 			expectedCode: http.StatusUnauthorized,
 			expectedBody: `{"errorEventId":"test-request-id","errorDescription":"missing header 'Authorization'"}`,
 		},
-		/*{
+		{
 			name: "failed with bad tenant id",
 			handler: theHandler{
 				config: validConfig,
@@ -224,7 +224,7 @@ func TestHandlerCreate(t *testing.T) {
 			bearerTokens:         []string{validAztoken},
 			expectedCode:         http.StatusInternalServerError,
 			expectedBody:         `{"errorEventId":"test-request-id","errorDescription":"create failure message\\ndelete failure message"}`,
-		},*/
+		},
 	}
 
 	e := test.GetTestServer()
@@ -247,7 +247,7 @@ func TestHandlerCreate(t *testing.T) {
 			if tt.createReturnCode != 0 {
 				tt.handler.deleteStream = func(requestId string, topicsToCreate []string, service kafka.KafkaAdmin) (int, error) {
 					if !reflect.DeepEqual(topicsToCreate, tt.expectedCreateTopics) {
-						t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", tt.expectedCreateTopics, topicsToCreate))
+						t.Errorf("Expected: [%v], actual: [%v]", tt.expectedCreateTopics, topicsToCreate)
 					}
 
 					if tt.createErrMessage == "" {
@@ -430,7 +430,11 @@ func TestHandlerGetStreams(t *testing.T) {
 		{param.StreamId: streamId3},
 	}
 	emptyStreamsResults := []map[string]interface{}{}
-	validConfig := config.Config{}
+	validConfig := config.Config{
+		/*KafkaProperties: map[string]string{
+			 "security.protocol": "sasl_ssl",
+		 },*/
+	}
 	logwrapper.Initialize("error", os.Stdout)
 
 	tests := []struct {

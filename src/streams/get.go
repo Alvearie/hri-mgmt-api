@@ -1,8 +1,3 @@
-/**
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package streams
 
 import (
@@ -52,7 +47,7 @@ func listTopics(adminClient kafka.KafkaAdmin) ([]string, error) {
 	// metadata.Topics is a map from topic names to structs with topic info
 	i := 0
 	topics := make([]string, len(metadata.Topics))
-	for key, _ := range metadata.Topics {
+	for key := range metadata.Topics {
 		topics[i] = key
 		i++
 	}
