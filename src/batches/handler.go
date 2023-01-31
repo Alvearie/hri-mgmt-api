@@ -78,30 +78,6 @@ func NewHandler(config config.Config) Handler {
 	return newHandler
 }
 
-// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
-// Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
-func getBatchStatus(h *theHandler, requestId string, getBatchRequest model.GetByIdBatch, mongoClient *mongo.Collection, logger logrus.FieldLogger) (status.BatchStatus, *response.ErrorDetailResponse) {
-
-	var claims = auth.HriAzClaims{} //Always use the empty claims (NoAuth) option
-	getByIdCode, responseBody := h.getTenantByIdNoAuth(requestId, getBatchRequest, claims)
-	if getByIdCode != http.StatusOK { //error getting current Batch Info
-		var errDetail = responseBody.(*response.ErrorDetail)
-		newErrMsg := fmt.Sprintf(msgGetByIdErr, errDetail.ErrorDescription)
-		logger.Errorln(newErrMsg)
-
-		return status.Unknown, response.NewErrorDetailResponse(getByIdCode, requestId, newErrMsg)
-	}
-
-	currentStatus, extractErr := ExtractBatchStatus(responseBody)
-	if extractErr != nil {
-		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-		logger.Errorln(errMsg)
-		return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	}
-
-	return currentStatus, nil
-}
-
 func (h *theHandler) SendFail(c echo.Context) error {
 	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
 	prefix := "batches/handler/sendfail"
