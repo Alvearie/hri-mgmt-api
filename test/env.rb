@@ -24,7 +24,6 @@ require 'kafka'
 require 'base64'
 require 'nokogiri'
 require 'mongo'
-
 require 'hritesthelpers'
 
 require_relative './spec/hri_deploy_helper'
