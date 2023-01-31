@@ -47,7 +47,7 @@ func TestCreateTenant(t *testing.T) {
 			Docs_deleted: 0,
 		}
 		mt.AddMockResponses(bson.D{
-			{"ok", 1},
+			{Key: "ok", Value: 1},
 			{Key: "value", Value: bson.D{
 				{Key: "tenantId", Value: expectedTenant.TenantId},
 				{Key: "docs.count", Value: expectedTenant.Docs_count},

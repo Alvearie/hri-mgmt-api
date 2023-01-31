@@ -1,8 +1,10 @@
 package batches
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/Alvearie/hri-mgmt-api/batches/status"
 	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/config"
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
@@ -10,6 +12,8 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const msgGetByIdErr string = "error getting current Batch Status: %s"

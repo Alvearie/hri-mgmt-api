@@ -28,6 +28,7 @@ func TestGetCheck(t *testing.T) {
 		assert.Equal(t, statusCode, http.StatusOK)
 
 	})
+
 	mt.Run("GetCheckStatusServiceUnavailable", func(mt *mtest.T) {
 
 		mongoApi.HriCollection = mt.Coll
