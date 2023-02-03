@@ -109,7 +109,7 @@ func revertStatus(requestId string,
 
 	updateRequest := bson.M{
 		"$set": bson.M{
-			"batch.$.status": status.Started.String(),
+			"batch.$.status": currentStatus.String(),
 		},
 	}
 

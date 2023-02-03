@@ -157,7 +157,8 @@ func createBatch(
 
 	// add batchId to info and publish to the notification topic
 	logger.Debugf("Sending Batch Info to Notification Topic")
-
+	//Sending  batchid to Kafka
+	batchInfo[param.BatchId] = batchId
 	notificationTopic := InputTopicToNotificationTopic(batch.Topic)
 	err := kafkaWriter.Write(notificationTopic, batchId, batchInfo)
 	if err != nil {
