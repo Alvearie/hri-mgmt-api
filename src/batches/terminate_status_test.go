@@ -13,15 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 )
 
-// func getTestTerminateRequest(metadata map[string]interface{}) *model.TerminateRequest {
-// 	request := model.TerminateRequest{
-// 		TenantId: test.ValidTenantId,
-// 		BatchId:  test.ValidBatchId,
-// 		Metadata: metadata,
-// 	}
-// 	return &request
-// }
-
 func TestTerminate200(t *testing.T) {
 	expectedCode := 200
 	request := model.TerminateRequest{
@@ -64,13 +55,6 @@ func TestTerminate200(t *testing.T) {
 
 		array1 := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
 			{"nModified", 1},
@@ -86,7 +70,7 @@ func TestTerminate200(t *testing.T) {
 	})
 
 	code, _ := TerminateBatch(requestId, &request, claims, writer, status.Started, integratorIdtest)
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
@@ -156,13 +140,6 @@ func TestTerminateNoAuth200(t *testing.T) {
 
 		array1 := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
 			{"nModified", 1},
@@ -178,61 +155,11 @@ func TestTerminateNoAuth200(t *testing.T) {
 	})
 
 	code, _ := TerminateBatchNoAuth(requestId, &request, claims, writer, status.Started, "NoAuthUnkIntegrator")
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
 }
-
-// func TestTerminategetBatchMetaDataError(t *testing.T) {
-// 	expectedCode := 404
-// 	request := model.TerminateRequest{
-// 		TenantId: "tid1",
-// 		BatchId:  "batchid1",
-// 	}
-// 	claims := auth.HriAzClaims{
-// 		Subject: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c",
-// 		Roles:   []string{"hri_data_integrator", "hri_tenant_tid1_data_integrator"},
-// 	}
-
-// 	writer := test.FakeWriter{}
-
-// 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
-// 	defer mt.Close()
-
-// 	mt.Run("success", func(mt *mtest.T) {
-// 		mongoApi.HriCollection = mt.Coll
-
-// 		i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-// 		detailsMap := bson.D{
-// 			{Key: "name", Value: "rspec-pentest-batch"},
-// 			{"topic", "ingest.pentest.claims.in"},
-// 			{"dataType", "rspec-batch"},
-// 			{"invalidThreshold", 5},
-// 			{"metadata", i},
-// 			{"id", "batchid1"},
-// 			{"integratorId", "NoAuthUnkIntegrator"},
-// 			{"status", "started"},
-// 			{"startDate", "2022-11-29T09:52:07Z"},
-// 		}
-
-// 		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch,
-// 			detailsMap,
-// 		)
-
-// 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-// 		mt.AddMockResponses(first, killCursors)
-
-// 	})
-
-// 	code, _ := TerminateBatch(requestId, &request, claims, writer,status.Started,)
-
-// 	if code != expectedCode {
-// 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
-// 	}
-
-// }
 
 func TestTerminateStatusNotStarted(t *testing.T) {
 	expectedCode := 409
@@ -248,34 +175,6 @@ func TestTerminateStatusNotStarted(t *testing.T) {
 	writer := test.FakeWriter{}
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
 	defer mt.Close()
-
-	// mt.Run("success", func(mt *mtest.T) {
-	// 	mongoApi.HriCollection = mt.Coll
-
-	// 	i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-	// 	detailsMap := bson.D{
-	// 		{Key: "name", Value: "rspec-pentest-batch"},
-	// 		{"topic", "ingest.pentest.claims.in"},
-	// 		{"dataType", "rspec-batch"},
-	// 		{"invalidThreshold", 5},
-	// 		{"metadata", i},
-	// 		{"id", "batchid1"},
-	// 		{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-	// 		{"status", "completed"},
-	// 		{"startDate", "2022-11-29T09:52:07Z"},
-	// 	}
-
-	// 	array1 := []bson.D{detailsMap}
-
-	// 	first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-	// 		{"batch", array1},
-	// 	})
-
-	// 	killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-	// 	mt.AddMockResponses(first, killCursors)
-
-	// })
 
 	code, _ := TerminateBatch(requestId, &request, claims, writer, status.Completed, integratorIdtest)
 	if code != expectedCode {
@@ -297,34 +196,6 @@ func TestSendTerminateClaimSubjNotEqualIntegratorId(t *testing.T) {
 	writer := test.FakeWriter{}
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
 	defer mt.Close()
-
-	// mt.Run("success", func(mt *mtest.T) {
-	// 	mongoApi.HriCollection = mt.Coll
-
-	// 	i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-	// 	detailsMap := bson.D{
-	// 		{Key: "name", Value: "rspec-pentest-batch"},
-	// 		{"topic", "ingest.pentest.claims.in"},
-	// 		{"dataType", "rspec-batch"},
-	// 		{"invalidThreshold", 5},
-	// 		{"metadata", i},
-	// 		{"id", "batchid1"},
-	// 		{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-	// 		{"status", "started"},
-	// 		{"startDate", "2022-11-29T09:52:07Z"},
-	// 	}
-
-	// 	array1 := []bson.D{detailsMap}
-
-	// 	first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-	// 		{"batch", array1},
-	// 	})
-
-	// 	killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-	// 	mt.AddMockResponses(first, killCursors)
-
-	// })
 
 	code, _ := TerminateBatch(requestId, &request, claims, writer, status.Started, "incorrectintegratorId")
 	if code != expectedCode {
@@ -350,29 +221,6 @@ func TestTerminateupdateBatchStatusErr(t *testing.T) {
 	mt.Run("success", func(mt *mtest.T) {
 		mongoApi.HriCollection = mt.Coll
 
-		// i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-		// detailsMap := bson.D{
-		// 	{Key: "name", Value: "rspec-pentest-batch"},
-		// 	{"topic", "ingest.pentest.claims.in"},
-		// 	{"dataType", "rspec-batch"},
-		// 	{"invalidThreshold", 5},
-		// 	{"metadata", i},
-		// 	{"id", "batchid1"},
-		// 	{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-		// 	{"status", "started"},
-		// 	{"startDate", "2022-11-29T09:52:07Z"},
-		// }
-
-		// array1 := []bson.D{detailsMap}
-
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
 		})
@@ -396,8 +244,6 @@ func TestTerminateKafkaErr(t *testing.T) {
 		Subject: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c",
 		Roles:   []string{"hri_data_integrator", "hri_tenant_tid1_data_integrator"},
 	}
-
-	//mdata := bson.M{"compression": "gzip", "finalRecordCount": 20}
 
 	writer := test.FakeWriter{
 		T:             t,
@@ -426,13 +272,6 @@ func TestTerminateKafkaErr(t *testing.T) {
 
 		array1 := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
 			{"nModified", 1},
@@ -453,7 +292,7 @@ func TestTerminateKafkaErr(t *testing.T) {
 	})
 
 	code, _ := TerminateBatch(requestId, &request, claims, writer, status.Started, integratorIdtest)
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
@@ -502,16 +341,8 @@ func TestTerminateModifiedCountZero(t *testing.T) {
 
 		array1 := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
-			//{"nModified", 1},
 		})
 
 		second := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
@@ -524,57 +355,8 @@ func TestTerminateModifiedCountZero(t *testing.T) {
 	})
 
 	code, _ := TerminateBatchNoAuth(requestId, &request, claims, writer, status.Started, "NoAuthUnkIntegrator")
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
 }
-
-// func TestTerminateExtractBatchStatus(t *testing.T) {
-// 	expectedCode := 500
-// 	request := model.TerminateRequest{
-// 		TenantId: "tid1",
-// 		BatchId:  "batchid1",
-// 	}
-// 	claims := auth.HriAzClaims{
-// 		Subject: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c",
-// 		Roles:   []string{"hri_data_integrator", "hri_tenant_tid1_data_integrator"},
-// 	}
-
-// 	writer := test.FakeWriter{}
-// 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
-// 	defer mt.Close()
-
-// 	mt.Run("success", func(mt *mtest.T) {
-// 		mongoApi.HriCollection = mt.Coll
-
-// 		i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-// 		detailsMap := bson.D{
-// 			{Key: "name", Value: "rspec-pentest-batch"},
-// 			{"topic", "ingest.pentest.claims.in"},
-// 			{"dataType", "rspec-batch"},
-// 			{"invalidThreshold", 5},
-// 			{"metadata", i},
-// 			{"id", "batchid1"},
-// 			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-// 			{"status", "complete"},
-// 			{"startDate", "2022-11-29T09:52:07Z"},
-// 		}
-
-// 		array1 := []bson.D{detailsMap}
-
-// 		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-// 			{"batch", array1},
-// 		})
-
-// 		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-// 		mt.AddMockResponses(first, killCursors)
-
-// 	})
-
-// 	code, _ := TerminateBatch(requestId, &request, claims, writer)
-// 	if code != expectedCode {
-// 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
-// 	}
-// }

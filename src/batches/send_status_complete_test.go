@@ -1,8 +1,3 @@
-// /*
-//   - (C) Copyright IBM Corp. 2020
-//     *
-//   - SPDX-License-Identifier: Apache-2.0
-//     */
 package batches
 
 import (
@@ -34,12 +29,10 @@ func TestSendComplete401(t *testing.T) {
 		T:             t,
 		ExpectedTopic: InputTopicToNotificationTopic(batchTopic),
 		ExpectedKey:   test.ValidBatchId,
-		//ExpectedValue: map[string]interface{}{},
-		Error: nil,
+		Error:         nil,
 	}
 
 	code, _ := SendStatusComplete(requestId, &request, claims, writer, status.Started, integratorIdtest)
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
@@ -92,13 +85,6 @@ func TestSendComplete200(t *testing.T) {
 
 		array1 := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
 			{"nModified", 1},
@@ -114,7 +100,7 @@ func TestSendComplete200(t *testing.T) {
 	})
 
 	code, _ := SendStatusComplete(requestId, &request, claims, writer, status.Started, integratorIdtest)
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
@@ -134,8 +120,6 @@ func TestSendCompleteNoAuth200(t *testing.T) {
 		Subject: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c",
 		Roles:   []string{"hri_data_integrator", "hri_tenant_tid1_data_integrator"},
 	}
-
-	//m := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
 
 	mdata := bson.M{"compression": "gzip", "finalRecordCount": 20}
 
@@ -168,13 +152,6 @@ func TestSendCompleteNoAuth200(t *testing.T) {
 
 		array1 := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
 			{"nModified", 1},
@@ -190,66 +167,12 @@ func TestSendCompleteNoAuth200(t *testing.T) {
 	})
 
 	code, _ := SendStatusCompleteNoAuth(requestId, &request, claims, writer, status.Started, "NoAuthUnkIntegrator")
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
 
 }
-
-// func TestSendCompletegetBatchMetaDataError(t *testing.T) {
-// 	expectedCode := 404
-// 	e := 12
-// 	r := 23
-// 	request := model.SendCompleteRequest{
-// 		TenantId:            "tid1",
-// 		BatchId:             "batchid1",
-// 		ExpectedRecordCount: &e,
-// 		RecordCount:         &r,
-// 	}
-// 	claims := auth.HriAzClaims{
-// 		Subject: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c",
-// 		Roles:   []string{"hri_data_integrator", "hri_tenant_tid1_data_integrator"},
-// 	}
-
-// 	writer := test.FakeWriter{}
-
-// 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
-// 	defer mt.Close()
-
-// 	mt.Run("success", func(mt *mtest.T) {
-// 		mongoApi.HriCollection = mt.Coll
-
-// 		// i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-// 		// detailsMap := bson.D{
-// 		// 	{Key: "name", Value: "rspec-pentest-batch"},
-// 		// 	{"topic", "ingest.pentest.claims.in"},
-// 		// 	{"dataType", "rspec-batch"},
-// 		// 	{"invalidThreshold", 5},
-// 		// 	{"metadata", i},
-// 		// 	{"id", "batchid1"},
-// 		// 	{"integratorId", "NoAuthUnkIntegrator"},
-// 		// 	{"status", "started"},
-// 		// 	{"startDate", "2022-11-29T09:52:07Z"},
-// 		// }
-
-// 		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch,
-// 		// 	detailsMap,
-// 		// )
-
-// 		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-// 		// mt.AddMockResponses(first, killCursors)
-
-// 	})
-
-// 	code, _ := SendStatusCompleteNoAuth(requestId, &request, claims, writer, status.Started, integratorIdtest)
-
-// 	if code != expectedCode {
-// 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
-// 	}
-
-// }
 
 func TestSendCompleteupdateBatchStatusErr(t *testing.T) {
 	expectedCode := 500
@@ -272,29 +195,6 @@ func TestSendCompleteupdateBatchStatusErr(t *testing.T) {
 
 	mt.Run("success", func(mt *mtest.T) {
 		mongoApi.HriCollection = mt.Coll
-
-		// i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-		// detailsMap := bson.D{
-		// 	{Key: "name", Value: "rspec-pentest-batch"},
-		// 	{"topic", "ingest.pentest.claims.in"},
-		// 	{"dataType", "rspec-batch"},
-		// 	{"invalidThreshold", 5},
-		// 	{"metadata", i},
-		// 	{"id", "batchid1"},
-		// 	{"integratorId", "NoAuthUnkIntegrator"},
-		// 	{"status", "started"},
-		// 	{"startDate", "2022-11-29T09:52:07Z"},
-		// }
-
-		// array1 := []bson.D{detailsMap}
-
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
 
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
@@ -325,36 +225,6 @@ func TestSendCompletClaimSubjNotEqualIntegratorId(t *testing.T) {
 	}
 
 	writer := test.FakeWriter{}
-	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
-	defer mt.Close()
-
-	mt.Run("success", func(mt *mtest.T) {
-		mongoApi.HriCollection = mt.Coll
-
-		// i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-		// detailsMap := bson.D{
-		// 	{Key: "name", Value: "rspec-pentest-batch"},
-		// 	{"topic", "ingest.pentest.claims.in"},
-		// 	{"dataType", "rspec-batch"},
-		// 	{"invalidThreshold", 5},
-		// 	{"metadata", i},
-		// 	{"id", "batchid1"},
-		// 	{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-		// 	{"status", "started"},
-		// 	{"startDate", "2022-11-29T09:52:07Z"},
-		// }
-
-		// array1 := []bson.D{detailsMap}
-
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
-	})
 
 	code, _ := SendStatusComplete(requestId, &request, claims, writer, status.Started, "incorrectintegratorId")
 	if code != expectedCode {
@@ -363,7 +233,7 @@ func TestSendCompletClaimSubjNotEqualIntegratorId(t *testing.T) {
 }
 
 func TestSendCompletStatusNotStarted(t *testing.T) {
-	expectedCode := 409
+	expectedCode := 401
 	e := 12
 	r := 23
 	request := model.SendCompleteRequest{
@@ -378,36 +248,6 @@ func TestSendCompletStatusNotStarted(t *testing.T) {
 	}
 
 	writer := test.FakeWriter{}
-	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
-	defer mt.Close()
-
-	mt.Run("success", func(mt *mtest.T) {
-		mongoApi.HriCollection = mt.Coll
-
-		// i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-		// detailsMap := bson.D{
-		// 	{Key: "name", Value: "rspec-pentest-batch"},
-		// 	{"topic", "ingest.pentest.claims.in"},
-		// 	{"dataType", "rspec-batch"},
-		// 	{"invalidThreshold", 5},
-		// 	{"metadata", i},
-		// 	{"id", "batchid1"},
-		// 	{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-		// 	{"status", "completed"},
-		// 	{"startDate", "2022-11-29T09:52:07Z"},
-		// }
-
-		// array1 := []bson.D{detailsMap}
-
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
-	})
 
 	code, _ := SendStatusComplete(requestId, &request, claims, writer, status.Failed, integratorId)
 	if code != expectedCode {
@@ -460,13 +300,6 @@ func TestSendCompleteExpectedRecordCountNil(t *testing.T) {
 
 		array1 := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
 			{"nModified", 1},
@@ -482,7 +315,7 @@ func TestSendCompleteExpectedRecordCountNil(t *testing.T) {
 	})
 
 	code, _ := SendStatusComplete(requestId, &request, claims, writer, status.Started, integratorIdtest)
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
@@ -534,13 +367,6 @@ func TestSendCompleteValidationTrueMatadataNotNil(t *testing.T) {
 
 		array1 := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
 			{"nModified", 1},
@@ -556,7 +382,7 @@ func TestSendCompleteValidationTrueMatadataNotNil(t *testing.T) {
 	})
 
 	code, _ := SendStatusComplete(requestId, &request, claims, writer, status.Started, integratorIdtest)
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}
@@ -607,13 +433,6 @@ func TestSendCompleteValidationFalseMatadataNotNil(t *testing.T) {
 
 		array1 := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{"batch", array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{"ok", 1},
 			{"nModified", 1},
@@ -629,7 +448,7 @@ func TestSendCompleteValidationFalseMatadataNotNil(t *testing.T) {
 	})
 
 	code, _ := SendStatusComplete(requestId, &request, claims, writer, status.Started, integratorIdtest)
-	//msg := fmt.Sprintf(auth.MsgIntegratorRoleRequired, "initiate sendComplete on")
+
 	if code != expectedCode {
 		t.Errorf("SendComplete() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
 	}

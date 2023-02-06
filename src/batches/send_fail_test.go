@@ -94,13 +94,6 @@ func TestFail200(t *testing.T) {
 
 		detailsMapArray := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{Key: "batch", Value: detailsMapArray},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{Key: "ok", Value: 1},
 			{Key: "nModified", Value: 1},
@@ -157,28 +150,6 @@ func TestFailBatchStatusError(t *testing.T) {
 
 	mt.Run("success", func(mt *mtest.T) {
 		mongoApi.HriCollection = mt.Coll
-
-		// i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-		// detailsMap := bson.D{
-		// 	{Key: "name", Value: "rspec-pentest-batch"},
-		// 	{Key: "topic", Value: "ingest.pentest.claims.in"},
-		// 	{Key: "dataType", Value: "rspec-batch"},
-		// 	{Key: "invalidThreshold", Value: 5},
-		// 	{Key: "metadata", Value: i},
-		// 	{Key: "id", Value: "batchid1"},
-		// 	{Key: "integratorId", Value: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-		// 	{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
-		// }
-
-		// array1 := []bson.D{detailsMap}
-
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{Key: "batch", Value: array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
 
 	})
 
@@ -239,13 +210,6 @@ func TestFailNoAuth200(t *testing.T) {
 
 		array1 := []bson.D{detailsMap}
 
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{Key: "batch", Value: array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
-
 		mt.AddMockResponses(bson.D{
 			{Key: "ok", Value: 1},
 			{Key: "nModified", Value: 1},
@@ -294,29 +258,6 @@ func TestSendFailClaimSubjNotEqualIntegratorId(t *testing.T) {
 
 	mt.Run("success", func(mt *mtest.T) {
 		mongoApi.HriCollection = mt.Coll
-
-		// i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-		// detailsMap := bson.D{
-		// 	{Key: "name", Value: "rspec-pentest-batch"},
-		// 	{Key: "topic", Value: "ingest.pentest.claims.in"},
-		// 	{Key: "dataType", Value: "rspec-batch"},
-		// 	{Key: "invalidThreshold", Value: 5},
-		// 	{Key: "metadata", Value: i},
-		// 	{Key: "id", Value: "batchid1"},
-		// 	{Key: "integratorId", Value: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-		// 	{Key: "status", Value: "started"},
-		// 	{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
-		// }
-
-		// array1 := []bson.D{detailsMap}
-
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{Key: "batch", Value: array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
 
 	})
 
@@ -386,29 +327,6 @@ func TestSendFailStatusTerminateOrFail(t *testing.T) {
 
 	mt.Run("success", func(mt *mtest.T) {
 		mongoApi.HriCollection = mt.Coll
-
-		// i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
-
-		// detailsMap := bson.D{
-		// 	{Key: "name", Value: "rspec-pentest-batch"},
-		// 	{Key: "topic", Value: "ingest.pentest.claims.in"},
-		// 	{Key: "dataType", Value: "rspec-batch"},
-		// 	{Key: "invalidThreshold", Value: 5},
-		// 	{Key: "metadata", Value: i},
-		// 	{Key: "id", Value: "batchid1"},
-		// 	{Key: "integratorId", Value: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
-		// 	{Key: "status", Value: "failed"},
-		// 	{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
-		// }
-
-		// array1 := []bson.D{detailsMap}
-
-		// first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-		// 	{Key: "batch", Value: array1},
-		// })
-
-		// killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-		// mt.AddMockResponses(first, killCursors)
 
 	})
 

@@ -78,22 +78,6 @@ func NewHandler(config config.Config) Handler {
 	return newHandler
 }
 
-// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
-// Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
-// func getBatchMetadata(h *theHandler, requestId string, getBatchRequest model.GetByIdBatch, logger logrus.FieldLogger) (interface{}, *response.ErrorDetailResponse) {
-
-// 	var claims = auth.HriAzClaims{} //Always use the empty claims (NoAuth) option
-// 	getByIdCode, batch_metaData := h.getTenantByIdNoAuth(requestId, getBatchRequest, claims)
-// 	if getByIdCode != http.StatusOK { //error getting current Batch Info
-// 		var errDetail = batch_metaData.(*response.ErrorDetail)
-// 		newErrMsg := fmt.Sprintf(msgGetByIdErr, errDetail.ErrorDescription)
-// 		logger.Errorln(newErrMsg)
-
-// 		return batch_metaData, response.NewErrorDetailResponse(getByIdCode, requestId, newErrMsg)
-// 	}
-
-//		return batch_metaData, nil
-//	}
 func getStatusIntegratorId(requestId string, tenantId string, batchId string, logger logrus.FieldLogger) (status.BatchStatus, string, *response.ErrorDetailResponse) {
 	batchMap, batchErr := getBatchMetaData(requestId, tenantId, batchId, logger)
 	var integratorId string
@@ -173,15 +157,6 @@ func (h *theHandler) SendFail(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call FailNoAuth()")
 	}
-	// batchMetaData, getBatchMetaErr := getBatchMetaData()
-
-	// currentStatus, extractErr := ExtractBatchStatus(batchMetaData)
-	// if extractErr != nil {
-	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-	// 	logger.Errorln(errMsg)
-	// 	// return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	// 	return extractErr
-	// }
 
 	currentStatus, _, getBatchMetaErr := getStatusIntegratorId(requestId, request.TenantId, request.BatchId, logger)
 	if getBatchMetaErr != nil {
@@ -237,19 +212,7 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call SendCompleteNoAuth()")
 	}
-	// batchMetaData, getBatchMetaErr := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 
-	// if getBatchMetaErr != nil {
-	// 	return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
-	// }
-	// currentStatus, extractErr := ExtractBatchStatus(batchMetaData)
-	// if extractErr != nil {
-	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-	// 	logger.Errorln(errMsg)
-	// 	// return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	// 	return extractErr
-	// }
-	// var integratorId string = batchMetaData[param.IntegratorId].(string)
 	currentStatus, integratorId, getBatchMetaErr := getStatusIntegratorId(requestId, request.TenantId, request.BatchId, logger)
 	if getBatchMetaErr != nil {
 		return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
@@ -405,20 +368,7 @@ func (h *theHandler) TerminateBatch(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call TerminateNoAuth()")
 	}
-	// batchMetaData, getBatchMetaErr := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 
-	// if getBatchMetaErr != nil {
-	// 	return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
-	// }
-
-	// currentStatus, extractErr := ExtractBatchStatus(batchMetaData)
-	// if extractErr != nil {
-	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-	// 	logger.Errorln(errMsg)
-	// 	// return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	// 	return extractErr
-	// }
-	// var integratorId string = batchMetaData[param.IntegratorId].(string)
 	currentStatus, integratorId, getBatchMetaErr := getStatusIntegratorId(requestId, request.TenantId, request.BatchId, logger)
 	if getBatchMetaErr != nil {
 		return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
@@ -473,18 +423,7 @@ func (h *theHandler) ProcessingCompleteBatch(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call ProcessingCompleteNoAuth()")
 	}
-	// batchMetaData, getBatchMetaErr := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 
-	// if getBatchMetaErr != nil {
-	// 	return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
-	// }
-	// currentStatus, extractErr := ExtractBatchStatus(batchMetaData)
-	// if extractErr != nil {
-	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-	// 	logger.Errorln(errMsg)
-	// 	// return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	// 	return extractErr
-	// }
 	currentStatus, _, getBatchMetaErr := getStatusIntegratorId(requestId, request.TenantId, request.BatchId, logger)
 	if getBatchMetaErr != nil {
 		return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)

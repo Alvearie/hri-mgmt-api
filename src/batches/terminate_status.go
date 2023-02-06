@@ -56,24 +56,8 @@ func terminateBatch(requestId string, request *model.TerminateRequest,
 	logger logrus.FieldLogger,
 	writer kafka.Writer, currentStatus status.BatchStatus, integratorId string) (int, interface{}) {
 
-	// var claims = auth.HriAzClaims{}
-	// var getBatchRequest = model.GetByIdBatch{TenantId: request.TenantId, BatchId: request.BatchId}
 	var updateRequest = map[string]interface{}{}
 
-	// getByIdCode, getByIdBody := GetByBatchIdNoAuth(requestId, getBatchRequest, claims)
-
-	// if getByIdCode != 200 {
-	// 	return getByIdCode, getByIdBody
-	// }
-
-	// batchDetail, ok := getByIdBody.(map[string]interface{})
-	// currentStatus, extractErr := ExtractBatchStatus(batchDetail)
-	// if extractErr != nil {
-	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-	// 	logger.Errorln(errMsg)
-	// 	return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	// }
-	// var batchMap = metaData.(map[string]interface{})
 	if status.Started != currentStatus {
 		errMsg := fmt.Sprintf("terminate failed, batch is in '%s' state", currentStatus.String())
 		logger.Errorln(errMsg)

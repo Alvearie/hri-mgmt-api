@@ -99,7 +99,9 @@ func revertStatus(requestId string,
 	tenant_id := mongoApi.GetTenantWithBatchesSuffix(tenantId)
 	var revertErrMsg = "(Attempt # %d) Error Reverting batch Status back to %s; CosmosResponseCode: %d, Cosmos error: %s"
 	var attemptNum = 1
-	//Apparatly its just changing to previous status, we may have other batch metaData changed too. should be entirely converting to previous state(old metaData)
+	//Apparatly its just changing to previous status,
+	// we may have other batch metaData details changed too.
+	// should be entirely converting to previous state(old metaData)
 
 	updateRequest := bson.M{
 		"$set": bson.M{

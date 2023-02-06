@@ -639,45 +639,4 @@ func Test_myHandler_terminate(t *testing.T) {
 		}
 	})
 
-	// mt.Run("ExtractBatchError", func(mt *mtest.T) {
-	// 	mongoApi.HriCollection = mt.Coll
-	// 	detailsMap := bson.D{
-
-	// 		{Key: "status", Value: ""},
-	// 	}
-
-	// 	array1 := []bson.D{detailsMap}
-	// 	first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-	// 		{Key: "batch", Value: array1},
-	// 	})
-
-	// 	killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-	// 	mt.AddMockResponses(first, killCursors)
-
-	// 	if assert.NoError(t, handler.TerminateBatch(context)) {
-	// 		assert.Equal(t, 500, recorder.Code)
-
-	// 	}
-	// })
-
-	// mt.Run("ExtractIntegratorError", func(mt *mtest.T) {
-	// 	mongoApi.HriCollection = mt.Coll
-	// 	detailsMap := bson.D{
-	// 		{Key: "integratorId", Value: 0},
-	// 		{Key: "status", Value: ""},
-	// 	}
-
-	// 	array1 := []bson.D{detailsMap}
-	// 	first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
-	// 		{Key: "batch", Value: array1},
-	// 	})
-
-	// 	killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
-	// 	mt.AddMockResponses(first, killCursors)
-
-	// 	if assert.NoError(t, handler.TerminateBatch(context)) {
-	// 		assert.Equal(t, 500, recorder.Code)
-
-	// 	}
-	// })
 }

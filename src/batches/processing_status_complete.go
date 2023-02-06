@@ -1,8 +1,3 @@
-/*
- * (C) Copyright IBM Corp. 2020
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package batches
 
 import (
@@ -57,19 +52,6 @@ func processingStatusComplete(requestId string,
 	writer kafka.Writer,
 	logger logrus.FieldLogger, currentStatus status.BatchStatus) (int, interface{}) {
 
-	// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
-	// Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
-
-	// batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
-	// if err != nil {
-	// 	return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
-	// }
-	// currentStatus, extractErr := ExtractBatchStatus(batch_metaData)
-	// if extractErr != nil {
-	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-	// 	logger.Errorln(errMsg)
-	// 	return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	// }
 	if currentStatus == status.SendCompleted {
 		updateRequest := getProcessingCompleteUpdate(request)
 		errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId, updateRequest, writer, currentStatus)

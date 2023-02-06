@@ -50,22 +50,6 @@ func sendFail(requestId string, request *model.FailRequest,
 	logger logrus.FieldLogger,
 	writer kafka.Writer, currentStatus status.BatchStatus) (int, interface{}) {
 
-	// get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
-	// Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
-
-	// batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
-	// if err != nil {
-	// 	return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
-	// }
-	// currentStatus, extractErr := ExtractBatchStatus(batch_metaData)
-	// if extractErr != nil {
-	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-	// 	logger.Errorln(errMsg)
-	// 	return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	// }
-	// var batchMap = metaData.(map[string]interface{})
-	// Can't fail a batch if status is already 'terminated' or 'failed'
-
 	if (status.Failed != currentStatus) && (status.Terminated != currentStatus) {
 		updateRequest := getBatchFailUpdateRequest(request)
 

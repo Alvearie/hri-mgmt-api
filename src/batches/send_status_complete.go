@@ -1,9 +1,3 @@
-/*
- * (C) Copyright IBM Corp. 2021
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
 package batches
 
 import (
@@ -62,18 +56,6 @@ func sendStatusComplete(
 	kafkaWriter kafka.Writer,
 	logger logrus.FieldLogger, currentStatus status.BatchStatus, integratorId string) (int, interface{}) {
 
-	// batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
-	// if err != nil {
-	// 	return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
-	// }
-	// currentStatus, extractErr := ExtractBatchStatus(batch_metaData)
-	// if extractErr != nil {
-	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-	// 	logger.Errorln(errMsg)
-	// 	return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	// }
-
-	// var batchMap = metaData.(map[string]interface{})
 	// Can only transition if the batch is in the 'started' state
 	if currentStatus == status.Started && integratorId == claimSubj {
 		updateRequest := getSendCompleteUpdateRequest(request, claimSubj, requestId)
