@@ -99,6 +99,8 @@ func getStatusIntegratorId(requestId string, tenantId string, batchId string, lo
 	}
 	return currentStatus, integratorId, nil
 }
+
+// Get metadata
 func getBatchMetaData(requestId string, tenantId string, batchId string, logger logrus.FieldLogger) (map[string]interface{}, *response.ErrorDetailResponse) {
 	//Always use the empty claims (NoAuth) option
 	var claims = auth.HriAzClaims{}
