@@ -10,7 +10,6 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/sirupsen/logrus"
@@ -21,7 +20,7 @@ func TerminateBatch(
 	requestId string,
 	request *model.TerminateRequest,
 	claims auth.HriAzClaims,
-	writer kafka.Writer) (int, interface{}) {
+	writer kafka.Writer, currentStatus status.BatchStatus, integratorId string) (int, interface{}) {
 
 	prefix := "batches/terminate"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
@@ -35,55 +34,56 @@ func TerminateBatch(
 	}
 
 	var subject = claims.Subject
-	return terminateBatch(requestId, request, subject, logger, writer)
+	return terminateBatch(requestId, request, subject, logger, writer, currentStatus, integratorId)
 }
 
 func TerminateBatchNoAuth(
 	requestId string,
 	request *model.TerminateRequest,
 	_ auth.HriAzClaims,
-	writer kafka.Writer) (int, interface{}) {
+	writer kafka.Writer, currentStatus status.BatchStatus, integratorId string) (int, interface{}) {
 
 	prefix := "batches/TerminateNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Terminate (No Auth)")
 
 	var subject = auth.NoAuthFakeIntegrator
-	return terminateBatch(requestId, request, subject, logger, writer)
+	return terminateBatch(requestId, request, subject, logger, writer, currentStatus, integratorId)
 }
 
 func terminateBatch(requestId string, request *model.TerminateRequest,
 	claimsSubject string,
 	logger logrus.FieldLogger,
-	writer kafka.Writer) (int, interface{}) {
+	writer kafka.Writer, currentStatus status.BatchStatus, integratorId string) (int, interface{}) {
 
-	var claims = auth.HriAzClaims{}
-	var getBatchRequest = model.GetByIdBatch{TenantId: request.TenantId, BatchId: request.BatchId}
+	// var claims = auth.HriAzClaims{}
+	// var getBatchRequest = model.GetByIdBatch{TenantId: request.TenantId, BatchId: request.BatchId}
 	var updateRequest = map[string]interface{}{}
 
-	getByIdCode, getByIdBody := GetByBatchIdNoAuth(requestId, getBatchRequest, claims)
+	// getByIdCode, getByIdBody := GetByBatchIdNoAuth(requestId, getBatchRequest, claims)
 
-	if getByIdCode != 200 {
-		return getByIdCode, getByIdBody
-	}
+	// if getByIdCode != 200 {
+	// 	return getByIdCode, getByIdBody
+	// }
 
-	batchDetail, ok := getByIdBody.(map[string]interface{})
-	currentStatus, extractErr := ExtractBatchStatus(batchDetail)
-	if extractErr != nil {
-		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-		logger.Errorln(errMsg)
-		return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	}
-	if status.Started.String() != batchDetail[param.Status] {
-		errMsg := fmt.Sprintf("terminate failed, batch is in '%s' state", batchDetail[param.Status].(string))
+	// batchDetail, ok := getByIdBody.(map[string]interface{})
+	// currentStatus, extractErr := ExtractBatchStatus(batchDetail)
+	// if extractErr != nil {
+	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+	// 	logger.Errorln(errMsg)
+	// 	return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+	// }
+	// var batchMap = metaData.(map[string]interface{})
+	if status.Started != currentStatus {
+		errMsg := fmt.Sprintf("terminate failed, batch is in '%s' state", currentStatus.String())
 		logger.Errorln(errMsg)
 		return http.StatusConflict, response.NewErrorDetail(requestId, errMsg)
 	}
 
-	if ok && claimsSubject == batchDetail[param.IntegratorId] {
-		updateRequest = getTerminateUpdateRequest(request, claimsSubject, batchDetail)
+	if claimsSubject == integratorId {
+		updateRequest = getTerminateUpdateRequest(request)
 	} else {
-		errMsg := fmt.Sprintf("terminate requested by '%s' but owned by '%s'", claimsSubject, batchDetail[param.IntegratorId])
+		errMsg := fmt.Sprintf("terminate requested by '%s' but owned by '%s'", claimsSubject, integratorId)
 		logger.Errorln(errMsg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, errMsg)
 	}
@@ -96,7 +96,7 @@ func terminateBatch(requestId string, request *model.TerminateRequest,
 	return http.StatusOK, nil
 }
 
-func getTerminateUpdateRequest(request *model.TerminateRequest, claimsSubject string, batch map[string]interface{}) map[string]interface{} {
+func getTerminateUpdateRequest(request *model.TerminateRequest) map[string]interface{} {
 	currentTime := time.Now().UTC()
 
 	var updateRequest map[string]interface{}

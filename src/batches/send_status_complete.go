@@ -16,7 +16,6 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
-	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
@@ -25,8 +24,7 @@ import (
 func SendStatusComplete(requestId string,
 	request *model.SendCompleteRequest,
 	claims auth.HriAzClaims,
-	writer kafka.Writer,
-) (int, interface{}) {
+	writer kafka.Writer, currentStatus status.BatchStatus, integratorId string) (int, interface{}) {
 	prefix := "batches/sendComplete"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
@@ -40,22 +38,21 @@ func SendStatusComplete(requestId string,
 	//We know claims Must be Non-nil because the handler checks for that before we reach this point
 	var claimSubj = claims.Subject
 
-	return sendStatusComplete(requestId, request, claimSubj, writer, logger)
+	return sendStatusComplete(requestId, request, claimSubj, writer, logger, currentStatus, integratorId)
 }
 
 func SendStatusCompleteNoAuth(
 	requestId string,
 	request *model.SendCompleteRequest,
 	_ auth.HriAzClaims,
-	writer kafka.Writer,
-) (int, interface{}) {
+	writer kafka.Writer, currentStatus status.BatchStatus, integratorId string) (int, interface{}) {
 	prefix := "batches/sendStatusCompleteNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 
 	//claims == nil --> NO Auth (Auth is NOT Enabled)
 	var subject = auth.NoAuthFakeIntegrator
 
-	return sendStatusComplete(requestId, request, subject, writer, logger)
+	return sendStatusComplete(requestId, request, subject, writer, logger, currentStatus, integratorId)
 }
 
 func sendStatusComplete(
@@ -63,21 +60,22 @@ func sendStatusComplete(
 	request *model.SendCompleteRequest,
 	claimSubj string,
 	kafkaWriter kafka.Writer,
-	logger logrus.FieldLogger,
-) (int, interface{}) {
+	logger logrus.FieldLogger, currentStatus status.BatchStatus, integratorId string) (int, interface{}) {
 
-	batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
-	if err != nil {
-		return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
-	}
-	currentStatus, extractErr := ExtractBatchStatus(batch_metaData)
-	if extractErr != nil {
-		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
-		logger.Errorln(errMsg)
-		return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
-	}
+	// batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
+	// if err != nil {
+	// 	return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
+	// }
+	// currentStatus, extractErr := ExtractBatchStatus(batch_metaData)
+	// if extractErr != nil {
+	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+	// 	logger.Errorln(errMsg)
+	// 	return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+	// }
+
+	// var batchMap = metaData.(map[string]interface{})
 	// Can only transition if the batch is in the 'started' state
-	if batch_metaData[param.Status] == status.Started.String() && batch_metaData[param.IntegratorId] == claimSubj {
+	if currentStatus == status.Started && integratorId == claimSubj {
 		updateRequest := getSendCompleteUpdateRequest(request, claimSubj, requestId)
 
 		errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId,
@@ -85,15 +83,15 @@ func sendStatusComplete(
 		if errResp != nil {
 			return errResp.Code, errResp.Body
 		}
-	} else if claimSubj != batch_metaData[param.IntegratorId] {
+	} else if claimSubj != integratorId {
 		// update resulted in no-op, due to insufficient permissions
 		errMsg := fmt.Sprintf("sendComplete requested by '%s' but owned by '%s'", claimSubj,
-			batch_metaData[param.IntegratorId].(string))
+			integratorId)
 		logger.Errorln(errMsg)
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, errMsg)
 	} else {
 		// update resulted in no-op, due to previous batch status
-		origBatchStatus := batch_metaData[param.Status].(string)
+		origBatchStatus := currentStatus.String()
 		return logNoUpdateToBatchStatus(origBatchStatus, logger, requestId)
 	}
 
@@ -168,22 +166,6 @@ func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj 
 
 }
 
-func getBatchMetaData(requestId string, tenantId string, batchId string, logger logrus.FieldLogger) (map[string]interface{}, *response.ErrorDetailResponse) {
-	//Always use the empty claims (NoAuth) option
-	var claims = auth.HriAzClaims{}
-	getBatchRequest := model.GetByIdBatch{
-		TenantId: tenantId,
-		BatchId:  batchId,
-	}
-	getByIdCode, batch := GetByBatchIdNoAuth(requestId, getBatchRequest, claims)
-	if getByIdCode != http.StatusOK { //error getting current Batch Info
-		newErrMsg := fmt.Sprintf(msgGetByIdErr, " Error getting current Batch Info")
-		logger.Errorln(newErrMsg)
-		return nil, response.NewErrorDetailResponse(getByIdCode, requestId, newErrMsg)
-	}
-	batchMap := batch.(map[string]interface{})
-	return batchMap, nil
-}
 func logNoUpdateToBatchStatus(origBatchStatus string, logger logrus.FieldLogger, requestId string) (int, interface{}) {
 	errMsg := fmt.Sprintf("sendComplete failed, batch is in '%s' state", origBatchStatus)
 	logger.Errorln(errMsg)

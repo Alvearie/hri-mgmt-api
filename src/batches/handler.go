@@ -10,10 +10,10 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/kafka"
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
+	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const msgGetByIdErr string = "error getting current Batch Status: %s"
@@ -36,10 +36,10 @@ type theHandler struct {
 	getByBatchId            func(string, model.GetByIdBatch, auth.HriAzClaims) (int, interface{})
 	getTenantByIdNoAuth     func(string, model.GetByIdBatch, auth.HriAzClaims) (int, interface{})
 	getBatch                func(string, model.GetBatch, auth.HriAzClaims) (int, interface{})
-	sendStatusComplete      func(string, *model.SendCompleteRequest, auth.HriAzClaims, kafka.Writer) (int, interface{})
-	sendFail                func(string, *model.FailRequest, auth.HriAzClaims, kafka.Writer) (int, interface{})
-	terminateBatch          func(string, *model.TerminateRequest, auth.HriAzClaims, kafka.Writer) (int, interface{})
-	processingCompleteBatch func(string, *model.ProcessingCompleteRequest, auth.HriAzClaims, kafka.Writer) (int, interface{})
+	sendStatusComplete      func(string, *model.SendCompleteRequest, auth.HriAzClaims, kafka.Writer, status.BatchStatus, string) (int, interface{})
+	sendFail                func(string, *model.FailRequest, auth.HriAzClaims, kafka.Writer, status.BatchStatus) (int, interface{})
+	terminateBatch          func(string, *model.TerminateRequest, auth.HriAzClaims, kafka.Writer, status.BatchStatus, string) (int, interface{})
+	processingCompleteBatch func(string, *model.ProcessingCompleteRequest, auth.HriAzClaims, kafka.Writer, status.BatchStatus) (int, interface{})
 }
 
 // NewHandler This struct is designed to make unit testing easier. It has function references for the calls to backend
@@ -80,28 +80,59 @@ func NewHandler(config config.Config) Handler {
 
 // get the Current Batch Status --> Need current batch Status for potential "revert Status operation" in updateBatchStatus()
 // Note: this call will Always use the empty claims (NoAuth) option for calling getTenantByIdNoAuth()
-func getBatchStatus(h *theHandler, requestId string, getBatchRequest model.GetByIdBatch, mongoClient *mongo.Collection, logger logrus.FieldLogger) (status.BatchStatus, *response.ErrorDetailResponse) {
+// func getBatchMetadata(h *theHandler, requestId string, getBatchRequest model.GetByIdBatch, logger logrus.FieldLogger) (interface{}, *response.ErrorDetailResponse) {
 
-	var claims = auth.HriAzClaims{} //Always use the empty claims (NoAuth) option
-	getByIdCode, responseBody := h.getTenantByIdNoAuth(requestId, getBatchRequest, claims)
-	if getByIdCode != http.StatusOK { //error getting current Batch Info
-		var errDetail = responseBody.(*response.ErrorDetail)
-		newErrMsg := fmt.Sprintf(msgGetByIdErr, errDetail.ErrorDescription)
-		logger.Errorln(newErrMsg)
+// 	var claims = auth.HriAzClaims{} //Always use the empty claims (NoAuth) option
+// 	getByIdCode, batch_metaData := h.getTenantByIdNoAuth(requestId, getBatchRequest, claims)
+// 	if getByIdCode != http.StatusOK { //error getting current Batch Info
+// 		var errDetail = batch_metaData.(*response.ErrorDetail)
+// 		newErrMsg := fmt.Sprintf(msgGetByIdErr, errDetail.ErrorDescription)
+// 		logger.Errorln(newErrMsg)
 
-		return status.Unknown, response.NewErrorDetailResponse(getByIdCode, requestId, newErrMsg)
+// 		return batch_metaData, response.NewErrorDetailResponse(getByIdCode, requestId, newErrMsg)
+// 	}
+
+//		return batch_metaData, nil
+//	}
+func getStatusIntegratorId(requestId string, tenantId string, batchId string, logger logrus.FieldLogger) (status.BatchStatus, string, *response.ErrorDetailResponse) {
+	batchMap, batchErr := getBatchMetaData(requestId, tenantId, batchId, logger)
+	var integratorId string
+	var extractErr error
+	if batchErr != nil {
+		return status.Unknown, "", response.NewErrorDetailResponse(batchErr.Code, requestId, batchErr.Body.ErrorDescription)
 	}
-
-	currentStatus, extractErr := ExtractBatchStatus(responseBody)
+	currentStatus, extractErr := ExtractBatchStatus(batchMap)
 	if extractErr != nil {
 		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
 		logger.Errorln(errMsg)
-		return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+		return status.Unknown, "", response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
 	}
 
-	return currentStatus, nil
+	if integratorIdField, ok := batchMap[param.IntegratorId]; ok {
+		integratorId = integratorIdField.(string)
+	} else {
+		return currentStatus, "", response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, fmt.Sprintf("Error extracting IntegratorId: %s", "'IntegratorId' field missing"))
+	}
+	return currentStatus, integratorId, nil
 }
+func getBatchMetaData(requestId string, tenantId string, batchId string, logger logrus.FieldLogger) (map[string]interface{}, *response.ErrorDetailResponse) {
+	//Always use the empty claims (NoAuth) option
+	var claims = auth.HriAzClaims{}
+	getBatchRequest := model.GetByIdBatch{
+		TenantId: tenantId,
+		BatchId:  batchId,
+	}
+	getByIdCode, batch := GetByBatchIdNoAuth(requestId, getBatchRequest, claims)
+	if getByIdCode != http.StatusOK { //error getting current Batch Info
+		var errDetail = batch.(*response.ErrorDetail)
+		newErrMsg := fmt.Sprintf(msgGetByIdErr, errDetail.ErrorDescription)
+		logger.Errorln(newErrMsg)
+		return nil, response.NewErrorDetailResponse(getByIdCode, requestId, newErrMsg)
 
+	}
+	batchMap := batch.(map[string]interface{})
+	return batchMap, nil
+}
 func (h *theHandler) SendFail(c echo.Context) error {
 	requestId := c.Response().Header().Get(echo.HeaderXRequestID)
 	prefix := "batches/handler/sendfail"
@@ -130,7 +161,7 @@ func (h *theHandler) SendFail(c echo.Context) error {
 
 	var claims = auth.HriAzClaims{}
 	var errResp *response.ErrorDetailResponse
-	if h.config.AuthDisabled == false { //Auth Enabled
+	if !h.config.AuthDisabled { //Auth Enabled
 		//JWT claims validation
 		claims, errResp = h.jwtBatchValidator.GetValidatedRoles(requestId,
 			c.Request().Header.Get(echo.HeaderAuthorization), request.TenantId)
@@ -142,8 +173,21 @@ func (h *theHandler) SendFail(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call FailNoAuth()")
 	}
+	// batchMetaData, getBatchMetaErr := getBatchMetaData()
 
-	code, body = h.sendFail(requestId, &request, claims, kafkaWriter)
+	// currentStatus, extractErr := ExtractBatchStatus(batchMetaData)
+	// if extractErr != nil {
+	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+	// 	logger.Errorln(errMsg)
+	// 	// return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+	// 	return extractErr
+	// }
+
+	currentStatus, _, getBatchMetaErr := getStatusIntegratorId(requestId, request.TenantId, request.BatchId, logger)
+	if getBatchMetaErr != nil {
+		return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
+	}
+	code, body = h.sendFail(requestId, &request, claims, kafkaWriter, currentStatus)
 
 	if body != nil {
 		return c.JSON(code, body)
@@ -182,7 +226,7 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 	var claims = auth.HriAzClaims{}
 	var errResp *response.ErrorDetailResponse
 
-	if h.config.AuthDisabled == false { //Auth Enabled
+	if !h.config.AuthDisabled { //Auth Enabled
 		//JWT claims validation
 		claims, errResp = h.jwtBatchValidator.GetValidatedRoles(requestId,
 			c.Request().Header.Get(echo.HeaderAuthorization), request.TenantId)
@@ -193,8 +237,24 @@ func (h *theHandler) SendStatusComplete(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call SendCompleteNoAuth()")
 	}
+	// batchMetaData, getBatchMetaErr := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 
-	code, body = h.sendStatusComplete(requestId, &request, claims, kafkaWriter)
+	// if getBatchMetaErr != nil {
+	// 	return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
+	// }
+	// currentStatus, extractErr := ExtractBatchStatus(batchMetaData)
+	// if extractErr != nil {
+	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+	// 	logger.Errorln(errMsg)
+	// 	// return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+	// 	return extractErr
+	// }
+	// var integratorId string = batchMetaData[param.IntegratorId].(string)
+	currentStatus, integratorId, getBatchMetaErr := getStatusIntegratorId(requestId, request.TenantId, request.BatchId, logger)
+	if getBatchMetaErr != nil {
+		return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
+	}
+	code, body = h.sendStatusComplete(requestId, &request, claims, kafkaWriter, currentStatus, integratorId)
 
 	if body != nil {
 		return c.JSON(code, body)
@@ -333,6 +393,7 @@ func (h *theHandler) TerminateBatch(c echo.Context) error {
 	var body interface{}
 	var claims = auth.HriAzClaims{}
 	var errResp *response.ErrorDetailResponse
+
 	if !h.config.AuthDisabled { //Auth Enabled
 		//do JWT claims validation
 		claims, errResp = h.jwtBatchValidator.GetValidatedRoles(requestId,
@@ -344,8 +405,26 @@ func (h *theHandler) TerminateBatch(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call TerminateNoAuth()")
 	}
+	// batchMetaData, getBatchMetaErr := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 
-	code, body = h.terminateBatch(requestId, &request, claims, kafkaWriter)
+	// if getBatchMetaErr != nil {
+	// 	return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
+	// }
+
+	// currentStatus, extractErr := ExtractBatchStatus(batchMetaData)
+	// if extractErr != nil {
+	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+	// 	logger.Errorln(errMsg)
+	// 	// return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+	// 	return extractErr
+	// }
+	// var integratorId string = batchMetaData[param.IntegratorId].(string)
+	currentStatus, integratorId, getBatchMetaErr := getStatusIntegratorId(requestId, request.TenantId, request.BatchId, logger)
+	if getBatchMetaErr != nil {
+		return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
+	}
+
+	code, body = h.terminateBatch(requestId, &request, claims, kafkaWriter, currentStatus, integratorId)
 
 	if body != nil {
 		return c.JSON(code, body)
@@ -381,6 +460,7 @@ func (h *theHandler) ProcessingCompleteBatch(c echo.Context) error {
 	var body interface{}
 	var claims = auth.HriAzClaims{}
 	var errResp *response.ErrorDetailResponse
+
 	if !h.config.AuthDisabled { //Auth Enabled
 		//JWT claims validation
 		claims, errResp = h.jwtBatchValidator.GetValidatedRoles(requestId,
@@ -393,8 +473,24 @@ func (h *theHandler) ProcessingCompleteBatch(c echo.Context) error {
 	} else {
 		logger.Debugln("Auth Disabled - call ProcessingCompleteNoAuth()")
 	}
+	// batchMetaData, getBatchMetaErr := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 
-	code, body = h.processingCompleteBatch(requestId, &request, claims, kafkaWriter)
+	// if getBatchMetaErr != nil {
+	// 	return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
+	// }
+	// currentStatus, extractErr := ExtractBatchStatus(batchMetaData)
+	// if extractErr != nil {
+	// 	errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+	// 	logger.Errorln(errMsg)
+	// 	// return status.Unknown, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+	// 	return extractErr
+	// }
+	currentStatus, _, getBatchMetaErr := getStatusIntegratorId(requestId, request.TenantId, request.BatchId, logger)
+	if getBatchMetaErr != nil {
+		return c.JSON(getBatchMetaErr.Code, getBatchMetaErr.Body)
+	}
+
+	code, body = h.processingCompleteBatch(requestId, &request, claims, kafkaWriter, currentStatus)
 
 	if body != nil {
 		return c.JSON(code, body)

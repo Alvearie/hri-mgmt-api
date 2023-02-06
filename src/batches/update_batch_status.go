@@ -32,8 +32,8 @@ func updateBatchStatus(requestId string,
 	tenant_id := mongoApi.GetTenantWithBatchesSuffix(tenantId)
 
 	filter := bson.D{
-		{"tenantId", tenant_id},
-		{"batch.id", batchId},
+		{Key: "tenantId", Value: tenant_id},
+		{Key: "batch.id", Value: batchId},
 	}
 
 	updateResponse, updateErr := mongoApi.HriCollection.UpdateMany(
@@ -86,23 +86,24 @@ func updateBatchStatus(requestId string,
 
 }
 
-// Here we are reverting the Batch status to "currentStatus" in Cosmos. "currentStatus" is the
+// Here we are reverting the Batch status to "oldBatchStatus" in Cosmos. "currentStatus" is the
 // status that the Batch had BEFORE the update operation//
 // If the Revert attempt in Cosmos DB fails, we retry up to 5 times.
 // TODO:enhacement {Reduce/eliminate retries}
 func revertStatus(requestId string,
 	tenantId string,
 	batchId string,
-	currentStatus status.BatchStatus,
+	oldBatchStatus status.BatchStatus,
 	logger logrus.FieldLogger) *response.ErrorDetailResponse {
 
 	tenant_id := mongoApi.GetTenantWithBatchesSuffix(tenantId)
 	var revertErrMsg = "(Attempt # %d) Error Reverting batch Status back to %s; CosmosResponseCode: %d, Cosmos error: %s"
 	var attemptNum = 1
+	//Apparatly its just changing to previous status, we may have other batch metaData changed too. should be entirely converting to previous state(old metaData)
 
 	updateRequest := bson.M{
 		"$set": bson.M{
-			"batch.$.status": status.Started.String(),
+			"batch.$.status": oldBatchStatus.String(),
 		},
 	}
 
@@ -120,7 +121,7 @@ func revertStatus(requestId string,
 		)
 
 		if updateErr != nil || updateResponse.ModifiedCount == 0 {
-			msg := fmt.Sprintf(revertErrMsg, attemptNum, currentStatus,
+			msg := fmt.Sprintf(revertErrMsg, attemptNum, oldBatchStatus,
 				updateErr.Error())
 			logger.Errorln(msg)
 			fmt.Println(msg)
@@ -129,7 +130,7 @@ func revertStatus(requestId string,
 		} else if updateResponse.ModifiedCount == 1 {
 			batch, _ := getBatchMetaData(requestId, tenantId, batchId, logger)
 			var debugMsg = fmt.Sprintf("Revert batch Status back to %s succeeded: %s",
-				currentStatus, batch)
+				oldBatchStatus, batch)
 			logger.Debugln(debugMsg)
 			return nil
 		}
