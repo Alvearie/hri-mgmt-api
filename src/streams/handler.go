@@ -1,9 +1,3 @@
-/*
- * (C) Copyright IBM Corp. 2021
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
 package streams
 
 import (
@@ -64,7 +58,6 @@ func (h *theHandler) CreateStream(c echo.Context) error {
 
 	//Add JWT Token validation
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-	//jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
 	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 
 	if errResp != nil {
@@ -135,7 +128,6 @@ func (h *theHandler) DeleteStream(c echo.Context) error {
 
 	//Add JWT Token validation
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-	//jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
 	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 
 	if errResp != nil {
@@ -187,7 +179,6 @@ func (h *theHandler) GetStream(c echo.Context) error {
 
 	//Add JWT Token validation
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-	//jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
 	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 
 	if errResp != nil {

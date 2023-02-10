@@ -14,6 +14,15 @@ import (
 
 var integratorIdtest string = "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"
 
+const (
+	requestId      string = "the-request-id"
+	batchName      string = "batchName"
+	integratorId   string = "integratorId"
+	batchTopic     string = "test.batch.in"
+	batchDataType  string = "batchDataType"
+	batchStartDate string = "ignored"
+)
+
 func TestSendComplete401(t *testing.T) {
 	expectedCode := 401
 	e := 12

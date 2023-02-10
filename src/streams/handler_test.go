@@ -1,9 +1,3 @@
-// /*
-//  * (C) Copyright IBM Corp. 2021
-//  *
-//  * SPDX-License-Identifier: Apache-2.0
-//  */
-
 package streams
 
 import (
@@ -253,7 +247,7 @@ func TestHandlerCreate(t *testing.T) {
 			if tt.createReturnCode != 0 {
 				tt.handler.deleteStream = func(requestId string, topicsToCreate []string, service kafka.KafkaAdmin) (int, error) {
 					if !reflect.DeepEqual(topicsToCreate, tt.expectedCreateTopics) {
-						t.Error(fmt.Sprintf("Expected: [%v], actual: [%v]", tt.expectedCreateTopics, topicsToCreate))
+						t.Errorf("Expected: [%v], actual: [%v]", tt.expectedCreateTopics, topicsToCreate)
 					}
 
 					if tt.createErrMessage == "" {
@@ -277,9 +271,6 @@ func TestHandlerCreate(t *testing.T) {
 }
 
 func TestHandlerDelete(t *testing.T) {
-	// kafkaProperties := map[string]string{
-	// 	"security.protocol": "sasl_ssl",
-	// }
 
 	logwrapper.Initialize("error", os.Stdout)
 

@@ -1,9 +1,3 @@
-/*
- * (C) Copyright IBM Corp. 2021
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
 package batches
 
 import (
@@ -54,6 +48,7 @@ func GetByBatchIdNoAuth(requestId string, params model.GetByIdBatch,
 	var noAuthFlag = true
 	return getByBatchId(requestId, params, noAuthFlag, logger, nil)
 }
+
 func getByBatchId(requestId string, batch model.GetByIdBatch,
 	noAuthFlag bool, logger logrus.FieldLogger,
 	claims *auth.HriAzClaims) (int, interface{}) {
@@ -66,17 +61,17 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 
 	// Query Cosmos for information on the tenant
 	projection := bson.D{
-		{"batch", bson.D{
-			{"$elemMatch", bson.D{
-				{"id", batch.BatchId},
+		{Key: "batch", Value: bson.D{
+			{Key: "$elemMatch", Value: bson.D{
+				{Key: "id", Value: batch.BatchId},
 			}}}},
-		{"_id", 0},
+		{Key: "_id", Value: 0},
 	}
 
 	cursor, err := mongoApi.HriCollection.Find(
 		context.TODO(),
 		bson.D{
-			{"tenantId", index},
+			{Key: "tenantId", Value: index},
 		},
 		options.Find().SetProjection(projection),
 	)

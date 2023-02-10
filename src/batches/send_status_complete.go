@@ -79,6 +79,7 @@ func sendStatusComplete(
 
 	return http.StatusOK, nil
 }
+
 func getSendCompleteUpdateRequest(request *model.SendCompleteRequest, claimSubj string, requestId string) map[string]interface{} {
 	var expectedRecordCount int
 	if request.ExpectedRecordCount != nil {
