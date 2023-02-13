@@ -64,8 +64,7 @@ func (h *theHandler) CreateStream(c echo.Context) error {
 
 	//Add JWT Token validation
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
-	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 
 	if errResp != nil {
 		return c.JSON(errResp.Code, errResp.Body)
@@ -135,8 +134,7 @@ func (h *theHandler) DeleteStream(c echo.Context) error {
 
 	//Add JWT Token validation
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
-	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 
 	if errResp != nil {
 		return c.JSON(errResp.Code, errResp.Body)
@@ -187,8 +185,7 @@ func (h *theHandler) GetStream(c echo.Context) error {
 
 	//Add JWT Token validation
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-	jwtValidator := auth.NewTenantValidator(h.config.AzOidcIssuer, h.config.AzJwtAudienceId)
-	errResp := jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
+	errResp := h.jwtValidator.GetValidatedClaimsForTenant(requestId, authHeader)
 
 	if errResp != nil {
 		return c.JSON(errResp.Code, errResp.Body)

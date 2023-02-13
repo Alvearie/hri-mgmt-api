@@ -20,16 +20,13 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func ProcessingCompleteBatch(
 	requestId string,
 	request *model.ProcessingCompleteRequest,
 	claims auth.HriAzClaims,
-	mongoClient *mongo.Collection,
-	writer kafka.Writer,
-	currentStatus status.BatchStatus) (int, interface{}) {
+	writer kafka.Writer) (int, interface{}) {
 
 	prefix := "batches/ProcessingComplete"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
@@ -41,37 +38,39 @@ func ProcessingCompleteBatch(
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
 	}
 
-	return processingStatusComplete(requestId, request, mongoClient, writer, logger, currentStatus)
+	return processingStatusComplete(requestId, request, writer, logger)
 }
 
 func ProcessingCompleteBatchNoAuth(requestId string,
 	request *model.ProcessingCompleteRequest,
-	_ auth.HriAzClaims, mongoClient *mongo.Collection,
-	writer kafka.Writer,
-	currentStatus status.BatchStatus) (int, interface{}) {
+	_ auth.HriAzClaims,
+	writer kafka.Writer) (int, interface{}) {
 
 	prefix := "batches/ProcessingCompleteNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Processing Complete (No Auth)")
 
-	return processingStatusComplete(requestId, request, mongoClient, writer, logger, currentStatus)
+	return processingStatusComplete(requestId, request, writer, logger)
 }
 
 func processingStatusComplete(requestId string,
 	request *model.ProcessingCompleteRequest,
-	mongoClient *mongo.Collection,
 	writer kafka.Writer,
-	logger logrus.FieldLogger,
-	currentStatus status.BatchStatus) (int, interface{}) {
+	logger logrus.FieldLogger) (int, interface{}) {
 
-	batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, mongoClient, logger)
+	batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 	if err != nil {
 		return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
 	}
-
+	currentStatus, extractErr := ExtractBatchStatus(batch_metaData)
+	if extractErr != nil {
+		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+		logger.Errorln(errMsg)
+		return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
+	}
 	if batch_metaData[param.Status] == status.SendCompleted.String() {
 		updateRequest := getProcessingCompleteUpdate(request)
-		errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId, updateRequest, mongoClient, writer, currentStatus)
+		errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId, updateRequest, writer, currentStatus)
 		if errResp != nil {
 			return errResp.Code, errResp.Body
 		}

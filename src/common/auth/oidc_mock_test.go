@@ -37,10 +37,10 @@ func (m *MockValidator) EXPECT() *MockValidatorMockRecorder {
 }
 
 // GetValidatedClaims mocks base method.
-func (m *MockValidator) GetValidatedClaims(requestId, authorization, tenant string) (HriClaims, *response.ErrorDetailResponse) {
+func (m *MockValidator) GetValidatedClaims(requestId, authorization, tenant string) (HriAzClaims, *response.ErrorDetailResponse) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetValidatedClaims", requestId, authorization, tenant)
-	ret0, _ := ret[0].(HriClaims)
+	ret0, _ := ret[0].(HriAzClaims)
 	ret1, _ := ret[1].(*response.ErrorDetailResponse)
 	return ret0, ret1
 }

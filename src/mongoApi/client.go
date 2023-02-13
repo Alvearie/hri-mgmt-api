@@ -18,6 +18,7 @@ import (
 
 func GetMongoCollection(collectionName string) *mongo.Collection {
 	return db.Collection(collectionName)
+
 }
 
 func GetTenantWithBatchesSuffix(tenantId string) string {
@@ -38,21 +39,29 @@ func LogAndBuildErrorDetailWithoutStatusCode(requestId string, logger logrus.Fie
 	return response.NewErrorDetail(requestId, err.Error())
 }
 
-func DatabaseHealthCheck(client *mongo.Collection) (string, string) {
+func DatabaseHealthCheck() (string, string) {
 	command := bson.D{{"dbStats", 1}}
 	var result bson.D
-	client.Database().RunCommand(context.TODO(), command).Decode(&result)
+	HriCollection.Database().RunCommand(context.TODO(), command).Decode(&result)
 	fmt.Println(result)
-	return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value)
+	if result != nil {
+		return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value)
+	} else {
+		return "", ""
+	}
 }
 
-func HriDatabaseHealthCheck(client *mongo.Collection) (string, string, error) {
+func HriDatabaseHealthCheck() (string, string, error) {
 	command := bson.D{{"dbStats", 1}}
 	var result bson.D
-	err := client.Database().RunCommand(context.TODO(), command).Decode(&result)
-	return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value), err
+	err := HriCollection.Database().RunCommand(context.TODO(), command).Decode(&result)
+	if result != nil {
+		return fmt.Sprint(result[6].Value), fmt.Sprint(result[4].Value), err
+	} else {
+		return "", "", nil
+	}
 }
 
-func TenantIdFromIndex(tenantIndex string) string {
-	return strings.TrimSuffix(tenantIndex, "-batches")
+func TenantIdWithSuffix(tenant string) string {
+	return strings.TrimSuffix(tenant, "-batches")
 }

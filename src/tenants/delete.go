@@ -12,13 +12,12 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	// "fmt"
 	"net/http"
 )
 
-func DeleteTenant(requestId string, tenantId string, mongoClient *mongo.Collection) (int, interface{}) {
+func DeleteTenant(requestId string, tenantId string) (int, interface{}) {
 	prefix := "tenants/Delete"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Tenant Delete")
@@ -27,7 +26,7 @@ func DeleteTenant(requestId string, tenantId string, mongoClient *mongo.Collecti
 	var filter = bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId)}
 
 	//make call to elastic to delete tenant
-	result, err := mongoClient.DeleteOne(ctx, filter)
+	result, err := mongoApi.HriCollection.DeleteOne(ctx, filter)
 
 	if err != nil {
 		return http.StatusNotFound, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusNotFound,

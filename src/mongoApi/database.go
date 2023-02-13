@@ -18,7 +18,10 @@ import (
 )
 
 var (
-	db *mongo.Database
+	db            *mongo.Database
+	HriCollection *mongo.Collection
+	err           error
+	cl            *mongo.Client
 )
 
 // Connect ...
@@ -27,10 +30,11 @@ func ConnectFromConfig(config config.Config) error {
 	var logger = logwrapper.GetMyLogger("", prefix)
 	logger.Debugln("Connecting to Mongo Client...")
 	// Connect
-	cl, err := mongo.NewClient(options.Client().ApplyURI(config.MongoDBUri))
+
+	cl, err = mongo.NewClient(options.Client().ApplyURI(config.MongoDBUri))
 	if err != nil {
 		log.Println(err)
-		log.Fatal("Cannot connect to database:")
+		log.Println("Cannot connect to database:")
 		return err
 	}
 
@@ -43,5 +47,7 @@ func ConnectFromConfig(config config.Config) error {
 	}
 	db = cl.Database(config.MongoDBName)
 	fmt.Println("Database Connected to", db.Name())
+
+	HriCollection = GetMongoCollection(config.MongoColName)
 	return nil
 }

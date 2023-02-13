@@ -5,7 +5,16 @@
  */
 package config
 
-/*
+import (
+	"errors"
+	"os"
+	"reflect"
+	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/common/test"
+	"github.com/stretchr/testify/assert"
+)
+
 func TestValidateConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name           string
@@ -29,6 +38,7 @@ func TestValidateConfig(t *testing.T) {
 				MongoColName:       "HRI-Mgmt",
 				AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
 				AzJwtAudienceId:    "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
+				AzKafkaBrokers:     StringSlice{"broker1", "broker2", "broker3"},
 			},
 		},
 		{
@@ -39,19 +49,9 @@ func TestValidateConfig(t *testing.T) {
 			expectedErrMsg: "no config file supplied",
 		},
 		{
-			name:   "Invalid Config Missing Required config Params",
-			config: Config{ConfigPath: "validPath", TlsEnabled: true},
-			expectedErrMsg: "Configuration errors:\n\tOIDC Issuer is an invalid URL:  " +
-				"\n\tAn Elasticsearch base URL was not specified\n\tAn Elasticsearch username was not specified" +
-				"\n\tAn Elasticsearch password was not specified\n\tAn Elasticsearch certificate was not specified" +
-				"\n\tAn Elasticsearch service CRN was not specified" +
-				"\n\tThe Kafka administration url was not specified" + "\n\tNo Kafka brokers were defined" +
-				"\n\tTLS is enabled but a path to a TLS certificate for the server was not specified" +
-				"\n\tTLS is enabled but a path to a TLS key for the server was not specified" +
-				"\n\tMongoDB uri was not specified" +
-				"\n\tMongoDB name was not specified" +
-				"\n\tMongoDB collection name was not specified" +
-				"\n\tAz AD OIDC Issuer is an invalid URL:  ",
+			name:           "Invalid Config Missing Required config Params",
+			config:         Config{ConfigPath: "validPath", TlsEnabled: true},
+			expectedErrMsg: "Configuration errors:\n\tTLS is enabled but a path to a TLS certificate for the server was not specified" + "\n\tTLS is enabled but a path to a TLS key for the server was not specified" + "\n\tMongoDB uri was not specified" + "\n\tMongoDB name was not specified" + "\n\tMongoDB collection name was not specified" + "\n\tAz AD OIDC Issuer is an invalid URL:  " + "\n\tNo Azure HdInsight Kafka brokers were defined",
 		},
 		{
 			name: "invalid oidc issuer url",
@@ -65,10 +65,11 @@ func TestValidateConfig(t *testing.T) {
 				MongoDBUri:         "mongoDbUri",
 				MongoDBName:        "HRI-DEV",
 				MongoColName:       "HRI-Mgmt",
-				AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
+				AzOidcIssuer:       "invalidUrl.gov",
 				AzJwtAudienceId:    "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
+				AzKafkaBrokers:     StringSlice{"broker1", "broker2", "broker3"},
 			},
-			expectedErrMsg: "Configuration errors:\n\tOIDC Issuer is an invalid URL:  invalidUrl.gov",
+			expectedErrMsg: "Configuration errors:\n\tAz AD OIDC Issuer is an invalid URL:  invalidUrl.gov",
 		},
 		{
 			name: "nr enabled but no app name or license",
@@ -82,6 +83,7 @@ func TestValidateConfig(t *testing.T) {
 				MongoColName:    "HRI-Mgmt",
 				AzOidcIssuer:    "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
 				AzJwtAudienceId: "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
+				AzKafkaBrokers:  StringSlice{"broker1", "broker2", "broker3"},
 			},
 			expectedErrMsg: "Configuration errors:\n\tNew Relic monitoring enabled, but the New Relic app name was not specified\n\tNew Relic monitoring enabled, but the New Relic license key was not specified",
 		},
@@ -102,24 +104,8 @@ func TestValidateConfig(t *testing.T) {
 				MongoColName:       "HRI-Mgmt",
 				AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
 				AzJwtAudienceId:    "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
+				AzKafkaBrokers:     StringSlice{"broker1", "broker2", "broker3"},
 			},
-		},
-		{
-			name: "Bad elasticsearch certificate",
-			config: Config{
-				ConfigPath:         "validPath",
-				AuthDisabled:       false,
-				LogLevel:           "info",
-				NewRelicEnabled:    true,
-				NewRelicAppName:    "nrAppName",
-				NewRelicLicenseKey: "nrLicenseKey",
-				MongoDBUri:         "mongoDbUri",
-				MongoDBName:        "HRI-DEV",
-				MongoColName:       "HRI-Mgmt",
-				AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
-				AzJwtAudienceId:    "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
-			},
-			expectedErrMsg: "Configuration errors:\n\tThe Elasticsearch certificate is invalid",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -156,20 +142,17 @@ func TestGetConfig(t *testing.T) {
 			name:                    "invalid config path passed in directly",
 			passAlternateConfigPath: true,
 			configPath:              "invalid config path",
-			//expectedErrMsg:          "open invalid config path: no such file or directory",
-			expectedErrMsg: "open invalid config path: The system cannot find the file specified.",
+			expectedErrMsg:          "open invalid config path: The system cannot find the file specified.",
 		},
 		{
-			name:    "invalid config path passed in through env var",
-			envVars: [][2]string{{"CONFIG_PATH", "invalid config path"}},
-			//expectedErrMsg: "open invalid config path: no such file or directory",
+			name:           "invalid config path passed in through env var",
+			envVars:        [][2]string{{"CONFIG_PATH", "invalid config path"}},
 			expectedErrMsg: "open invalid config path: The system cannot find the file specified.",
 		},
 		{
 			name:             "invalid config path passed in through flag",
 			commandLineFlags: []string{"-config-path=invalid config path"},
-			//expectedErrMsg:   "open invalid config path: no such file or directory",
-			expectedErrMsg: "open invalid config path: The system cannot find the file specified.",
+			expectedErrMsg:   "open invalid config path: The system cannot find the file specified.",
 		},
 		{
 			name:           "send incorrect type var from env (string instead of bool)",
@@ -181,27 +164,6 @@ func TestGetConfig(t *testing.T) {
 			commandLineFlags: []string{"-validation=incorrect"},
 			expectedErrMsg:   "error parsing commandline args: invalid boolean value \"incorrect\" for -validation: parse error",
 		},
-		// {
-		// 	name:             "variables override correctly (cl flags > env vars > config.yml)",
-		// 	commandLineFlags: []string{"-jwt-audience-id=ValFromFlag", "-validation=true", fmt.Sprintf("-kafka-brokers=%s,%s", "broker1", "broker2")},
-		// 	envVars:          [][2]string{{"OIDC_ISSUER", "http://ValFromEnv.gov"}, {"JWT_AUDIENCE_ID", "ValFromEnv"}},
-		// 	expectedConfig: Config{
-		// 		ConfigPath:         configPath,
-		// 		AuthDisabled:       false,
-		// 		LogLevel:           "info",
-		// 		NewRelicEnabled:    true,
-		// 		NewRelicAppName:    "nrAppName",
-		// 		NewRelicLicenseKey: "nrLicenseKey0000000000000000000000000000",
-		// 		TlsEnabled:         true,
-		// 		TlsCertPath:        "./server-cert.pem",
-		// 		TlsKeyPath:         "./server-key.pem",
-		// 		MongoDBUri:         "mongodb://hi",
-		// 		MongoDBName:        "HRI-DEV",
-		// 		MongoColName:       "HRI-Mgmt",
-		// 		AzOidcIssuer:       "https://sts.windows.net/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/",
-		// 		AzJwtAudienceId:    "c33ac4da-21c6-426b-abcc-27e24ff1ccf9",
-		// 	},
-		// },
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Select the proper configPath to use
@@ -236,12 +198,65 @@ func expectedConfigExists(c Config) bool {
 	if c.ConfigPath != "" {
 		return true
 	}
-	// if c.OidcIssuer != "" {
-	// 	return true
-	// }
-	// if c.JwtAudienceId != "" {
-	// 	return true
-	// }
+	if c.AzOidcIssuer != "" {
+		return true
+	}
+	if c.AzJwtAudienceId != "" {
+		return true
+	}
 	return false
 }
-*/
+
+func TestStringMap_Set(t *testing.T) {
+	type args struct {
+		s string
+	}
+	tests := []struct {
+		name    string
+		sm      *StringMap
+		args    args
+		wantErr bool
+	}{
+		{name: "t1",
+			sm:      &StringMap{"k": "v"},
+			args:    args{s: "string"},
+			wantErr: true,
+		},
+		{name: "t2",
+			sm:      &StringMap{"k": "v"},
+			args:    args{s: "k3:v3,"},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.sm.Set(tt.args.s); (err != nil) != tt.wantErr {
+				t.Errorf("StringMap.Set() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestStringSlice_Set(t *testing.T) {
+	type args struct {
+		s string
+	}
+	tests := []struct {
+		name    string
+		ss      *StringSlice
+		args    args
+		wantErr bool
+	}{
+		{name: "t1",
+			ss:   &StringSlice{"abc", "def"},
+			args: args{s: "string"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.ss.Set(tt.args.s); (err != nil) != tt.wantErr {
+				t.Errorf("StringSlice.Set() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

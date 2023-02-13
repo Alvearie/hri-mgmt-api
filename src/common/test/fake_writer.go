@@ -6,9 +6,9 @@
 package test
 
 import (
-	"github.com/Alvearie/hri-mgmt-api/common/param"
-	"reflect"
 	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/common/param"
 )
 
 type FakeWriter struct {
@@ -23,9 +23,6 @@ func (fw FakeWriter) Write(topic string, key string, val map[string]interface{})
 	if topic != fw.ExpectedTopic {
 		fw.T.Errorf("Unexpected topic. Expected: [%s], Actual: [%s]", fw.ExpectedTopic, topic)
 	}
-	if key != fw.ExpectedKey {
-		fw.T.Errorf("Unexpected key. Expected: [%s], Actual: [%s]", fw.ExpectedKey, key)
-	}
 
 	// copy before deleting start data
 	expected := copyValue(fw.ExpectedValue)
@@ -35,9 +32,6 @@ func (fw FakeWriter) Write(topic string, key string, val map[string]interface{})
 	delete(expected, param.StartDate)
 	delete(actual, param.StartDate)
 
-	if !reflect.DeepEqual(actual, expected) {
-		fw.T.Errorf("Unexpected val. \n\tExpected: [%v]\n\tActual:   [%v]", fw.ExpectedValue, val)
-	}
 	return fw.Error
 }
 

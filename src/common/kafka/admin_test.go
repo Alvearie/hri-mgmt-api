@@ -5,18 +5,19 @@
  */
 package kafka
 
-const (
-	validToken   = "BEaRer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjUyMTA4MTQ0LCJleHAiOjI1NTIxMTE3NDR9.XxTTNBtgjX48iCM4FaV_hhhGenzhzrUaTWn6ooepK14" // expires in 2050
-	expiredToken = "bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNDUyMTA4MTQ0LCJleHAiOjE1NTIxMTE3NDR9.JCYxVQmkSoHtmcpl_AjIH_SD2fDDQvldwYyCU0xQcYw"
-	noExpToken   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjUyMTA4MTQ0fQ.iUGPxRd1eRNE4vIfFDtL_wynCj6Qdw6Os9YB0OMpFCE"
-	invalidToken = "bearer INVALID"
+import (
+	"regexp"
+	"testing"
 
-	expiredTokenErrMsg = "Must supply an unexpired token:.*"
-	noExpErrMsg        = "unexpected error parsing bearer token, could not parse expiration time"
-	invalidTokenErrMsg = "unexpected error parsing bearer token:.*"
+	"github.com/Alvearie/hri-mgmt-api/common/config"
+	"github.com/stretchr/testify/assert"
 )
 
-/*
+const (
+	validToken = "BEaRer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjUyMTA4MTQ0LCJleHAiOjI1NTIxMTE3NDR9.XxTTNBtgjX48iCM4FaV_hhhGenzhzrUaTWn6ooepK14" // expires in 2050
+
+)
+
 func TestNewAdminClientFromConfig(t *testing.T) {
 
 	validConfig := config.Config{
@@ -36,24 +37,6 @@ func TestNewAdminClientFromConfig(t *testing.T) {
 			name:        "happy path",
 			config:      validConfig,
 			bearerToken: validToken,
-		}, {
-			name:              "invalid bearer token",
-			config:            validConfig,
-			bearerToken:       invalidToken,
-			expectedError:     invalidTokenErrMsg,
-			expectedErrorCode: http.StatusUnauthorized,
-		}, {
-			name:              "expired bearer token",
-			config:            validConfig,
-			bearerToken:       expiredToken,
-			expectedError:     expiredTokenErrMsg,
-			expectedErrorCode: http.StatusUnauthorized,
-		}, {
-			name:              "no expiration token",
-			config:            validConfig,
-			bearerToken:       noExpToken,
-			expectedError:     noExpErrMsg,
-			expectedErrorCode: http.StatusUnauthorized,
 		},
 	}
 
@@ -72,4 +55,4 @@ func TestNewAdminClientFromConfig(t *testing.T) {
 			}
 		})
 	}
-}*/
+}

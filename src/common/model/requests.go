@@ -135,5 +135,9 @@ type TenatGetResponse struct {
 }
 
 type GetTenantId struct {
-	TenantId string `json:"id" `
+	TenantId string `json:"id"`
+}
+
+type GetTenants struct {
+	TenantId string `bson:"tenantId"`
 }

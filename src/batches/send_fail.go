@@ -20,16 +20,14 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/common/response"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func SendFail(
 	requestId string,
 	request *model.FailRequest,
 	claims auth.HriAzClaims,
-	client *mongo.Collection,
 	writer kafka.Writer,
-	currentStatus status.BatchStatus) (int, interface{}) {
+) (int, interface{}) {
 
 	prefix := "batches/sendfail"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
@@ -42,31 +40,34 @@ func SendFail(
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, msg)
 	}
 
-	return sendFail(requestId, request, logger, client, writer, currentStatus)
+	return sendFail(requestId, request, logger, writer)
 }
 
 func SendFailNoAuth(requestId string, request *model.FailRequest,
 	_ auth.HriAzClaims,
-	client *mongo.Collection,
 	writer kafka.Writer,
-	currentStatus status.BatchStatus) (int, interface{}) {
+) (int, interface{}) {
 
 	prefix := "batches/FailNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Fail (No Auth)")
 
-	return sendFail(requestId, request, logger, client, writer, currentStatus)
+	return sendFail(requestId, request, logger, writer)
 }
 
 func sendFail(requestId string, request *model.FailRequest,
 	logger logrus.FieldLogger,
-	client *mongo.Collection,
-	writer kafka.Writer,
-	currentStatus status.BatchStatus) (int, interface{}) {
+	writer kafka.Writer) (int, interface{}) {
 
-	batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, client, logger)
+	batch_metaData, err := getBatchMetaData(requestId, request.TenantId, request.BatchId, logger)
 	if err != nil {
 		return err.Code, response.NewErrorDetail(requestId, err.Body.ErrorDescription)
+	}
+	currentStatus, extractErr := ExtractBatchStatus(batch_metaData)
+	if extractErr != nil {
+		errMsg := fmt.Sprintf(msgGetByIdErr, extractErr)
+		logger.Errorln(errMsg)
+		return http.StatusInternalServerError, response.NewErrorDetailResponse(http.StatusInternalServerError, requestId, errMsg)
 	}
 
 	// Can't fail a batch if status is already 'terminated' or 'failed'
@@ -74,7 +75,7 @@ func sendFail(requestId string, request *model.FailRequest,
 	if (status.Failed.String() != batch_metaData[param.Status]) && status.Terminated.String() != (batch_metaData[param.Status]) {
 		updateRequest := getBatchFailUpdateRequest(request)
 
-		errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId, updateRequest, client, writer, currentStatus)
+		errResp := updateBatchStatus(requestId, request.TenantId, request.BatchId, updateRequest, writer, currentStatus)
 		if errResp != nil {
 			return errResp.Code, errResp.Body
 		}

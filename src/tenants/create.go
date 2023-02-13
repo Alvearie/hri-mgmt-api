@@ -9,19 +9,19 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/Alvearie/hri-mgmt-api/common/logwrapper"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/param"
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func CreateTenant(
 	requestId string,
-	tenantId string,
-	mongoClient *mongo.Collection) (int, interface{}) {
+	tenantId string) (int, interface{}) {
 
 	prefix := "tenants/CreateTenant"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
@@ -29,25 +29,23 @@ func CreateTenant(
 	var filter = bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId)}
 	var returnResult model.CreateTenantRequest
 
-	//create new tenant In azure cosmos- mongo API
-	//As it is a new tenant creation passing docCount and docDeleted as 0
-	createTenantRequest := mongoApi.ConvertToJSON(mongoApi.GetTenantWithBatchesSuffix(tenantId), "0", 0)
+	update := bson.M{
+		"$set": bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId)},
+	}
+	upsert := true
+	opt := options.FindOneAndUpdateOptions{
+		Upsert: &upsert,
+	}
+	result := mongoApi.HriCollection.FindOneAndUpdate(ctx, filter, update, &opt).Decode(&returnResult)
 
-	//check if duplicate tenantId or not
-	res := mongoClient.FindOne(ctx, filter).Decode(&returnResult)
-	fmt.Println("find by id result ", res)
-
-	if (model.CreateTenantRequest{}) != returnResult {
+	if result != nil && !strings.Contains(result.Error(), "no documents in result") {
 		return http.StatusBadRequest, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusBadRequest, logger,
-			fmt.Sprintf("Unable to create new tenant as it already exists[%s]", tenantId))
+			fmt.Sprintf("Unable to create new tenant [%s]", tenantId+" - "+result.Error()))
 	}
 
-	// Insert one
-	_, mongoErr := mongoClient.InsertOne(ctx, createTenantRequest)
-
-	if mongoErr != nil {
+	if returnResult.TenantId == mongoApi.GetTenantWithBatchesSuffix(tenantId) {
 		return http.StatusBadRequest, mongoApi.LogAndBuildErrorDetail(requestId, http.StatusBadRequest, logger,
-			fmt.Sprintf("Unable to create new tenant [%s]", tenantId))
+			fmt.Sprintf("Unable to create new tenant as it already exists[%s]", tenantId))
 	}
 
 	// return the ID of the newly created tenant

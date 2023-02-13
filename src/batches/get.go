@@ -16,10 +16,9 @@ import (
 	"github.com/Alvearie/hri-mgmt-api/mongoApi"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func GetBatch(requestId string, params model.GetBatch, claims auth.HriAzClaims, mongoClient *mongo.Collection) (int, interface{}) {
+func GetBatch(requestId string, params model.GetBatch, claims auth.HriAzClaims) (int, interface{}) {
 	prefix := "batches/get"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Get")
@@ -31,29 +30,28 @@ func GetBatch(requestId string, params model.GetBatch, claims auth.HriAzClaims, 
 		return http.StatusUnauthorized, response.NewErrorDetail(requestId, errMsg)
 	}
 
-	return getBatch(requestId, params, false, &claims, mongoClient, logger)
+	return getBatch(requestId, params, false, &claims, logger)
 }
 
-func GetBatchNoAuth(requestId string, params model.GetBatch, _ auth.HriAzClaims, mongoClient *mongo.Collection) (int, interface{}) {
+func GetBatchNoAuth(requestId string, params model.GetBatch, _ auth.HriAzClaims) (int, interface{}) {
 	prefix := "batches/getNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch Get (No Auth)")
 
 	var noAuthFlag = true
-	return getBatch(requestId, params, noAuthFlag, nil, mongoClient, logger)
+	return getBatch(requestId, params, noAuthFlag, nil, logger)
 }
 
 func getBatch(requestId string, params model.GetBatch, noAuthFlag bool, claims *auth.HriAzClaims,
-	mongoClient *mongo.Collection, logger logrus.FieldLogger) (int, interface{}) {
+	logger logrus.FieldLogger) (int, interface{}) {
 
 	tenantId := params.TenantId
 
 	var ctx = context.Background()
 	var filter = bson.M{"tenantId": mongoApi.GetTenantWithBatchesSuffix(tenantId)}
 	var returnTenetResult model.GetBatchTenantDetail
-	//var tenantResponse model.TenatGetResponse
 
-	mongoClient.FindOne(ctx, filter).Decode(&returnTenetResult)
+	mongoApi.HriCollection.FindOne(ctx, filter).Decode(&returnTenetResult)
 
 	errMsg := "Tenant: " + tenantId + " not found"
 	if returnTenetResult.TenantId == "" {

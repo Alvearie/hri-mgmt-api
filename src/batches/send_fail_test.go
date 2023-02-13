@@ -6,308 +6,418 @@
 package batches
 
 import (
+	"testing"
+
+	"github.com/Alvearie/hri-mgmt-api/common/auth"
 	"github.com/Alvearie/hri-mgmt-api/common/model"
 	"github.com/Alvearie/hri-mgmt-api/common/test"
+	"github.com/Alvearie/hri-mgmt-api/mongoApi"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 )
 
-// func TestFail_GetUpdateScript(t *testing.T) {
-// 	tests := []struct {
-// 		name    string
-// 		request *model.FailRequest
-// 		// Note that the following chars must be escaped because expectedScript is used as a regex pattern: ., ), (, [, ]
-// 		expectedRequest map[string]interface{}
-// 	}{
-// 		{
-// 			name:    "success",
-// 			request: getTestFailRequest(10, 2, "Batch Failed"),
-// 			expectedRequest: map[string]interface{}{
-// 				"script": map[string]interface{}{
-// 					"source": `if \(ctx\._source\.status != 'terminated' && ctx\._source\.status != 'failed'\) {ctx\._source\.status = 'failed'; ctx\._source\.actualRecordCount = 10; ctx\._source\.invalidRecordCount = 2; ctx\._source\.failureMessage = 'Batch Failed'; ctx\._source\.endDate = '` + test.DatePattern + `';} else {ctx\.op = 'none'}`,
-// 				},
-// 			},
-// 		},
-// 	}
-
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			request := getFailUpdateScript(tt.request)
-// 			if err := RequestCompareScriptTest(tt.expectedRequest, request); err != nil {
-// 				t.Errorf("GetUpdateScript().udpateRequest = \n\t'%s' \nDoesn't match expected \n\t'%s'\n%v", request, tt.expectedRequest, err)
-// 			}
-// 		})
-// 	}
-// }
-
-// func TestUpdateStatus_Fail(t *testing.T) {
-// 	const scriptFail = `{"script":{"source":"if \(ctx\._source\.status != 'terminated' && ctx\._source\.status != 'failed'\) {ctx\._source\.status = 'failed'; ctx\._source\.actualRecordCount = 10; ctx\._source\.invalidRecordCount = 2; ctx\._source\.failureMessage = 'Batch Failed'; ctx\._source\.endDate = '` + test.DatePattern + `';} else {ctx\.op = 'none'}"}}` + "\n"
-// 	const currentStatus = status.Started
-
-// 	logwrapper.Initialize("error", os.Stdout)
-// 	validClaims := auth.HriClaims{Scope: auth.HriInternal}
-
-// 	failedBatch := map[string]interface{}{
-// 		param.BatchId:             test.ValidBatchId,
-// 		param.Name:                batchName,
-// 		param.IntegratorId:        integratorId,
-// 		param.Topic:               batchTopic,
-// 		param.DataType:            batchDataType,
-// 		param.Status:              status.Failed.String(),
-// 		param.StartDate:           batchStartDate,
-// 		param.RecordCount:         batchExpectedRecordCount,
-// 		param.ExpectedRecordCount: batchExpectedRecordCount,
-// 		param.ActualRecordCount:   batchActualRecordCount,
-// 		param.InvalidThreshold:    batchInvalidThreshold,
-// 		param.InvalidRecordCount:  batchInvalidRecordCount,
-// 	}
-// 	failedJSON, err := json.Marshal(failedBatch)
-// 	if err != nil {
-// 		t.Errorf("Unable to create batch JSON string: %s", err.Error())
-// 	}
-
-// 	terminatedBatch := map[string]interface{}{
-// 		param.BatchId:             test.ValidBatchId,
-// 		param.Name:                batchName,
-// 		param.IntegratorId:        integratorId,
-// 		param.Topic:               batchTopic,
-// 		param.DataType:            batchDataType,
-// 		param.Status:              status.Terminated.String(),
-// 		param.StartDate:           batchStartDate,
-// 		param.ExpectedRecordCount: batchExpectedRecordCount,
-// 		param.InvalidThreshold:    batchInvalidThreshold,
-// 	}
-// 	terminatedJSON, err := json.Marshal(terminatedBatch)
-// 	if err != nil {
-// 		t.Errorf("Unable to create batch JSON string: %s", err.Error())
-// 	}
-
-// 	tests := []struct {
-// 		name                 string
-// 		request              *model.FailRequest
-// 		claims               auth.HriClaims
-// 		ft                   *test.FakeTransport
-// 		writerError          error
-// 		expectedNotification map[string]interface{}
-// 		expectedCode         int
-// 		expectedResponse     interface{}
-// 	}{
-// 		{
-// 			name:    "successful request",
-// 			request: getTestFailRequest(int(batchActualRecordCount), int(batchInvalidRecordCount), batchFailureMessage),
-// 			claims:  validClaims,
-// 			ft: test.NewFakeTransport(t).AddCall(
-// 				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
-// 				test.ElasticCall{
-// 					RequestQuery: transportQueryParams,
-// 					RequestBody:  scriptFail,
-// 					ResponseBody: fmt.Sprintf(`
-// 						{
-// 							"_index": "%s-batches",
-// 							"_type": "_doc",
-// 							"_id": "%s",
-// 							"result": "updated",
-// 							"get": {
-// 								"_source": %s
-// 							}
-// 						}`, test.ValidTenantId, test.ValidBatchId, failedJSON),
-// 				},
-// 			),
-// 			expectedNotification: failedBatch,
-// 			expectedCode:         http.StatusOK,
-// 			expectedResponse:     nil,
-// 		},
-// 		{
-// 			name:             "401 unauthorized when internal scope is missing",
-// 			request:          getTestFailRequest(int(batchActualRecordCount), int(batchInvalidRecordCount), batchFailureMessage),
-// 			claims:           auth.HriClaims{},
-// 			expectedCode:     http.StatusUnauthorized,
-// 			expectedResponse: response.NewErrorDetail(requestId, "Must have hri_internal role to mark a batch as failed"),
-// 		},
-// 		{
-// 			name:    "500 on Elastic failure",
-// 			request: getTestFailRequest(int(batchActualRecordCount), int(batchInvalidRecordCount), batchFailureMessage),
-// 			claims:  validClaims,
-// 			ft: test.NewFakeTransport(t).AddCall(
-// 				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
-// 				test.ElasticCall{
-// 					RequestQuery: transportQueryParams,
-// 					RequestBody:  scriptFail,
-// 					ResponseBody: fmt.Sprintf(`
-// 						{
-// 							"_index": "%s-batches",
-// 							"_type": "_doc",
-// 							"_id": "%s",
-// 							"result": "updated",
-// 							"get": {
-// 								"_source": %s
-// 							}
-// 						}`, test.ValidTenantId, test.ValidBatchId, failedJSON),
-// 					ResponseErr: errors.New("timeout"),
-// 				},
-// 			),
-// 			expectedNotification: failedBatch,
-// 			expectedCode:         http.StatusInternalServerError,
-// 			expectedResponse:     response.NewErrorDetail(requestId, "could not update the status of batch test-batch: [500] elasticsearch client error: timeout"),
-// 		},
-// 		{
-// 			name:    "'fail' fails on terminated batch",
-// 			request: getTestFailRequest(int(batchActualRecordCount), int(batchInvalidRecordCount), batchFailureMessage),
-// 			claims:  validClaims,
-// 			ft: test.NewFakeTransport(t).AddCall(
-// 				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
-// 				test.ElasticCall{
-// 					RequestQuery: transportQueryParams,
-// 					RequestBody:  scriptFail,
-// 					ResponseBody: fmt.Sprintf(`
-// 						{
-// 							"_index": "%s-batches",
-// 							"_type": "_doc",
-// 							"_id": "%s",
-// 							"result": "noop",
-// 							"get": {
-// 								"_source": %s
-// 							}
-// 						}`, test.ValidTenantId, test.ValidBatchId, terminatedJSON),
-// 				},
-// 			),
-// 			expectedCode:     http.StatusConflict,
-// 			expectedResponse: response.NewErrorDetail(requestId, "'fail' failed, batch is in 'terminated' state"),
-// 		},
-// 	}
-
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			esClient, err := elastic.ClientFromTransport(tt.ft)
-// 			if err != nil {
-// 				t.Error(err)
-// 			}
-// 			writer := test.FakeWriter{
-// 				T:             t,
-// 				ExpectedTopic: InputTopicToNotificationTopic(batchTopic),
-// 				ExpectedKey:   test.ValidBatchId,
-// 				ExpectedValue: tt.expectedNotification,
-// 				Error:         tt.writerError,
-// 			}
-
-// 			code, result := Fail(requestId, tt.request, tt.claims, esClient, writer, currentStatus)
-
-// 			if tt.ft != nil {
-// 				tt.ft.VerifyCalls()
-// 			}
-// 			if code != tt.expectedCode {
-// 				t.Errorf("Fail() = \n\t%v,\nexpected: \n\t%v", code, tt.expectedCode)
-// 			}
-// 			if !reflect.DeepEqual(result, tt.expectedResponse) {
-// 				t.Errorf("Fail() = \n\t%v,\nexpected: \n\t%v", result, tt.expectedResponse)
-// 			}
-// 		})
-// 	}
-// }
-
-// func TestFailNoAuth(t *testing.T) {
-// 	logwrapper.Initialize("error", os.Stdout)
-// 	const currentStatus = status.Started
-
-// 	const (
-// 		requestId                       = "requestNoAuth"
-// 		batchName                       = "MonkeyBatch"
-// 		batchTopic               string = "catz.batch.in"
-// 		batchExpectedRecordCount        = float64(85)
-// 		batchActualRecordCount          = float64(84)
-// 		batchInvalidThreshold           = float64(5)
-// 		batchInvalidRecordCount         = float64(1)
-// 	)
-
-// 	const failRequestBody = `{"script":{"source":"if \(ctx\._source\.status != 'terminated' && ctx\._source\.status != 'failed'\) {ctx\._source\.status = 'failed'; ctx\._source\.actualRecordCount = 84; ctx\._source\.invalidRecordCount = 1; ctx\._source\.failureMessage = 'Batch Failed'; ctx\._source\.endDate = '` + test.DatePattern + `';} else {ctx\.op = 'none'}"}}` + "\n"
-
-// 	failedBatch := map[string]interface{}{
-// 		param.BatchId:             test.ValidBatchId,
-// 		param.Name:                batchName,
-// 		param.IntegratorId:        integratorId,
-// 		param.Topic:               batchTopic,
-// 		param.DataType:            batchDataType,
-// 		param.Status:              status.Failed.String(),
-// 		param.StartDate:           batchStartDate,
-// 		param.RecordCount:         batchExpectedRecordCount,
-// 		param.ExpectedRecordCount: batchExpectedRecordCount,
-// 		param.ActualRecordCount:   batchActualRecordCount,
-// 		param.InvalidThreshold:    batchInvalidThreshold,
-// 		param.InvalidRecordCount:  batchInvalidRecordCount,
-// 	}
-// 	failedJSON, err := json.Marshal(failedBatch)
-// 	if err != nil {
-// 		t.Errorf("Unable to create (Failed) batch JSON string: %s", err.Error())
-// 	}
-
-// 	tests := []struct {
-// 		name                 string
-// 		request              *model.FailRequest
-// 		ft                   *test.FakeTransport
-// 		expectedNotification map[string]interface{}
-// 		expectedCode         int
-// 		expectedResponse     interface{}
-// 	}{
-// 		{
-// 			name:    "successful No Auth request",
-// 			request: getTestFailRequest(int(batchActualRecordCount), int(batchInvalidRecordCount), batchFailureMessage),
-// 			ft: test.NewFakeTransport(t).AddCall(
-// 				fmt.Sprintf(`/%s-batches/_doc/%s/_update`, test.ValidTenantId, test.ValidBatchId),
-// 				test.ElasticCall{
-// 					RequestQuery: transportQueryParams,
-// 					RequestBody:  failRequestBody,
-// 					ResponseBody: fmt.Sprintf(`
-// 						{
-// 							"_index": "%s-batches",
-// 							"_type": "_doc",
-// 							"_id": "%s",
-// 							"result": "updated",
-// 							"get": {
-// 								"_source": %s
-// 							}
-// 						}`, test.ValidTenantId, test.ValidBatchId, failedJSON),
-// 				},
-// 			),
-// 			expectedNotification: failedBatch,
-// 			expectedCode:         http.StatusOK,
-// 			expectedResponse:     nil,
-// 		},
-// 	}
-
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			esClient, err := elastic.ClientFromTransport(tt.ft)
-// 			if err != nil {
-// 				t.Error(err)
-// 			}
-// 			writer := test.FakeWriter{
-// 				T:             t,
-// 				ExpectedTopic: InputTopicToNotificationTopic(batchTopic),
-// 				ExpectedKey:   test.ValidBatchId,
-// 				ExpectedValue: tt.expectedNotification,
-// 			}
-
-// 			var emptyClaims = auth.HriClaims{}
-// 			code, result := FailNoAuth(requestId, tt.request, emptyClaims, esClient, writer, currentStatus)
-
-// 			tt.ft.VerifyCalls()
-// 			if code != tt.expectedCode {
-// 				t.Errorf("FailNoAuth() = \n\t%v,\nexpected: \n\t%v", code, tt.expectedCode)
-// 			}
-// 			if !reflect.DeepEqual(result, tt.expectedResponse) {
-// 				t.Errorf("FailNoAuth() = \n\t%v,\nexpected: \n\t%v", result, tt.expectedResponse)
-// 			}
-// 		})
-// 	}
-// }
-
-func getTestFailRequest(actualRecordCount int, invalidRecordCount int, failureMsg string) *model.FailRequest {
-	request := model.FailRequest{
-		ProcessingCompleteRequest: model.ProcessingCompleteRequest{
-			TenantId:           test.ValidTenantId,
-			BatchId:            test.ValidBatchId,
-			ActualRecordCount:  &actualRecordCount,
-			InvalidRecordCount: &invalidRecordCount,
-		},
-		FailureMessage: failureMsg,
+func TestFail401(t *testing.T) {
+	expectedCode := 401
+	arc := 12
+	irc := 23
+	processingCompleteRequest := model.ProcessingCompleteRequest{
+		TenantId:           "test_tenant",
+		BatchId:            "batch_id",
+		ActualRecordCount:  &arc,
+		InvalidRecordCount: &irc,
 	}
-	return &request
+	request := model.FailRequest{
+		ProcessingCompleteRequest: processingCompleteRequest,
+		FailureMessage:            "Failed Message",
+	}
+	claims := auth.HriAzClaims{}
+	writer := test.FakeWriter{
+		T:             t,
+		ExpectedTopic: InputTopicToNotificationTopic(batchTopic),
+		ExpectedKey:   test.ValidBatchId,
+		Error:         nil,
+	}
+
+	code, _ := SendFail(requestId, &request, claims, writer)
+
+	if code != expectedCode {
+		t.Errorf("SendFail() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+	}
+
+}
+
+func TestFail200(t *testing.T) {
+	expectedCode := 200
+
+	arc := 12
+	irc := 23
+	processingCompleteRequest := model.ProcessingCompleteRequest{
+		TenantId:           "test_tenant",
+		BatchId:            "batch_id",
+		ActualRecordCount:  &arc,
+		InvalidRecordCount: &irc,
+	}
+	request := model.FailRequest{
+		ProcessingCompleteRequest: processingCompleteRequest,
+		FailureMessage:            "Failed Message",
+	}
+	claims := auth.HriAzClaims{
+		Subject: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c",
+		Roles:   []string{"hri_internal", "hri_tenant_test_tenant_data_internal"},
+		Scope:   "hri_internal",
+	}
+
+	mdata := bson.M{"compression": "gzip", "finalRecordCount": 20}
+
+	writer := test.FakeWriter{
+		T:             t,
+		ExpectedTopic: "ingest.pentest.claims.notification",
+		ExpectedKey:   "batch_id",
+		ExpectedValue: map[string]interface{}{"dataType": "rspec-batch", "id": "batch_id", "integratorId": "8b1e7a81-7f4a-41b0-a170-ae19f843f27c", "invalidThreshold": 5, "metadata": mdata, "name": "rspec-pentest-batch", "startDate": "2022-11-29T09:52:07Z", "status": "started", "topic": "ingest.pentest.claims.in"},
+		Error:         nil,
+	}
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+
+	mt.Run("TestFail200", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
+
+		detailsMap := bson.D{
+			{Key: "name", Value: "rspec-pentest-batch"},
+			{"topic", "ingest.pentest.claims.in"},
+			{"dataType", "rspec-batch"},
+			{"invalidThreshold", 5},
+			{"metadata", i},
+			{"id", "batch_id"},
+			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
+			{"status", "started"},
+			{"startDate", "2022-11-29T09:52:07Z"},
+		}
+
+		detailsMapArray := []bson.D{detailsMap}
+
+		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{"batch", detailsMapArray},
+		})
+
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(first, killCursors)
+
+		mt.AddMockResponses(bson.D{
+			{"ok", 1},
+			{"nModified", 1},
+		})
+
+		second := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{"batch", detailsMapArray},
+		})
+
+		killCursors2 := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(second, killCursors2)
+
+	})
+
+	code, _ := SendFail(requestId, &request, claims, writer)
+
+	if code != expectedCode {
+		t.Errorf("SendFail() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+	}
+}
+
+func TestFailBatchStatusError(t *testing.T) {
+	expectedCode := 500
+
+	arc := 12
+	irc := 23
+	processingCompleteRequest := model.ProcessingCompleteRequest{
+		TenantId:           "tid1",
+		BatchId:            "batchid1",
+		ActualRecordCount:  &arc,
+		InvalidRecordCount: &irc,
+	}
+	request := model.FailRequest{
+		ProcessingCompleteRequest: processingCompleteRequest,
+		FailureMessage:            "Failed Message",
+	}
+	claims := auth.HriAzClaims{
+		Subject: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c",
+		Roles:   []string{"hri_data_internal", "hri_tenant_tid1_data_internal"},
+		Scope:   "hri_internal",
+	}
+
+	mdata := bson.M{"compression": "gzip", "finalRecordCount": 20}
+
+	writer := test.FakeWriter{
+		T:             t,
+		ExpectedTopic: "ingest.pentest.claims.notification",
+		ExpectedKey:   "batchid1",
+		ExpectedValue: map[string]interface{}{"dataType": "rspec-batch", "id": "batchid1", "integratorId": "8b1e7a81-7f4a-41b0-a170-ae19f843f27c", "invalidThreshold": 5, "metadata": mdata, "name": "rspec-pentest-batch", "startDate": "2022-11-29T09:52:07Z", "status": "started", "topic": "ingest.pentest.claims.in"},
+		Error:         nil,
+	}
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
+
+		detailsMap := bson.D{
+			{Key: "name", Value: "rspec-pentest-batch"},
+			{"topic", "ingest.pentest.claims.in"},
+			{"dataType", "rspec-batch"},
+			{"invalidThreshold", 5},
+			{"metadata", i},
+			{"id", "batchid1"},
+			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
+			{"startDate", "2022-11-29T09:52:07Z"},
+		}
+
+		array1 := []bson.D{detailsMap}
+
+		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{"batch", array1},
+		})
+
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(first, killCursors)
+
+	})
+
+	code, _ := SendFail(requestId, &request, claims, writer)
+
+	if code != expectedCode {
+		t.Errorf("SendFail() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+	}
+}
+func TestFailNoAuth200(t *testing.T) {
+	expectedCode := 200
+	arc := 12
+	irc := 23
+	processingCompleteRequest := model.ProcessingCompleteRequest{
+		TenantId:           "tid1",
+		BatchId:            "batchid1",
+		ActualRecordCount:  &arc,
+		InvalidRecordCount: &irc,
+	}
+	request := model.FailRequest{
+		ProcessingCompleteRequest: processingCompleteRequest,
+		FailureMessage:            "Failed Message",
+	}
+	claims := auth.HriAzClaims{
+		Subject: "8b1e7a81-7f4a-41b0-a170-ae19f843f27c",
+		Roles:   []string{"hri_data_internal", "hri_tenant_tid1_data_internal"},
+		Scope:   "hri_internal",
+	}
+
+	mdata := bson.M{"compression": "gzip", "finalRecordCount": 20}
+
+	writer := test.FakeWriter{
+		T:             t,
+		ExpectedTopic: "ingest.pentest.claims.notification",
+		ExpectedKey:   "batchid1",
+		ExpectedValue: map[string]interface{}{"dataType": "rspec-batch", "id": "batchid1", "integratorId": "8b1e7a81-7f4a-41b0-a170-ae19f843f27c", "invalidThreshold": 5, "metadata": mdata, "name": "rspec-pentest-batch", "startDate": "2022-11-29T09:52:07Z", "status": "started", "topic": "ingest.pentest.claims.in"},
+		Error:         nil,
+	}
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
+
+		detailsMap := bson.D{
+			{Key: "name", Value: "rspec-pentest-batch"},
+			{"topic", "ingest.pentest.claims.in"},
+			{"dataType", "rspec-batch"},
+			{"invalidThreshold", 5},
+			{"metadata", i},
+			{"id", "batchid1"},
+			{"integratorId", "NoAuthUnkIntegrator"},
+			{"status", "started"},
+			{"startDate", "2022-11-29T09:52:07Z"},
+		}
+
+		array1 := []bson.D{detailsMap}
+
+		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{"batch", array1},
+		})
+
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(first, killCursors)
+
+		mt.AddMockResponses(bson.D{
+			{"ok", 1},
+			{"nModified", 1},
+		})
+
+		second := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{"batch", array1},
+		})
+
+		killCursors2 := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(second, killCursors2)
+
+	})
+
+	code, _ := SendFailNoAuth(requestId, &request, claims, writer)
+
+	if code != expectedCode {
+		t.Errorf("SendFailNoAuth() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+	}
+
+}
+
+func TestSendFailClaimSubjNotEqualIntegratorId(t *testing.T) {
+	expectedCode := 500
+	arc := 12
+	irc := 23
+	processingCompleteRequest := model.ProcessingCompleteRequest{
+		TenantId:           "tid1",
+		BatchId:            "batchid1",
+		ActualRecordCount:  &arc,
+		InvalidRecordCount: &irc,
+	}
+	request := model.FailRequest{
+		ProcessingCompleteRequest: processingCompleteRequest,
+		FailureMessage:            "Failed Message",
+	}
+	claims := auth.HriAzClaims{
+		Subject: "8b1e7a81-fgt-41b0-a170-ae19f843f27c",
+		Roles:   []string{"hri_data_internal", "hri_tenant_tid1_data_internal"},
+		Scope:   "hri_internal",
+	}
+
+	writer := test.FakeWriter{}
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
+
+		detailsMap := bson.D{
+			{Key: "name", Value: "rspec-pentest-batch"},
+			{"topic", "ingest.pentest.claims.in"},
+			{"dataType", "rspec-batch"},
+			{"invalidThreshold", 5},
+			{"metadata", i},
+			{"id", "batchid1"},
+			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
+			{"status", "started"},
+			{"startDate", "2022-11-29T09:52:07Z"},
+		}
+
+		array1 := []bson.D{detailsMap}
+
+		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{"batch", array1},
+		})
+
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(first, killCursors)
+
+	})
+
+	code, _ := SendFail(requestId, &request, claims, writer)
+	if code != expectedCode {
+		t.Errorf("SendFail() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+	}
+}
+
+func TestSendFailStatusTerminateOrFail1(t *testing.T) {
+	expectedCode := 404
+	arc := 12
+	irc := 23
+	processingCompleteRequest := model.ProcessingCompleteRequest{
+		TenantId:           "tid1",
+		BatchId:            "batchid1",
+		ActualRecordCount:  &arc,
+		InvalidRecordCount: &irc,
+	}
+	request := model.FailRequest{
+		ProcessingCompleteRequest: processingCompleteRequest,
+		FailureMessage:            "Failed Message",
+	}
+	claims := auth.HriAzClaims{
+		Subject: "8b1e7a81-fgt-41b0-a170-ae19f843f27c",
+		Roles:   []string{"hri_data_internal", "hri_tenant_tid1_data_internal"},
+		Scope:   "hri_internal",
+	}
+
+	writer := test.FakeWriter{}
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+	})
+
+	code, _ := SendFail(requestId, &request, claims, writer)
+	if code != expectedCode {
+		t.Errorf("SendFail() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+	}
+}
+func TestSendFailStatusTerminateOrFail(t *testing.T) {
+	expectedCode := 409
+	arc := 12
+	irc := 23
+	processingCompleteRequest := model.ProcessingCompleteRequest{
+		TenantId:           "tid1",
+		BatchId:            "batchid1",
+		ActualRecordCount:  &arc,
+		InvalidRecordCount: &irc,
+	}
+	request := model.FailRequest{
+		ProcessingCompleteRequest: processingCompleteRequest,
+		FailureMessage:            "Failed Message",
+	}
+	claims := auth.HriAzClaims{
+		Subject: "8b1e7a81-fgt-41b0-a170-ae19f843f27c",
+		Roles:   []string{"hri_data_internal", "hri_tenant_tid1_data_internal"},
+		Scope:   "hri_internal",
+	}
+
+	writer := test.FakeWriter{}
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
+
+		detailsMap := bson.D{
+			{Key: "name", Value: "rspec-pentest-batch"},
+			{"topic", "ingest.pentest.claims.in"},
+			{"dataType", "rspec-batch"},
+			{"invalidThreshold", 5},
+			{"metadata", i},
+			{"id", "batchid1"},
+			{"integratorId", "8b1e7a81-7f4a-41b0-a170-ae19f843f27c"},
+			{"status", "failed"},
+			{"startDate", "2022-11-29T09:52:07Z"},
+		}
+
+		array1 := []bson.D{detailsMap}
+
+		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{"batch", array1},
+		})
+
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(first, killCursors)
+
+	})
+
+	code, _ := SendFail(requestId, &request, claims, writer)
+	if code != expectedCode {
+		t.Errorf("SendFail() = \n\t%v,\nexpected: \n\t%v", code, expectedCode)
+	}
 }

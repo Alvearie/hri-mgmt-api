@@ -20,7 +20,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -28,7 +27,7 @@ const msgMissingStatusElem = "Error: Cosmos Search Result body does Not have the
 
 const docNotFoundMsg string = "The document for tenantId: %s with document (batch) ID: %s was not found"
 
-func GetByBatchId(requestId string, batch model.GetByIdBatch, claims auth.HriAzClaims, client *mongo.Collection) (int, interface{}) {
+func GetByBatchId(requestId string, batch model.GetByIdBatch, claims auth.HriAzClaims) (int, interface{}) {
 	prefix := "batches/GetByBatchId"
 	logger := logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Tenants Get By ID(Metadata)")
@@ -41,23 +40,23 @@ func GetByBatchId(requestId string, batch model.GetByIdBatch, claims auth.HriAzC
 
 	logger.Debugf("params_tenantID: %v, batchID: %v", batch.TenantId, batch.BatchId)
 	var noAuthFlag = false
-	return getByBatchId(requestId, batch, noAuthFlag, logger, &claims, client)
+	return getByBatchId(requestId, batch, noAuthFlag, logger, &claims)
 
 }
 
 func GetByBatchIdNoAuth(requestId string, params model.GetByIdBatch,
-	_ auth.HriAzClaims, client *mongo.Collection) (int, interface{}) {
+	_ auth.HriAzClaims) (int, interface{}) {
 
 	prefix := "batches/GetByBatchIdNoAuth"
 	var logger = logwrapper.GetMyLogger(requestId, prefix)
 	logger.Debugln("Start Batch GetById (No Auth)")
 
 	var noAuthFlag = true
-	return getByBatchId(requestId, params, noAuthFlag, logger, nil, client)
+	return getByBatchId(requestId, params, noAuthFlag, logger, nil)
 }
 func getByBatchId(requestId string, batch model.GetByIdBatch,
 	noAuthFlag bool, logger logrus.FieldLogger,
-	claims *auth.HriAzClaims, client *mongo.Collection) (int, interface{}) {
+	claims *auth.HriAzClaims) (int, interface{}) {
 
 	//Apending "-batches" to tenants id
 	index := mongoApi.GetTenantWithBatchesSuffix(batch.TenantId)
@@ -74,7 +73,7 @@ func getByBatchId(requestId string, batch model.GetByIdBatch,
 		{"_id", 0},
 	}
 
-	cursor, err := client.Find(
+	cursor, err := mongoApi.HriCollection.Find(
 		context.TODO(),
 		bson.D{
 			{"tenantId", index},
