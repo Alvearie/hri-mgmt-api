@@ -61,7 +61,7 @@ describe 'HRI Management API With Validation' do
     return ['c33ac4da-21c6-426b-abcc-27e24ff1ccf9', 'GxF8Q~XfZyLRQBZ4mjwgEogVWwGjtzJh7ZPzgagw']
   end
 
-  def get_access_token()
+  def generate_access_token()
     credentials = get_client_id_and_secret()
     response = rest_post("https://login.microsoftonline.com/ceaa63aa-5d5c-4c7d-94b0-02f9a3ab6a8c/oauth2/v2.0/token",{'grant_type' => 'client_credentials','scope' => 'c33ac4da-21c6-426b-abcc-27e24ff1ccf9/.default', 'client_secret' => 'GxF8Q~XfZyLRQBZ4mjwgEogVWwGjtzJh7ZPzgagw', 'client_id' => 'c33ac4da-21c6-426b-abcc-27e24ff1ccf9'}, {'Content-Type' => 'application/x-www-form-urlencoded', 'Accept' => 'application/json', 'Authorization' => "Basic #{Base64.encode64("#{credentials[0]}:#{credentials[1]}").delete("\n")}" })
     raise 'App ID token request failed' unless response.code == 200
@@ -81,7 +81,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_post_tenant(tenant_id, request_body = nil, override_headers = {})
     url = "#{@hri_base_url}/tenants/#{tenant_id}"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
@@ -90,7 +90,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_post_tenant_stream(tenant_id, integrator_id, request_body, override_headers = {}, delete_auth = false)
     url = "#{@hri_base_url}/tenants/#{tenant_id}/streams/#{integrator_id}"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
@@ -100,7 +100,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_delete_tenant(tenant_id, override_headers = {})
     url = "#{@hri_base_url}/tenants/#{tenant_id}"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
@@ -109,7 +109,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_get_tenant_streams(tenant_id, override_headers = {}, delete_auth = false)
     url = "#{@hri_base_url}/tenants/#{tenant_id}/streams"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
@@ -120,7 +120,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_get_tenant(tenant_id, override_headers = {})
     url = "#{@hri_base_url}/tenants/#{tenant_id}"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
@@ -129,7 +129,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_get_tenants(override_headers = {})
     url = "#{@hri_base_url}/tenants"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
@@ -138,7 +138,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_delete_tenant_stream(tenant_id, integrator_id, override_headers = {}, delete_auth = false)
     url = "#{@hri_base_url}/tenants/#{tenant_id}/streams/#{integrator_id}"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
@@ -148,7 +148,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_get_batch(tenant_id, batch_id, override_headers = {})
     url = "#{@hri_base_url}/tenants/#{tenant_id}/batches/#{batch_id}"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
@@ -158,7 +158,7 @@ describe 'HRI Management API With Validation' do
   def hri_get_batches(tenant_id, query_params = nil, override_headers = {})
     url = "#{@hri_base_url}/tenants/#{tenant_id}/batches"
     url += "?#{query_params}" unless query_params.nil?
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}" }.merge(override_headers)
@@ -167,7 +167,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_put_batch(tenant_id, batch_id, action, additional_params = {}, override_headers = {})
     url = "#{@hri_base_url}/tenants/#{tenant_id}/batches/#{batch_id}/action/#{action}"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}"}.merge(override_headers)
@@ -176,7 +176,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_post_batch(tenant_id, request_body, override_headers = {})
     url = "#{@hri_base_url}/tenants/#{tenant_id}/batches"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
                 'Authorization' => "Bearer #{@az_token}"}.merge(override_headers)
@@ -221,7 +221,7 @@ describe 'HRI Management API With Validation' do
 
   def hri_custom_request(request_url, request_body = nil, override_headers = {}, request_type)
     url = "#{@hri_base_url}#{request_url}"
-    @az_token = get_access_token()
+    @az_token = generate_access_token()
     headers = { 'Accept' => 'application/json',
                 'Content-Type' => 'application/json' }.merge(override_headers)
     case request_type
@@ -254,13 +254,10 @@ describe 'HRI Management API With Validation' do
   before(:all) do
     @hri_base_url = "https://hri-1.wh-wcm.dev.watson-health.ibm.com/hri"
     @request_helper = HRITestHelpers::RequestHelper.new
-    @iam_token = get_access_token()
-    # @elastic = HRITestHelpers::ElasticHelper.new({url: ENV['ELASTIC_URL'], username: ENV['ELASTIC_USERNAME'], password: ENV['ELASTIC_PASSWORD']})
-    # @iam_token = HRITestHelpers::IAMHelper.new(ENV['IAM_CLOUD_URL']).get_access_token(ENV['CLOUD_API_KEY'])
-    # @mgmt_api_helper = HRITestHelpers::MgmtAPIHelper.new(@hri_base_url, @iam_token)
-    # @hri_deploy_helper = HRIDeployHelper.new
-    # @event_streams_api_helper = HRITestHelpers::EventStreamsAPIHelper.new(ENV['ES_ADMIN_URL'], ENV['CLOUD_API_KEY'])
-    # @app_id_helper = HRITestHelpers::AppIDHelper.new(ENV['APPID_URL'], ENV['APPID_TENANT'], @iam_token, ENV['JWT_AUDIENCE_ID'])
+    @azure_token = generate_access_token()
+    @mgmt_api_helper = HRITestHelpers::MgmtAPIHelper.new(@hri_base_url, @azure_token)
+    @hri_deploy_helper = HRIDeployHelper.new
+    @app_id_helper = HRITestHelpers::AppIDHelper.new(ENV['APPID_URL'], ENV['APPID_TENANT'], @iam_token, ENV['JWT_AUDIENCE_ID'])
     @start_date = DateTime.now
 
     @exe_path = File.absolute_path(File.join(File.dirname(__FILE__), "../../src/hri"))
@@ -268,16 +265,6 @@ describe 'HRI Management API With Validation' do
     @log_path = File.absolute_path(File.join(File.dirname(__FILE__), "../logs"))
     Dir.mkdir(@log_path) unless Dir.exists?(@log_path)
 
-    # @hri_deploy_helper.deploy_hri(@exe_path, "#{@config_path}/valid_config.yml", @log_path, 'validation-', '-validation=true')
-    # response = @request_helper.rest_get("#{@hri_base_url}/healthcheck", {})
-    # unless response.code == 200
-    #   raise "Health check failed: #{response.body}"
-    # end
-
-    #Initialize Kafka Consumer
-    # @kafka = Kafka.new(ENV['KAFKA_BROKERS'], sasl_plain_username: 'token', sasl_plain_password: ENV['KAFKA_PASSWORD'], ssl_ca_certs_from_system: true)
-    # @kafka_consumer = @kafka.consumer(group_id: 'rspec-mgmt-api-consumer')
-    # @kafka_consumer.subscribe("ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.notification")
 
     #Create Batch
     @batch_prefix = "rspec-batch"
@@ -285,7 +272,6 @@ describe 'HRI Management API With Validation' do
     create_batch = {
       name: @batch_name,
       topic: BATCH_INPUT_TOPIC,
-      #status: STATUS,
       dataType: "#{DATA_TYPE}",
       invalidThreshold: "#{INVALIDTHRESHOLD}".to_i,
       metadata: {
@@ -300,14 +286,7 @@ describe 'HRI Management API With Validation' do
     puts parsed_response
     Logger.new(STDOUT).info("New Batch Created With ID: #{@batch_id}")
 
-    #Get AppId Access Tokens
-    # @token_invalid_tenant = @app_id_helper.get_access_token('hri_integration_tenant_test_invalid', 'tenant_test_invalid')
-    # @token_no_roles = @app_id_helper.get_access_token('hri_integration_tenant_test', 'tenant_test')
-    # @token_integrator_role_only = @app_id_helper.get_access_token('hri_integration_tenant_test_data_integrator', 'tenant_test hri_data_integrator')
-    # @token_consumer_role_only = @app_id_helper.get_access_token('hri_integration_tenant_test_data_consumer', 'tenant_test hri_consumer')
-    # @token_all_roles = @app_id_helper.get_access_token('hri_integration_tenant_test_integrator_consumer', 'tenant_test hri_data_integrator hri_consumer')
-    # @token_internal_role_only = @app_id_helper.get_access_token('hri_integration_tenant_test_internal', 'tenant_test hri_internal')
-    # @token_invalid_audience = @app_id_helper.get_access_token('hri_integration_tenant_test_integrator_consumer', 'tenant_test hri_data_integrator hri_consumer', ENV['APPID_TENANT'])
+
   end
 
 
@@ -337,16 +316,16 @@ describe 'HRI Management API With Validation' do
       parsed_response = JSON.parse(response.body)
       expect(parsed_response['results'][0]['id']).to eql TEST_INTEGRATOR_ID
 
-      # Timeout.timeout(30, nil, 'Kafka topics not created after 30 seconds') do
-      #   loop do
-      #     topics = @event_streams_api_helper.get_topics
-      #     break if (topics.include?("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.in") &&
-      #               topics.include?("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.notification") &&
-      #               topics.include?("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.out") &&
-      #               topics.include?("ingest.#{TEST_TENANT_ID}.#{TEST_INTEGRATOR_ID}.invalid"))
-      #   end
-      # end
     end
+
+
+    it 'Stream Already Exists' do
+      response = hri_post_tenant_stream(TENANT_ID, INTEGRATOR_ID, @stream_info.to_json)
+      expect(response.code).to eq 409
+      parsed_response = JSON.parse(response.body)
+      expect(parsed_response['errorDescription']).to eql "Topic 'ingest.#{TENANT_ID}.#{INTEGRATOR_ID}.in' already exists."
+    end
+
 
   end
 
@@ -437,31 +416,7 @@ describe 'HRI Management API With Validation' do
       expect(parsed_response['expectedRecordCount']).to eq EXPECTED_RECORD_COUNT
       expect(parsed_response['recordCount']).to eq EXPECTED_RECORD_COUNT
 
-      # #Verify Kafka Message
-      # Timeout.timeout(KAFKA_TIMEOUT) do
-      #   Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@send_complete_batch_id} and status: sendCompleted")
-      #   @kafka_consumer.each_message do |message|
-      #     parsed_message = JSON.parse(message.value)
-      #     if parsed_message['id'] == @send_complete_batch_id && parsed_message['status'] == 'sendCompleted'
-      #       @message_found = true
-      #       expect(parsed_message['dataType']).to eql DATA_TYPE
-      #       expect(parsed_message['id']).to eql @send_complete_batch_id
-      #       expect(parsed_message['name']).to eql @batch_name
-      #       expect(parsed_message['topic']).to eql BATCH_INPUT_TOPIC
-      #       expect(parsed_message['invalidThreshold']).to eql INVALID_THRESHOLD
-      #       expect(parsed_message['expectedRecordCount']).to eq EXPECTED_RECORD_COUNT
-      #       expect(parsed_message['recordCount']).to eq EXPECTED_RECORD_COUNT
-      #       expect(DateTime.parse(parsed_message['startDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
-      #       expect(parsed_message['metadata']['rspec1']).to eql 'test3'
-      #       expect(parsed_message['metadata']['rspec2']).to eql 'test4'
-      #       expect(parsed_message['metadata']['rspec4']['rspec4A']).to eql 'test4A'
-      #       expect(parsed_message['metadata']['rspec4']['rspec4B']).to eql 'テスト'
-      #       expect(parsed_message['metadata']['rspec3']).to be_nil
-      #       break
-      #     end
-      #   end
-      #   expect(@message_found).to be true
-      # end
+
     end
 
     it 'Invalid Tenant ID' do
@@ -718,31 +673,7 @@ describe 'HRI Management API With Validation' do
       expect(parsed_response['endDate']).to_not be_nil
       expect(parsed_response['invalidRecordCount']).to eq INVALID_RECORD_COUNT
 
-      #Verify Kafka Message
-      # Timeout.timeout(KAFKA_TIMEOUT) do
-      #   Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@processing_complete_batch_id} and status: completed")
-      #   @kafka_consumer.each_message do |message|
-      #     parsed_message = JSON.parse(message.value)
-      #     if parsed_message['id'] == @processing_complete_batch_id && parsed_message['status'] == 'completed'
-      #       @message_found = true
-      #       expect(parsed_message['dataType']).to eql DATA_TYPE
-      #       expect(parsed_message['id']).to eql @processing_complete_batch_id
-      #       expect(parsed_message['name']).to eql @batch_name
-      #       expect(parsed_message['topic']).to eql BATCH_INPUT_TOPIC
-      #       expect(parsed_message['invalidThreshold']).to eql INVALID_THRESHOLD
-      #       expect(parsed_message['invalidRecordCount']).to eql INVALID_RECORD_COUNT
-      #       expect(parsed_message['actualRecordCount']).to eql ACTUAL_RECORD_COUNT
-      #       expect(DateTime.parse(parsed_message['startDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
-      #       expect(DateTime.parse(parsed_message['endDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
-      #       expect(parsed_message['metadata']['rspec1']).to eql 'test1'
-      #       expect(parsed_message['metadata']['rspec2']).to eql 'test2'
-      #       expect(parsed_message['metadata']['rspec3']['rspec3A']).to eql 'test3A'
-      #       expect(parsed_message['metadata']['rspec3']['rspec3B']).to eql 'test3B'
-      #       break
-      #     end
-      #   end
-      #   expect(@message_found).to be true
-      # end
+
     end
 
     it 'Invalid Tenant ID' do
@@ -878,7 +809,7 @@ describe 'HRI Management API With Validation' do
     end
 
     it 'Conflict: Batch that already has a completed status' do
-       #Create Batch
+      #Create Batch
       # response = hri_post_batch(AUTHORIZED_TENANT_ID, @batch_template.to_json)
       # expect(response.code).to eq 201
       # parsed_response = JSON.parse(response.body)
@@ -992,30 +923,6 @@ describe 'HRI Management API With Validation' do
       expect(parsed_response['endDate']).to_not be_nil
       Logger.new(STDOUT).info("Batch Id : #{@terminate_batch_id} is in 'terminated' state")
 
-      #Verify Kafka Message
-      # Timeout.timeout(KAFKA_TIMEOUT) do
-      #   Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@terminate_batch_id} and status: terminated")
-      #   @kafka_consumer.each_message do |message|
-      #     parsed_message = JSON.parse(message.value)
-      #     if parsed_message['id'] == @terminate_batch_id && parsed_message['status'] == 'terminated'
-      #       @message_found = true
-      #       expect(parsed_message['dataType']).to eql DATA_TYPE
-      #       expect(parsed_message['id']).to eql @terminate_batch_id
-      #       expect(parsed_message['name']).to eql @batch_name
-      #       expect(parsed_message['topic']).to eql BATCH_INPUT_TOPIC
-      #       expect(parsed_message['invalidThreshold']).to eql INVALID_THRESHOLD
-      #       expect(DateTime.parse(parsed_message['startDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
-      #       expect(DateTime.parse(parsed_message['endDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
-      #       expect(parsed_message['metadata']['rspec1']).to eql 'test3'
-      #       expect(parsed_message['metadata']['rspec2']).to eql 'test4'
-      #       expect(parsed_message['metadata']['rspec4']['rspec4A']).to eql 'test4A'
-      #       expect(parsed_message['metadata']['rspec4']['rspec4B']).to eql 'テスト'
-      #       expect(parsed_message['metadata']['rspec3']).to be_nil
-      #       break
-      #     end
-      #   end
-      #   expect(@message_found).to be true
-      # end
     end
 
     it 'Invalid Tenant ID' do
@@ -1269,33 +1176,7 @@ describe 'HRI Management API With Validation' do
       expect(parsed_response['status']).to eql 'failed'
       expect(parsed_response['endDate']).to_not be_nil
       expect(parsed_response['invalidRecordCount']).to eq INVALID_RECORD_COUNT
-
-      #Verify Kafka Message
-      # Timeout.timeout(KAFKA_TIMEOUT) do
-      #   Logger.new(STDOUT).info("Waiting for a Kafka message with Batch ID: #{@failed_batch_id} and status: failed")
-      #   @kafka_consumer.each_message do |message|
-      #     parsed_message = JSON.parse(message.value)
-      #     if parsed_message['id'] == @failed_batch_id && parsed_message['status'] == 'failed'
-      #       @message_found = true
-      #       expect(parsed_message['dataType']).to eql DATA_TYPE
-      #       expect(parsed_message['id']).to eql @failed_batch_id
-      #       expect(parsed_message['name']).to eql @batch_name
-      #       expect(parsed_message['topic']).to eql BATCH_INPUT_TOPIC
-      #       expect(parsed_message['invalidThreshold']).to eql INVALID_THRESHOLD
-      #       expect(parsed_message['invalidRecordCount']).to eql INVALID_RECORD_COUNT
-      #       expect(parsed_message['actualRecordCount']).to eql ACTUAL_RECORD_COUNT
-      #       expect(parsed_message['failureMessage']).to eql FAILURE_MESSAGE
-      #       expect(DateTime.parse(parsed_message['startDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
-      #       expect(DateTime.parse(parsed_message['endDate']).strftime("%Y-%m-%d")).to eq Date.today.strftime("%Y-%m-%d")
-      #       expect(parsed_message['metadata']['rspec1']).to eql 'test1'
-      #       expect(parsed_message['metadata']['rspec2']).to eql 'test2'
-      #       expect(parsed_message['metadata']['rspec3']['rspec3A']).to eql 'test3A'
-      #       expect(parsed_message['metadata']['rspec3']['rspec3B']).to eql 'テスト'
-      #       break
-      #     end
-      #   end
-      #   expect(@message_found).to be true
-      # end
+      
     end
 
     it 'Invalid Tenant ID' do
