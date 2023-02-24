@@ -366,7 +366,63 @@ func Test_myHandler_Fail(t *testing.T) {
 	})
 
 }
+func Test_myHandler_Fail1(t *testing.T) {
+	validConfig := config.Config{}
 
+	e := test.GetTestServer()
+
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+	i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
+
+	detailsMap := bson.D{
+		{Key: "name", Value: "rspec-pentest-batch"},
+		{Key: "topic", Value: "ingest.pentest.claims.in"},
+		{Key: "dataType", Value: "rspec-batch"},
+		{Key: "invalidThreshold", Value: 5},
+		{Key: "metadata", Value: i},
+		{Key: "id", Value: "batchid1"},
+		{Key: "integratorId", Value: "8b1e7a81-41b0-a170-ae19f843f27c"},
+		{Key: "status", Value: "started"},
+		{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
+	}
+
+	array1 := []bson.D{detailsMap}
+
+	handler := theHandler{
+		config: validConfig,
+		jwtBatchValidator: fakeAuthValidator{
+			errResp: nil,
+		},
+		sendFail: func(string, *model.FailRequest, auth.HriAzClaims, kafka.Writer, status.BatchStatus) (int, interface{}) {
+			return http.StatusOK, nil
+		},
+	}
+	requestBody := `{}`
+	request := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(requestBody))
+	context, recorder := test.PrepareHeadersContextRecorder(request, e)
+	context.SetPath("/hri/tenant/:tenantId/batches/:batchId/action/sendFail")
+	context.SetParamNames(param.TenantId, param.BatchId)
+	context.SetParamValues("1_a-tenant-id", "test-batch-id")
+	context.Response().Header().Add(echo.HeaderXRequestID, requestId)
+
+	mt.Run("Bad request", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{Key: "batch", Value: array1},
+		})
+
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(first, killCursors)
+
+		if assert.NoError(t, handler.SendFail(context)) {
+			assert.Equal(t, 400, recorder.Code)
+
+		}
+	})
+
+}
 func Test_myHandler_CreateBatch(t *testing.T) {
 	validConfig := config.Config{}
 
@@ -404,6 +460,21 @@ func Test_myHandler_CreateBatch(t *testing.T) {
 			tenantId:     "1_a-tenant-id",
 			requestBody:  validReqBody,
 			expectedCode: 201,
+		},
+		{
+			name: "400",
+			handler: theHandler{
+				config: validConfig,
+				jwtBatchValidator: fakeAuthValidator{
+					errResp: nil,
+				},
+				createBatch: func(string, model.CreateBatch, auth.HriAzClaims, kafka.Writer) (int, interface{}) {
+					return http.StatusCreated, map[string]interface{}{param.BatchId: "test-batch-id"}
+				},
+			},
+			tenantId:     "1_a-tenant-id",
+			requestBody:  "",
+			expectedCode: 400,
 		},
 	}
 
@@ -472,6 +543,62 @@ func Test_myHandler_GetByBatchId(t *testing.T) {
 	}
 }
 
+func Test_myHandler_Send_status_complete_BadReq(t *testing.T) {
+	validConfig := config.Config{}
+	handler := theHandler{
+		config: validConfig,
+		jwtBatchValidator: fakeAuthValidator{
+			errResp: nil,
+		},
+		sendStatusComplete: func(string, *model.SendCompleteRequest, auth.HriAzClaims, kafka.Writer, status.BatchStatus, string) (int, interface{}) {
+			return http.StatusOK, nil
+		},
+	}
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+	i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
+
+	detailsMap := bson.D{
+		{Key: "name", Value: "rspec-pentest-batch"},
+		{Key: "topic", Value: "ingest.pentest.claims.in"},
+		{Key: "dataType", Value: "rspec-batch"},
+		{Key: "invalidThreshold", Value: 5},
+		{Key: "metadata", Value: i},
+		{Key: "id", Value: "batchid1"},
+		{Key: "integratorId", Value: "8b1e7a81-41b0-a170-ae19f843f27c"},
+		{Key: "status", Value: "started"},
+		{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
+	}
+
+	array1 := []bson.D{detailsMap}
+
+	e := test.GetTestServer()
+	requestBody := `{}`
+
+	request := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(requestBody))
+	context, recorder := test.PrepareHeadersContextRecorder(request, e)
+	context.SetPath("/hri/tenant/:tenantId/batches/:batchId/action/sendComplete")
+	context.SetParamNames(param.TenantId, param.BatchId)
+	context.SetParamValues("1_a-tenant-id", "test-batch-id")
+	context.Response().Header().Add(echo.HeaderXRequestID, requestId)
+
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{Key: "batch", Value: array1},
+		})
+
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(first, killCursors)
+
+		if assert.NoError(t, handler.SendStatusComplete(context)) {
+			assert.Equal(t, 400, recorder.Code)
+
+		}
+	})
+
+}
 func Test_myHandler_Send_status_complete(t *testing.T) {
 	validConfig := config.Config{}
 	handler := theHandler{
@@ -585,6 +712,62 @@ func Test_myHandler_Process_Complete(t *testing.T) {
 	})
 
 }
+func Test_myHandler_Process_Complete_BadReq(t *testing.T) {
+	validConfig := config.Config{}
+
+	logwrapper.Initialize("error", os.Stdout)
+	handler := theHandler{
+		config: validConfig,
+		jwtBatchValidator: fakeAuthValidator{
+			errResp: nil,
+		},
+		processingCompleteBatch: func(string, *model.ProcessingCompleteRequest, auth.HriAzClaims, kafka.Writer, status.BatchStatus) (int, interface{}) {
+			return http.StatusOK, nil
+		},
+	}
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	defer mt.Close()
+	e := test.GetTestServer()
+	requestBody := ""
+
+	request := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(requestBody))
+	context, recorder := test.PrepareHeadersContextRecorder(request, e)
+	context.SetPath("/hri/tenant/:tenantId/batches/:batchId/action/processingComplete")
+	context.SetParamNames(param.TenantId, param.BatchId)
+	context.SetParamValues("1_a-tenant-id", "test-batch-id")
+	context.Response().Header().Add(echo.HeaderXRequestID, requestId)
+	i := map[string]interface{}{"compression": "gzip", "finalRecordCount": 20}
+
+	detailsMap := bson.D{
+		{Key: "name", Value: "rspec-pentest-batch"},
+		{Key: "topic", Value: "ingest.pentest.claims.in"},
+		{Key: "dataType", Value: "rspec-batch"},
+		{Key: "invalidThreshold", Value: 5},
+		{Key: "metadata", Value: i},
+		{Key: "id", Value: "batchid1"},
+		{Key: "integratorId", Value: "8b1e7a81-41b0-a170-ae19f843f27c"},
+		{Key: "status", Value: "started"},
+		{Key: "startDate", Value: "2022-11-29T09:52:07Z"},
+	}
+
+	array1 := []bson.D{detailsMap}
+	mt.Run("success", func(mt *mtest.T) {
+		mongoApi.HriCollection = mt.Coll
+
+		first := mtest.CreateCursorResponse(1, "foo.bar", mtest.FirstBatch, bson.D{
+			{Key: "batch", Value: array1},
+		})
+
+		killCursors := mtest.CreateCursorResponse(0, "foo.bar", mtest.NextBatch)
+		mt.AddMockResponses(first, killCursors)
+
+		if assert.NoError(t, handler.ProcessingCompleteBatch(context)) {
+			assert.Equal(t, 400, recorder.Code)
+
+		}
+	})
+
+}
 
 func Test_myHandler_terminate(t *testing.T) {
 	validConfig := config.Config{}
@@ -638,5 +821,31 @@ func Test_myHandler_terminate(t *testing.T) {
 
 		}
 	})
+
+}
+
+func Test_myHandler_terminate_BadReq(t *testing.T) {
+	validConfig := config.Config{}
+
+	e := test.GetTestServer()
+	requestBody := `wierd`
+	request := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(requestBody))
+	context, recorder := test.PrepareHeadersContextRecorder(request, e)
+	context.SetPath("/hri/tenant/:tenantId/batches/:batchId/action/terminate")
+	context.SetParamNames(param.TenantId, param.BatchId)
+	context.SetParamValues("1_a-tenant-id", "test-batch-id")
+	context.Response().Header().Add(echo.HeaderXRequestID, requestId)
+	handler := theHandler{
+		config: validConfig,
+		jwtBatchValidator: fakeAuthValidator{
+			errResp: nil,
+		},
+		terminateBatch: func(string, *model.TerminateRequest, auth.HriAzClaims, kafka.Writer, status.BatchStatus, string) (int, interface{}) {
+			return http.StatusOK, nil
+		}}
+	if assert.NoError(t, handler.TerminateBatch(context)) {
+		assert.Equal(t, 400, recorder.Code)
+
+	}
 
 }
